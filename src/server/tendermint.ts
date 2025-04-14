@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import { EventEmitter } from 'events';
+import { ValidatorSignatureManager } from './validator-signature-manager';
 
 const QUERY_NEW_BLOCK = `tm.event='NewBlock'`;
 const QUERY_VOTE = `tm.event='Vote'`;
@@ -41,11 +42,18 @@ export class TendermintClient extends EventEmitter {
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 10;
   private reconnectInterval: number = 5000;
+  private signatureManager: ValidatorSignatureManager;
   
   constructor(endpoint: string, validatorAddress: string) {
     super();
     this.endpoint = this.normalizeEndpoint(endpoint);
     this.validatorAddress = validatorAddress.toUpperCase();
+    this.signatureManager = new ValidatorSignatureManager(validatorAddress);
+    
+    // Transmettre les événements du gestionnaire de signatures
+    this.signatureManager.on('status-update', (update: StatusUpdate) => {
+      this.emit('status-update', update);
+    });
   }
   
   // Normalise l'URL du WebSocket
@@ -153,86 +161,14 @@ export class TendermintClient extends EventEmitter {
     
     switch (eventType) {
       case 'tendermint/event/NewBlock':
-        this.handleNewBlock(value);
+        this.signatureManager.handleNewBlock(value);
         break;
       case 'tendermint/event/Vote':
-        this.handleVote(value);
+        this.signatureManager.handleVote(value);
         break;
       default:
         // Ignorer les autres types d'événements
         break;
-    }
-  }
-  
-  private handleNewBlock(blockData: any): void {
-    try {
-      const height = parseInt(blockData.block.header.height);
-      const proposerAddress = blockData.block.header.proposer_address;
-      
-      let status = StatusType.Missed;
-      
-      // Vérifier si ce validateur est le proposeur
-      if (proposerAddress === this.validatorAddress) {
-        status = StatusType.Proposed;
-      } 
-      // Vérifier si le validateur a signé ce bloc
-      else if (this.checkSignatureInBlock(blockData, this.validatorAddress)) {
-        status = StatusType.Signed;
-      }
-      
-      const update: StatusUpdate = {
-        height,
-        status,
-        final: true
-      };
-      
-      this.emit('status-update', update);
-      
-    } catch (error) {
-      console.error('Erreur de traitement du bloc:', error);
-    }
-  }
-  
-  private checkSignatureInBlock(blockData: any, validatorAddress: string): boolean {
-    if (!blockData.block.last_commit || !blockData.block.last_commit.signatures) {
-      return false;
-    }
-    
-    return blockData.block.last_commit.signatures.some(
-      (sig: any) => sig.validator_address === validatorAddress
-    );
-  }
-  
-  private handleVote(voteData: any): void {
-    try {
-      if (voteData.Vote.validator_address !== this.validatorAddress) {
-        return; // Ce n'est pas un vote de notre validateur
-      }
-      
-      const height = parseInt(voteData.Vote.height);
-      let status: StatusType;
-      
-      switch (voteData.Vote.type) {
-        case 1: // SIGNED_MSG_TYPE_PREVOTE
-          status = StatusType.Prevote;
-          break;
-        case 2: // SIGNED_MSG_TYPE_PRECOMMIT
-          status = StatusType.Precommit;
-          break;
-        default:
-          return; // Type de vote inconnu
-      }
-      
-      const update: StatusUpdate = {
-        height,
-        status,
-        final: false
-      };
-      
-      this.emit('status-update', update);
-      
-    } catch (error) {
-      console.error('Erreur de traitement du vote:', error);
     }
   }
   
