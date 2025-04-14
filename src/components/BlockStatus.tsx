@@ -1,0 +1,133 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { StatusType } from '@/hooks/useMetrics';
+
+interface BlockStatusProps {
+  statusList: number[];
+  className?: string;
+  lastBlockHeight?: number;
+}
+
+export default function BlockStatus({ statusList, className = '', lastBlockHeight = 0 }: BlockStatusProps) {
+  const [prevLastBlock, setPrevLastBlock] = useState<number>(lastBlockHeight);
+  const [hasNewBlock, setHasNewBlock] = useState<boolean>(false);
+  const animationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Détecter l'arrivée d'un nouveau bloc
+  useEffect(() => {
+    if (lastBlockHeight > prevLastBlock && prevLastBlock > 0) {
+      setHasNewBlock(true);
+      
+      // Réinitialiser l'animation après 1 seconde
+      if (animationTimeoutRef.current) {
+        clearTimeout(animationTimeoutRef.current);
+      }
+      
+      animationTimeoutRef.current = setTimeout(() => {
+        setHasNewBlock(false);
+      }, 1000);
+    }
+    
+    setPrevLastBlock(lastBlockHeight);
+    
+    return () => {
+      if (animationTimeoutRef.current) {
+        clearTimeout(animationTimeoutRef.current);
+      }
+    };
+  }, [lastBlockHeight, prevLastBlock]);
+  
+  // Fonction pour obtenir la couleur en fonction du statut
+  const getStatusColor = (status: number) => {
+    switch (status) {
+      case StatusType.Proposed:
+        return 'bg-purple-500';
+      case StatusType.Signed:
+        return 'bg-green-500';
+      case StatusType.Precommit:
+        return 'bg-yellow-500';
+      case StatusType.Prevote:
+        return 'bg-orange-500';
+      case StatusType.Missed:
+        return 'bg-red-500';
+      default:
+        return 'bg-gray-300 dark:bg-gray-600';
+    }
+  };
+
+  // Fonction pour obtenir le texte du statut
+  const getStatusText = (status: number) => {
+    switch (status) {
+      case StatusType.Proposed:
+        return 'Proposé';
+      case StatusType.Signed:
+        return 'Signé';
+      case StatusType.Precommit:
+        return 'Precommit';
+      case StatusType.Prevote:
+        return 'Prevote';
+      case StatusType.Missed:
+        return 'Manqué';
+      default:
+        return 'Inconnu';
+    }
+  };
+  
+  // Calculer la hauteur réelle du bloc pour un index donné
+  const getBlockHeight = (index: number) => {
+    if (lastBlockHeight <= 0) return '?';
+    return (lastBlockHeight - index).toString();
+  };
+  
+  // Limiter à 200 derniers blocs seulement
+  const visibleBlocks = statusList.slice(0, 200).map((status, index) => ({ status, index }));
+  
+  return (
+    <div className={`bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md ${className}`}>
+      <div className="flex flex-col gap-2 mb-3">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">
+            Statut des blocs récents
+          </h3>
+          <div className="text-sm text-gray-500">
+            Affichage des 200 derniers blocs
+          </div>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-35 gap-1 pb-1 overflow-y-auto max-h-[180px]">
+        {visibleBlocks.map((item) => (
+          <div 
+            key={item.index} 
+            className={`w-4 h-4 ${getStatusColor(item.status)} hover:opacity-80 transition-opacity rounded-sm ${item.index === 0 && hasNewBlock ? 'animate-pulse scale-110' : ''}`}
+            title={`${getBlockHeight(item.index)}`}
+          />
+        ))}
+      </div>
+      
+      <div className="flex justify-start mt-4">
+        <div className="grid grid-cols-5 gap-2">
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-purple-500 rounded-sm"></div>
+            <span className="text-xs">Proposé</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-green-500 rounded-sm"></div>
+            <span className="text-xs">Signé</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-yellow-500 rounded-sm"></div>
+            <span className="text-xs">Precommit</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-orange-500 rounded-sm"></div>
+            <span className="text-xs">Prevote</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
+            <span className="text-xs">Manqué</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+} 

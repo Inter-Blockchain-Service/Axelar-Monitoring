@@ -1,24 +1,100 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Axelar Validator Monitoring Dashboard
 
-## Getting Started
+Application de surveillance en temps réel des validateurs Tendermint/Cosmos avec Next.js et Socket.io, spécialement conçue pour monitorer les validateurs Axelar ou d'autres réseaux basés sur Tendermint.
 
-First, run the development server:
+## Fonctionnalités
+
+- Connexion WebSocket en temps réel à un nœud Tendermint
+- Surveillance des blocs signés, manqués et proposés par votre validateur
+- Visualisation du statut des blocs récents (signé, proposé, manqué)
+- Statistiques détaillées sur les performances de signature
+- Interface responsive et moderne avec TailwindCSS
+- Actualisations automatiques en temps réel
+
+## Structure du projet
+
+```
+axelar-monitoring/
+├── src/
+│   ├── app/             # Pages Next.js (App Router)
+│   ├── components/      # Composants React réutilisables
+│   ├── hooks/           # Hooks personnalisés
+│   └── server/          # Client WebSocket Tendermint et serveur Socket.io
+├── public/              # Fichiers statiques
+└── ...
+```
+
+## Prérequis
+
+- Node.js 18+
+- Un nœud Tendermint/Cosmos avec l'API RPC activée
+- L'adresse de votre validateur (format hexadécimal)
+
+## Installation
+
+1. Clonez le dépôt
+2. Installez les dépendances :
+
+```bash
+npm install
+```
+
+3. Configurez votre validateur dans le fichier `.env` :
+
+```
+# Configuration du validateur
+VALIDATOR_ADDRESS=AABBCCDDEEFF0011223344556677889900ABCDEF # Remplacer par votre adresse de validateur
+VALIDATOR_MONIKER="Mon Validateur Axelar"
+CHAIN_ID="axelar"
+
+# Configuration du nœud RPC
+RPC_ENDPOINT=http://localhost:26657
+
+# Configuration du serveur
+PORT=3001
+```
+
+## Développement
+
+Pour lancer l'application en mode développement :
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Cela démarrera :
+- Le serveur Next.js sur http://localhost:3000
+- Le serveur Socket.io qui se connecte à votre nœud Tendermint
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Production
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Pour construire l'application pour la production :
+
+```bash
+npm run build
+npm start
+```
+
+## Comment trouver l'adresse de votre validateur
+
+L'adresse du validateur est une chaîne hexadécimale disponible via plusieurs moyens :
+1. Dans la sortie du RPC `localhost:26657/status` sous `validator_info.address`
+2. Via la commande CLI de votre chaîne (exemple pour Axelar) :
+   ```
+   axelard tendermint show-validator
+   ```
+
+## Technologies utilisées
+
+- **Frontend** : Next.js, React, TailwindCSS
+- **Backend** : Node.js, Express, WebSocket
+- **Temps réel** : Socket.io
+- **Blockchain** : API RPC Tendermint
+- **Langage** : TypeScript
+
+## Sécurité
+
+Cette application est conçue pour une utilisation interne/privée. Si vous l'exposez sur Internet, veuillez implémenter des mesures de sécurité supplémentaires (authentification, HTTPS, etc.).
 
 ## Learn More
 
