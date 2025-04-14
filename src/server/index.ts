@@ -2,7 +2,6 @@ import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import { TendermintClient, StatusType, StatusUpdate } from './tendermint';
-import { HeartbeatClient } from './heartbeat';
 import { HeartbeatStatusType, HeartbeatUpdate } from './heartbeat_manager';
 import { BLOCKS_HISTORY_SIZE, HEARTBEAT_HISTORY_SIZE, HEARTBEAT_PERIOD } from '../constants';
 import dotenv from 'dotenv';
@@ -12,7 +11,6 @@ dotenv.config();
 
 // Configuration par défaut
 const DEFAULT_RPC_ENDPOINT = 'http://localhost:26657';
-const DEFAULT_WS_ENDPOINT = 'ws://localhost:26657/websocket';
 const DEFAULT_VALIDATOR_ADDRESS = '';
 
 // Créer l'application Express
@@ -84,7 +82,6 @@ let metrics: ValidatorMetrics = {
 // Créer et configurer le client Tendermint
 const rpcEndpoint = process.env.RPC_ENDPOINT || DEFAULT_RPC_ENDPOINT;
 const validatorAddress = process.env.VALIDATOR_ADDRESS || DEFAULT_VALIDATOR_ADDRESS;
-const wsEndpoint = process.env.WS_ENDPOINT || DEFAULT_WS_ENDPOINT;
 const broadcasterAddress = process.env.BROADCASTER_ADDRESS || validatorAddress;
 
 if (!validatorAddress) {
@@ -92,9 +89,8 @@ if (!validatorAddress) {
   process.exit(1);
 }
 
-// Créer les clients - TendermintClient pour les blocs et votes, HeartbeatClient pour les heartbeats
-const tendermintClient = new TendermintClient(rpcEndpoint, validatorAddress);
-const heartbeatClient = new HeartbeatClient(wsEndpoint, broadcasterAddress, HEARTBEAT_HISTORY_SIZE);
+// Créer le client Tendermint qui gère maintenant à la fois les blocs/votes et les heartbeats
+const tendermintClient = new TendermintClient(rpcEndpoint, validatorAddress, broadcasterAddress, HEARTBEAT_HISTORY_SIZE);
 
 // Calculer les statistiques sur la base de l'historique des blocs
 function recalculateStats() {
@@ -200,8 +196,8 @@ tendermintClient.on('status-update', (update: StatusUpdate) => {
   }
 });
 
-// Gérer les mises à jour des heartbeats (uniquement via HeartbeatClient)
-heartbeatClient.on('heartbeat-update', (update: HeartbeatUpdate) => {
+// Gérer les mises à jour des heartbeats
+tendermintClient.on('heartbeat-update', (update: HeartbeatUpdate) => {
   metrics.heartbeatConnected = true;
   
   if (update.final) {
@@ -220,25 +216,20 @@ heartbeatClient.on('heartbeat-update', (update: HeartbeatUpdate) => {
   }
   
   // Mettre à jour l'objet metrics avec les hauteurs de bloc des heartbeats
-  metrics.heartbeatBlocks = heartbeatClient.getHeartbeatBlocks();
+  metrics.heartbeatBlocks = tendermintClient.getHeartbeatBlocks();
 });
 
 // Gérer les déconnexions permanentes
 tendermintClient.on('permanent-disconnect', () => {
   metrics.connected = false;
-  metrics.lastError = "Impossible de se connecter au nœud RPC après plusieurs tentatives.";
-  io.emit('metrics-update', metrics);
-});
-
-heartbeatClient.on('permanent-disconnect', () => {
   metrics.heartbeatConnected = false;
+  metrics.lastError = "Impossible de se connecter au nœud RPC après plusieurs tentatives.";
   metrics.heartbeatLastError = "Impossible de se connecter au WebSocket après plusieurs tentatives.";
   io.emit('metrics-update', metrics);
 });
 
-// Démarrer les clients
+// Démarrer le client
 tendermintClient.connect();
-heartbeatClient.connect();
 
 // Gérer les connexions socket
 io.on('connection', (socket) => {
@@ -248,9 +239,8 @@ io.on('connection', (socket) => {
   socket.emit('metrics-update', metrics);
   socket.emit('connection-status', {
     connected: tendermintClient.isConnected(),
-    heartbeatConnected: heartbeatClient.getConnectionStatus(),
+    heartbeatConnected: tendermintClient.isConnected(),
     endpoint: rpcEndpoint,
-    wsEndpoint: wsEndpoint,
     validatorAddress,
     broadcasterAddress
   });

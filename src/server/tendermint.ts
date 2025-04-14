@@ -1,9 +1,11 @@
 import WebSocket from 'ws';
 import { EventEmitter } from 'events';
 import { ValidatorSignatureManager } from './validator-signature-manager';
+import { HeartbeatManager, HeartbeatStatusType } from './heartbeat_manager';
 
 const QUERY_NEW_BLOCK = `tm.event='NewBlock'`;
 const QUERY_VOTE = `tm.event='Vote'`;
+const QUERY_TX = `tm.event='Tx'`;
 
 // Type décrivant le statut d'un bloc
 export enum StatusType {
@@ -39,20 +41,29 @@ export class TendermintClient extends EventEmitter {
   private connected: boolean = false;
   private endpoint: string;
   private validatorAddress: string;
+  private broadcasterAddress: string;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 10;
   private reconnectInterval: number = 5000;
   private signatureManager: ValidatorSignatureManager;
+  private heartbeatManager: HeartbeatManager;
   
-  constructor(endpoint: string, validatorAddress: string) {
+  constructor(endpoint: string, validatorAddress: string, broadcasterAddress: string = '', historySize: number = 700) {
     super();
     this.endpoint = this.normalizeEndpoint(endpoint);
     this.validatorAddress = validatorAddress.toUpperCase();
+    this.broadcasterAddress = broadcasterAddress || validatorAddress;
     this.signatureManager = new ValidatorSignatureManager(validatorAddress);
+    this.heartbeatManager = new HeartbeatManager(this.broadcasterAddress, historySize);
     
     // Transmettre les événements du gestionnaire de signatures
     this.signatureManager.on('status-update', (update: StatusUpdate) => {
       this.emit('status-update', update);
+    });
+
+    // Transmettre les événements du gestionnaire de heartbeats
+    this.heartbeatManager.on('heartbeat-update', (update) => {
+      this.emit('heartbeat-update', update);
     });
   }
   
@@ -146,9 +157,18 @@ export class TendermintClient extends EventEmitter {
       id: 2,
       params: { query: QUERY_VOTE }
     };
+
+    // S'abonner aux transactions (pour les heartbeats)
+    const subscribeTx = {
+      jsonrpc: "2.0",
+      method: "subscribe",
+      id: 3,
+      params: { query: QUERY_TX }
+    };
     
     this.ws.send(JSON.stringify(subscribeNewBlock));
     this.ws.send(JSON.stringify(subscribeVotes));
+    this.ws.send(JSON.stringify(subscribeTx));
   }
   
   private handleMessage(reply: WsReply): void {
@@ -161,10 +181,20 @@ export class TendermintClient extends EventEmitter {
     
     switch (eventType) {
       case 'tendermint/event/NewBlock':
-        this.signatureManager.handleNewBlock(value);
+        if (value && value.block && value.block.header) {
+          this.signatureManager.handleNewBlock(value);
+          this.heartbeatManager.handleNewBlock(value);
+        } else {
+          console.error('Structure de bloc invalide reçue:', value);
+        }
         break;
       case 'tendermint/event/Vote':
         this.signatureManager.handleVote(value);
+        break;
+      case 'tendermint/event/Tx':
+        if (value.TxResult) {
+          this.heartbeatManager.handleTransaction(value.TxResult);
+        }
         break;
       default:
         // Ignorer les autres types d'événements
@@ -182,5 +212,19 @@ export class TendermintClient extends EventEmitter {
   
   public isConnected(): boolean {
     return this.connected;
+  }
+
+  /**
+   * Récupère l'historique des statuts de heartbeat
+   */
+  public getHeartbeatHistory(): HeartbeatStatusType[] {
+    return this.heartbeatManager.getHeartbeatHistory();
+  }
+
+  /**
+   * Récupère l'historique des blocs où les heartbeats ont été trouvés
+   */
+  public getHeartbeatBlocks(): (number | undefined)[] {
+    return this.heartbeatManager.getHeartbeatBlocks();
   }
 } 

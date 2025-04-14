@@ -39,22 +39,6 @@ export default function ValidatorInfo({ connectionInfo, moniker, chainId, classN
             {connectionInfo.broadcasterAddress || '(Non configuré)'}
           </div>
         </div>
-        
-        <div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">Statut de connexion au nœud</div>
-          <div className="flex items-center gap-2 font-medium">
-            <div className={`w-3 h-3 rounded-full ${connectionInfo.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            {connectionInfo.connected ? 'Connecté' : 'Déconnecté'}
-          </div>
-        </div>
-        
-        <div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">Statut de connexion HeartBeats</div>
-          <div className="flex items-center gap-2 font-medium">
-            <div className={`w-3 h-3 rounded-full ${connectionInfo.heartbeatConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            {connectionInfo.heartbeatConnected ? 'Connecté' : 'Déconnecté'}
-          </div>
-        </div>
       </div>
     </div>
   );

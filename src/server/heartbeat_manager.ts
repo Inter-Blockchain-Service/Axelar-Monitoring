@@ -34,6 +34,7 @@ export class HeartbeatManager extends EventEmitter {
   private heartbeatHistory: HeartbeatStatusType[] = [];
   private heartbeatFoundAtBlocks: (number | undefined)[] = [];
   private historySize: number;
+  private lastProcessedBlock: number | undefined;
 
   constructor(targetAddress: string, historySize: number = 700) {
     super();
@@ -112,53 +113,64 @@ export class HeartbeatManager extends EventEmitter {
   /**
    * Traite un nouveau bloc pour détecter les périodes de heartbeat
    */
-  public handleNewBlock(block: any): void {
-    const blockHeight = parseInt(block.header.height);
-    
-    // Initialisation - enregistrer le premier bloc
-    if (this.firstBlockSeen === 0) {
-      this.firstBlockSeen = blockHeight;
-      this.currentPeriod = Math.floor(blockHeight / HEARTBEAT_PERIOD);
-      console.log(`HeartbeatManager: Premier bloc vu est ${blockHeight}, période actuelle: ${this.currentPeriod}`);
-    }
-    
-    // Logique de période de HeartBeat
-    const blockPeriod = Math.floor(blockHeight / HEARTBEAT_PERIOD);
-    const periodStart = blockPeriod * HEARTBEAT_PERIOD;
-    const periodEnd = (blockPeriod + 1) * HEARTBEAT_PERIOD - 1;
-    const periodKey = `${periodStart}-${periodEnd}`;
-    
-    // Si nous venons de changer de période et que la précédente n'est pas validée
-    if (blockPeriod > this.currentPeriod) {
-      const prevPeriod = blockPeriod - 1;
-      const prevPeriodStart = prevPeriod * HEARTBEAT_PERIOD;
-      const prevPeriodEnd = periodStart - 1;
-      const prevPeriodKey = `${prevPeriodStart}-${prevPeriodEnd}`;
+  public handleNewBlock(blockData: any): void {
+    try {
+      if (!blockData?.block?.header?.height) {
+        console.error('Structure de bloc invalide:', blockData);
+        return;
+      }
+
+      const height = parseInt(blockData.block.header.height);
+      const currentPeriod = Math.floor(height / HEARTBEAT_PERIOD);
       
-      // Vérifier si nous avons terminé l'initialisation
-      if (!this.isInitialized) {
-        this.isInitialized = true;
-        console.log(`HeartbeatManager: ✅ INITIALISATION TERMINÉE: Les vérifications vont maintenant commencer à partir de la période ${periodStart}-${periodEnd}`);
-      } 
-      // Si nous avons terminé l'initialisation
-      else {
-        // Vérifier si la période précédente a été manquée
-        if (!this.periodsFound.has(prevPeriodKey)) {
-          // Marquer cette période comme échec
-          this.updateHeartbeatStatus(prevPeriod, prevPeriodStart, prevPeriodEnd, HeartbeatStatusType.Missed, undefined, true);
-          console.log(`HeartbeatManager: ❌ ÉCHEC: HeartBeat NON trouvé dans la période ${prevPeriodKey}`);
-        }
+      // Si c'est le premier bloc qu'on voit
+      if (this.lastProcessedBlock === undefined) {
+        this.lastProcessedBlock = height;
+        this.currentPeriod = currentPeriod;
+        console.log(`Initialisation du HeartbeatManager: bloc ${height}, période ${currentPeriod}`);
+        return;
       }
       
-      // Mettre à jour la période courante
-      this.currentPeriod = blockPeriod;
-      console.log(`HeartbeatManager: ⏱️ Nouvelle période de HeartBeat commencée: ${periodKey}`);
-    }
-    
-    // Vérifier si nous avons dépassé la fenêtre de recherche d'une période sans succès
-    const blockStartPlusWindow = periodStart + 1 + TRY_CNT;
-    if (blockHeight === blockStartPlusWindow && !this.periodsFound.has(periodKey) && this.isInitialized) {
-      console.log(`HeartbeatManager: ⚠️ Fenêtre de HeartBeat (${TRY_CNT} blocs) dépassée pour la période ${periodKey}, chances de détection réduites`);
+      // Logique de période de HeartBeat
+      const blockPeriod = Math.floor(height / HEARTBEAT_PERIOD);
+      const periodStart = blockPeriod * HEARTBEAT_PERIOD;
+      const periodEnd = (blockPeriod + 1) * HEARTBEAT_PERIOD - 1;
+      const periodKey = `${periodStart}-${periodEnd}`;
+      
+      // Si nous venons de changer de période et que la précédente n'est pas validée
+      if (blockPeriod > this.currentPeriod) {
+        const prevPeriod = blockPeriod - 1;
+        const prevPeriodStart = prevPeriod * HEARTBEAT_PERIOD;
+        const prevPeriodEnd = periodStart - 1;
+        const prevPeriodKey = `${prevPeriodStart}-${prevPeriodEnd}`;
+        
+        // Vérifier si nous avons terminé l'initialisation
+        if (!this.isInitialized) {
+          this.isInitialized = true;
+          console.log(`HeartbeatManager: ✅ INITIALISATION TERMINÉE: Les vérifications vont maintenant commencer à partir de la période ${periodStart}-${periodEnd}`);
+        } 
+        // Si nous avons terminé l'initialisation
+        else {
+          // Vérifier si la période précédente a été manquée
+          if (!this.periodsFound.has(prevPeriodKey)) {
+            // Marquer cette période comme échec
+            this.updateHeartbeatStatus(prevPeriod, prevPeriodStart, prevPeriodEnd, HeartbeatStatusType.Missed, undefined, true);
+            console.log(`HeartbeatManager: ❌ ÉCHEC: HeartBeat NON trouvé dans la période ${prevPeriodKey}`);
+          }
+        }
+        
+        // Mettre à jour la période courante
+        this.currentPeriod = blockPeriod;
+        console.log(`HeartbeatManager: ⏱️ Nouvelle période de HeartBeat commencée: ${periodKey}`);
+      }
+      
+      // Vérifier si nous avons dépassé la fenêtre de recherche d'une période sans succès
+      const blockStartPlusWindow = periodStart + 1 + TRY_CNT;
+      if (height === blockStartPlusWindow && !this.periodsFound.has(periodKey) && this.isInitialized) {
+        console.log(`HeartbeatManager: ⚠️ Fenêtre de HeartBeat (${TRY_CNT} blocs) dépassée pour la période ${periodKey}, chances de détection réduites`);
+      }
+    } catch (e) {
+      console.error('Erreur lors de la gestion du nouveau bloc:', e);
     }
   }
 
