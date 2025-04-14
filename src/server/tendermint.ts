@@ -3,7 +3,6 @@ import { EventEmitter } from 'events';
 
 const QUERY_NEW_BLOCK = `tm.event='NewBlock'`;
 const QUERY_VOTE = `tm.event='Vote'`;
-const QUERY_TX = `tm.event='Tx'`;
 
 // Type décrivant le statut d'un bloc
 export enum StatusType {
@@ -140,17 +139,8 @@ export class TendermintClient extends EventEmitter {
       params: { query: QUERY_VOTE }
     };
     
-    // S'abonner aux transactions
-    const subscribeTx = {
-      jsonrpc: "2.0",
-      method: "subscribe",
-      id: 3,
-      params: { query: QUERY_TX }
-    };
-    
     this.ws.send(JSON.stringify(subscribeNewBlock));
     this.ws.send(JSON.stringify(subscribeVotes));
-    this.ws.send(JSON.stringify(subscribeTx));
   }
   
   private handleMessage(reply: WsReply): void {
@@ -167,9 +157,6 @@ export class TendermintClient extends EventEmitter {
         break;
       case 'tendermint/event/Vote':
         this.handleVote(value);
-        break;
-      case 'tendermint/event/Tx':
-        this.handleTx(value);
         break;
       default:
         // Ignorer les autres types d'événements
@@ -247,12 +234,6 @@ export class TendermintClient extends EventEmitter {
     } catch (error) {
       console.error('Erreur de traitement du vote:', error);
     }
-  }
-  
-  // Gestion des transactions - uniquement pour les logs, pas de détection de heartbeat
-  private handleTx(txData: any): void {
-    // Cette méthode est conservée pour la compatibilité, mais ne fait rien
-    // La détection des heartbeats est maintenant gérée par HeartbeatClient
   }
   
   public disconnect(): void {
