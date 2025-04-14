@@ -11,8 +11,7 @@ export enum StatusType {
   Prevote,    // Prevote vu
   Precommit,  // Precommit vu
   Signed,     // Bloc signé
-  Proposed,   // Bloc proposé
-  HeartBeat   // HeartBeat détecté
+  Proposed    // Bloc proposé
 }
 
 // Mise à jour du statut d'un bloc
@@ -20,8 +19,6 @@ export interface StatusUpdate {
   height: number;
   status: StatusType;
   final: boolean;
-  isHeartBeat?: boolean;  // Indique si c'est un heartbeat
-  heartBeatPeriod?: number;  // Période de heartbeat
 }
 
 // Représentation d'une réponse WebSocket de Tendermint
@@ -36,10 +33,6 @@ interface WsReply {
   }
 }
 
-// Constantes pour les heartbeats
-const HEARTBEAT_PERIOD = 50; // Les HeartBeat sont attendus tous les 50 blocs
-const HEARTBEAT_HISTORY_SIZE = 700; // Historique des HeartBeats (700 périodes ~ 35000 blocs)
-
 // Client WebSocket pour Tendermint
 export class TendermintClient extends EventEmitter {
   private ws: WebSocket | null = null;
@@ -49,9 +42,6 @@ export class TendermintClient extends EventEmitter {
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 10;
   private reconnectInterval: number = 5000;
-  private periodsFound: Map<string, number> = new Map(); // Pour suivre les périodes où on a trouvé des heartbeats
-  private heartBeatHistory: boolean[] = Array(HEARTBEAT_HISTORY_SIZE).fill(false); // Historique des HeartBeats (true = détecté, false = manqué)
-  private currentHeartBeatPeriod: number = 0;
   
   constructor(endpoint: string, validatorAddress: string) {
     super();
@@ -203,9 +193,6 @@ export class TendermintClient extends EventEmitter {
         status = StatusType.Signed;
       }
       
-      // Mettre à jour l'historique des HeartBeats à chaque nouveau bloc
-      this.updateHeartBeatHistory(height);
-      
       const update: StatusUpdate = {
         height,
         status,
@@ -262,137 +249,10 @@ export class TendermintClient extends EventEmitter {
     }
   }
   
-  // Gestion des transactions - pour la détection des heartbeats
+  // Gestion des transactions - uniquement pour les logs, pas de détection de heartbeat
   private handleTx(txData: any): void {
-    try {
-      if (!txData.TxResult) return;
-      
-      const height = parseInt(txData.TxResult.height);
-      const tx = txData.TxResult.tx;
-      let decodedTx = '';
-      
-      // Déterminer dans quelle période HeartBeat nous sommes
-      const blockPeriod = Math.floor(height / HEARTBEAT_PERIOD);
-      const periodStart = blockPeriod * HEARTBEAT_PERIOD;
-      const periodEnd = (blockPeriod + 1) * HEARTBEAT_PERIOD;
-      const periodKey = `${periodStart}-${periodEnd-1}`;
-      
-      // Recherche dans le TX brut pour les heartbeats
-      let isHeartBeat = false;
-      let addressFound = false;
-      
-      if (tx && typeof tx === 'string') {
-        try {
-          decodedTx = Buffer.from(tx, 'base64').toString();
-          
-          // Correspondre à la méthode de recherche des HeartBeats
-          if (decodedTx.includes('/axelar.reward.v1beta1.RefundMsgRequest') && 
-              decodedTx.includes('/axelar.tss.v1beta1.HeartBeatRequest')) {
-            isHeartBeat = true;
-            
-            // Vérifier si notre adresse de validateur est mentionnée
-            // Convertir l'adresse en minuscules pour la comparaison
-            const validatorAddressLower = this.validatorAddress.toLowerCase();
-            if (decodedTx.includes(validatorAddressLower)) {
-              addressFound = true;
-            }
-          }
-        } catch (e) {
-          // Ignorer les erreurs de décodage
-        }
-      }
-      
-      // Vérifier aussi dans les logs
-      if (txData.TxResult.result && txData.TxResult.result.log) {
-        try {
-          const logData = txData.TxResult.result.log;
-          // Convertir l'adresse en minuscules pour la comparaison
-          const validatorAddressLower = this.validatorAddress.toLowerCase();
-          if (logData.includes(validatorAddressLower)) {
-            addressFound = true;
-          }
-        } catch (e) {}
-      }
-      
-      // Si c'est un HeartBeat et que notre validateur est impliqué
-      if (isHeartBeat && addressFound) {
-        // Enregistrer cette période comme ayant un heartbeat
-        if (!this.periodsFound.has(periodKey)) {
-          this.periodsFound.set(periodKey, height);
-          console.log(`HeartBeat détecté à la hauteur ${height} pour la période ${periodKey}`);
-          
-          // Mettre à jour l'historique des HeartBeats (ajouter true au début et supprimer le plus ancien)
-          // S'assurer que les périodes manquantes entre la précédente et celle-ci sont marquées comme manquées
-          const periodGap = blockPeriod - this.currentHeartBeatPeriod;
-          if (periodGap > 1 && this.currentHeartBeatPeriod > 0) {
-            // Ajouter des 'false' pour les périodes manquées
-            const missedPeriods = Math.min(periodGap - 1, HEARTBEAT_HISTORY_SIZE);
-            const newHistory = Array(missedPeriods).fill(false);
-            this.heartBeatHistory = [...newHistory, ...this.heartBeatHistory.slice(0, HEARTBEAT_HISTORY_SIZE - missedPeriods)];
-          }
-          
-          // Ajouter le HeartBeat actuel à l'historique
-          this.heartBeatHistory = [true, ...this.heartBeatHistory.slice(0, HEARTBEAT_HISTORY_SIZE - 1)];
-          
-          // Mettre à jour la période actuelle
-          this.currentHeartBeatPeriod = blockPeriod;
-          
-          // Envoyer une mise à jour de statut
-          const update: StatusUpdate = {
-            height,
-            status: StatusType.HeartBeat,
-            final: true,
-            isHeartBeat: true,
-            heartBeatPeriod: blockPeriod
-          };
-          
-          this.emit('heartbeat-update', update);
-        }
-      }
-      
-    } catch (error) {
-      console.error('Erreur de traitement de la transaction:', error);
-    }
-  }
-  
-  // Mise à jour de l'historique des HeartBeats quand un nouveau bloc est reçu
-  private updateHeartBeatHistory(height: number): void {
-    const blockPeriod = Math.floor(height / HEARTBEAT_PERIOD);
-    
-    // Si nous avons changé de période
-    if (blockPeriod > this.currentHeartBeatPeriod) {
-      // Vérifier si la période précédente avait un HeartBeat
-      const prevPeriodKey = `${this.currentHeartBeatPeriod * HEARTBEAT_PERIOD}-${(this.currentHeartBeatPeriod + 1) * HEARTBEAT_PERIOD - 1}`;
-      
-      // Si la période précédente n'a pas été enregistrée comme ayant un HeartBeat
-      if (!this.periodsFound.has(prevPeriodKey) && this.currentHeartBeatPeriod > 0) {
-        console.log(`HeartBeat manqué pour la période ${prevPeriodKey}`);
-        
-        // Mettre à jour l'historique avec false pour la période manquée
-        this.heartBeatHistory = [false, ...this.heartBeatHistory.slice(0, HEARTBEAT_HISTORY_SIZE - 1)];
-      }
-      
-      // Mettre à jour la période actuelle
-      this.currentHeartBeatPeriod = blockPeriod;
-    }
-  }
-  
-  // Méthode pour vérifier si un heartbeat a été trouvé dans une période donnée
-  public hasHeartBeatInPeriod(period: number): boolean {
-    const periodStart = period * HEARTBEAT_PERIOD;
-    const periodEnd = (period + 1) * HEARTBEAT_PERIOD - 1;
-    const periodKey = `${periodStart}-${periodEnd}`;
-    return this.periodsFound.has(periodKey);
-  }
-  
-  // Méthode pour obtenir la période de heartbeat actuelle
-  public getCurrentHeartBeatPeriod(height: number): number {
-    return Math.floor(height / HEARTBEAT_PERIOD);
-  }
-  
-  // Méthode pour obtenir l'historique complet des HeartBeats
-  public getHeartBeatHistory(): boolean[] {
-    return [...this.heartBeatHistory];
+    // Cette méthode est conservée pour la compatibilité, mais ne fait rien
+    // La détection des heartbeats est maintenant gérée par HeartbeatClient
   }
   
   public disconnect(): void {

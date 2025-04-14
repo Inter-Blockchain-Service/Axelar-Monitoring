@@ -91,6 +91,7 @@ if (!validatorAddress) {
   process.exit(1);
 }
 
+// Créer les clients - TendermintClient pour les blocs et votes, HeartbeatClient pour les heartbeats
 const tendermintClient = new TendermintClient(rpcEndpoint, validatorAddress);
 const heartbeatClient = new HeartbeatClient(wsEndpoint, broadcasterAddress, HEARTBEAT_HISTORY_SIZE);
 
@@ -178,7 +179,7 @@ function recalculateHeartbeatStats() {
   metrics.heartbeatsConsecutiveMissed = maxConsecutiveMissed;
 }
 
-// Gérer les mises à jour d'état du validateur
+// Gérer les mises à jour d'état du validateur (blocs et votes uniquement)
 tendermintClient.on('status-update', (update: StatusUpdate) => {
   metrics.connected = true;
   
@@ -198,7 +199,7 @@ tendermintClient.on('status-update', (update: StatusUpdate) => {
   }
 });
 
-// Gérer les mises à jour des heartbeats
+// Gérer les mises à jour des heartbeats (uniquement via HeartbeatClient)
 heartbeatClient.on('heartbeat-update', (update: HeartbeatUpdate) => {
   metrics.heartbeatConnected = true;
   
@@ -221,6 +222,7 @@ heartbeatClient.on('heartbeat-update', (update: HeartbeatUpdate) => {
   metrics.heartbeatBlocks = heartbeatClient.getHeartbeatBlocks();
 });
 
+// Gérer les déconnexions permanentes
 tendermintClient.on('permanent-disconnect', () => {
   metrics.connected = false;
   metrics.lastError = "Impossible de se connecter au nœud RPC après plusieurs tentatives.";

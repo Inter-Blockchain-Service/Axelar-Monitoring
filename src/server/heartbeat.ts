@@ -22,6 +22,11 @@ export interface HeartbeatUpdate {
   final: boolean;      // Indique si le statut est final
 }
 
+/**
+ * Client dédié à la surveillance des heartbeats d'un validateur Axelar
+ * Cette classe est responsable de la détection et du suivi des heartbeats
+ * envoyés par le validateur à intervalles réguliers.
+ */
 export class HeartbeatClient extends EventEmitter {
   private ws: WebSocket | null = null;
   private targetAddress: string;
@@ -39,6 +44,12 @@ export class HeartbeatClient extends EventEmitter {
   private heartbeatFoundAtBlocks: (number | undefined)[] = [];
   private historySize: number;
 
+  /**
+   * Crée une nouvelle instance du client de heartbeat
+   * @param wsEndpoint L'URL du WebSocket Tendermint
+   * @param targetAddress L'adresse du validateur à surveiller
+   * @param historySize La taille de l'historique des heartbeats à conserver
+   */
   constructor(wsEndpoint: string, targetAddress: string, historySize: number = 700) {
     super();
     this.wsEndpoint = wsEndpoint;
@@ -48,6 +59,9 @@ export class HeartbeatClient extends EventEmitter {
     this.heartbeatFoundAtBlocks = Array(historySize).fill(undefined);
   }
 
+  /**
+   * Établit la connexion WebSocket et s'abonne aux événements
+   */
   public connect(): void {
     if (this.isConnected) return;
 
@@ -98,6 +112,9 @@ export class HeartbeatClient extends EventEmitter {
     }
   }
 
+  /**
+   * Ferme la connexion WebSocket
+   */
   public disconnect(): void {
     if (this.ws) {
       this.ws.terminate();
@@ -111,18 +128,33 @@ export class HeartbeatClient extends EventEmitter {
     }
   }
 
+  /**
+   * Vérifie si le client est connecté
+   * @returns true si le client est connecté, false sinon
+   */
   public getConnectionStatus(): boolean {
     return this.isConnected;
   }
 
+  /**
+   * Récupère l'historique des statuts de heartbeat
+   * @returns Un tableau des statuts de heartbeat
+   */
   public getHeartbeatHistory(): HeartbeatStatusType[] {
     return [...this.heartbeatHistory];
   }
 
+  /**
+   * Récupère l'historique des blocs où les heartbeats ont été trouvés
+   * @returns Un tableau des hauteurs de bloc des heartbeats
+   */
   public getHeartbeatBlocks(): (number | undefined)[] {
     return [...this.heartbeatFoundAtBlocks];
   }
 
+  /**
+   * Gère la déconnexion et tente de se reconnecter
+   */
   private handleDisconnect(): void {
     this.isConnected = false;
     
@@ -139,6 +171,10 @@ export class HeartbeatClient extends EventEmitter {
     }
   }
 
+  /**
+   * Traite les messages reçus du WebSocket
+   * @param data Les données reçues du WebSocket
+   */
   private handleMessage(data: WebSocket.Data): void {
     try {
       const finalData = JSON.parse(data.toString('utf-8'));
@@ -156,6 +192,10 @@ export class HeartbeatClient extends EventEmitter {
     }
   }
 
+  /**
+   * Traite une transaction pour détecter les heartbeats
+   * @param txResult Les données de la transaction
+   */
   private handleTransaction(txResult: any): void {
     const height = parseInt(txResult.height);
     
@@ -219,6 +259,10 @@ export class HeartbeatClient extends EventEmitter {
     }
   }
 
+  /**
+   * Traite un nouveau bloc pour détecter les périodes de heartbeat
+   * @param block Les données du bloc
+   */
   private handleNewBlock(block: any): void {
     const blockHeight = parseInt(block.header.height);
     
@@ -269,6 +313,15 @@ export class HeartbeatClient extends EventEmitter {
     }
   }
 
+  /**
+   * Met à jour le statut d'un heartbeat dans l'historique
+   * @param period La période du heartbeat
+   * @param periodStart Le bloc de début de période
+   * @param periodEnd Le bloc de fin de période
+   * @param status Le statut du heartbeat
+   * @param foundAtBlock Le bloc où le heartbeat a été trouvé (si signé)
+   * @param final Indique si le statut est final
+   */
   private updateHeartbeatStatus(
     period: number,
     periodStart: number,
