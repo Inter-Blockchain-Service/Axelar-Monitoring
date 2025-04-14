@@ -2,7 +2,8 @@ import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import { TendermintClient, StatusType, StatusUpdate } from './tendermint';
-import { HeartbeatClient, HeartbeatStatusType, HeartbeatUpdate } from './heartbeat';
+import { HeartbeatClient } from './heartbeat';
+import { HeartbeatStatusType, HeartbeatUpdate } from './heartbeat_manager';
 import { BLOCKS_HISTORY_SIZE, HEARTBEAT_HISTORY_SIZE, HEARTBEAT_PERIOD } from '../constants';
 import dotenv from 'dotenv';
 
