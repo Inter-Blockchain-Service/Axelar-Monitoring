@@ -331,8 +331,8 @@ app.get('/api/evm-votes/:chain', (req, res) => {
 
 // Démarrer le serveur
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`Serveur en écoute sur le port ${PORT}`);
+server.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`Serveur en écoute sur l'adresse 0.0.0.0:${PORT}`);
   console.log(`Surveillance du validateur ${metrics.moniker} (${validatorAddress}) sur ${rpcEndpoint}`);
   console.log(`Période de signature définie à ${BLOCKS_HISTORY_SIZE} blocs`);
   console.log(`Surveillance des heartbeats définie sur ${HEARTBEAT_HISTORY_SIZE} périodes (1 période = ${HEARTBEAT_PERIOD} blocs)`);
