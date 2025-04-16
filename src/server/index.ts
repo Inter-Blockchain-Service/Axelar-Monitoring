@@ -3,6 +3,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import { TendermintClient, StatusType, StatusUpdate } from './tendermint';
 import { HeartbeatStatusType, HeartbeatUpdate } from './heartbeat_manager';
+import { VoteStatusType, PollStatus } from './evm-vote-manager';
 import { BLOCKS_HISTORY_SIZE, HEARTBEAT_HISTORY_SIZE, HEARTBEAT_PERIOD } from '../constants';
 import dotenv from 'dotenv';
 
@@ -50,6 +51,10 @@ interface ValidatorMetrics {
   lastHeartbeatTime: Date | null;
   heartbeatConnected: boolean;
   heartbeatLastError: string;
+  // Métriques EVM Votes
+  evmVotesEnabled: boolean;
+  evmVotes: any;
+  evmLastGlobalPollId: number;
 }
 
 // Initialiser les métriques avec des valeurs par défaut
@@ -76,21 +81,42 @@ let metrics: ValidatorMetrics = {
   lastHeartbeatPeriod: 0,
   lastHeartbeatTime: null,
   heartbeatConnected: false,
-  heartbeatLastError: ''
+  heartbeatLastError: '',
+  // Initialisation des métriques EVM votes
+  evmVotesEnabled: false,
+  evmVotes: {},
+  evmLastGlobalPollId: 0
 };
 
 // Créer et configurer le client Tendermint
 const rpcEndpoint = process.env.RPC_ENDPOINT || DEFAULT_RPC_ENDPOINT;
 const validatorAddress = process.env.VALIDATOR_ADDRESS || DEFAULT_VALIDATOR_ADDRESS;
 const broadcasterAddress = process.env.BROADCASTER_ADDRESS || validatorAddress;
+const axelarApiEndpoint = process.env.AXELAR_API_ENDPOINT || '';
 
 if (!validatorAddress) {
   console.error("ERREUR: Adresse du validateur non spécifiée. Définissez VALIDATOR_ADDRESS dans les variables d'environnement.");
   process.exit(1);
 }
 
-// Créer le client Tendermint qui gère maintenant à la fois les blocs/votes et les heartbeats
-const tendermintClient = new TendermintClient(rpcEndpoint, validatorAddress, broadcasterAddress, HEARTBEAT_HISTORY_SIZE);
+// Créer le client Tendermint qui gère maintenant à la fois les blocs/votes, les heartbeats et les votes EVM
+const tendermintClient = new TendermintClient(
+  rpcEndpoint,
+  validatorAddress,
+  broadcasterAddress,
+  HEARTBEAT_HISTORY_SIZE,
+  axelarApiEndpoint
+);
+
+// Vérifier si le gestionnaire de votes EVM est activé
+metrics.evmVotesEnabled = tendermintClient.hasEvmVoteManager();
+
+// Si le gestionnaire de votes EVM est activé, récupérer les votes initiaux
+if (metrics.evmVotesEnabled) {
+  console.log(`Surveillance des votes EVM activée avec API endpoint: ${axelarApiEndpoint}`);
+  // Initialiser les votes EVM
+  metrics.evmVotes = tendermintClient.getAllEvmVotes() || {};
+}
 
 // Calculer les statistiques sur la base de l'historique des blocs
 function recalculateStats() {
@@ -219,6 +245,25 @@ tendermintClient.on('heartbeat-update', (update: HeartbeatUpdate) => {
   metrics.heartbeatBlocks = tendermintClient.getHeartbeatBlocks();
 });
 
+// Gérer les mises à jour des votes EVM
+tendermintClient.on('vote-update', (update: any) => {
+  if (metrics.evmVotesEnabled) {
+    // Mettre à jour les votes pour la chaîne spécifique
+    if (update.chain && update.pollIds) {
+      // Mettre à jour les données des votes EVM
+      metrics.evmVotes = tendermintClient.getAllEvmVotes();
+      metrics.evmLastGlobalPollId = update.lastGlobalPollId || metrics.evmLastGlobalPollId;
+      
+      // Émettre les métriques mises à jour aux clients connectés
+      io.emit('metrics-update', metrics);
+      io.emit('evm-votes-update', metrics.evmVotes);
+      
+      // Log pour debug
+      console.log(`Mis à jour des votes EVM pour ${update.chain}, dernier Poll ID: ${metrics.evmLastGlobalPollId}`);
+    }
+  }
+});
+
 // Gérer les déconnexions permanentes
 tendermintClient.on('permanent-disconnect', () => {
   metrics.connected = false;
@@ -237,17 +282,51 @@ io.on('connection', (socket) => {
   
   // Envoyer les métriques actuelles immédiatement au nouveau client
   socket.emit('metrics-update', metrics);
+  if (metrics.evmVotesEnabled) {
+    socket.emit('evm-votes-update', metrics.evmVotes);
+  }
+  
   socket.emit('connection-status', {
     connected: tendermintClient.isConnected(),
     heartbeatConnected: tendermintClient.isConnected(),
     endpoint: rpcEndpoint,
     validatorAddress,
-    broadcasterAddress
+    broadcasterAddress,
+    evmVotesEnabled: metrics.evmVotesEnabled
   });
   
   socket.on('disconnect', () => {
     console.log('Client web déconnecté:', socket.id);
   });
+});
+
+// Route pour l'API
+app.get('/api/metrics', (req, res) => {
+  res.json(metrics);
+});
+
+// Route pour l'API des votes EVM
+app.get('/api/evm-votes', (req, res) => {
+  if (metrics.evmVotesEnabled) {
+    res.json(metrics.evmVotes);
+  } else {
+    res.status(404).json({ error: "EVM votes manager not enabled" });
+  }
+});
+
+// Route pour l'API des votes EVM pour une chaîne spécifique
+app.get('/api/evm-votes/:chain', (req, res) => {
+  if (metrics.evmVotesEnabled) {
+    const chain = req.params.chain.toLowerCase();
+    const votes = tendermintClient.getEvmChainVotes(chain);
+    if (votes) {
+      res.json(votes);
+    } else {
+      res.status(404).json({ error: `No votes data for chain: ${chain}` });
+    }
+  } else {
+    res.status(404).json({ error: "EVM votes manager not enabled" });
+  }
 });
 
 // Démarrer le serveur
@@ -257,6 +336,9 @@ server.listen(PORT, () => {
   console.log(`Surveillance du validateur ${metrics.moniker} (${validatorAddress}) sur ${rpcEndpoint}`);
   console.log(`Période de signature définie à ${BLOCKS_HISTORY_SIZE} blocs`);
   console.log(`Surveillance des heartbeats définie sur ${HEARTBEAT_HISTORY_SIZE} périodes (1 période = ${HEARTBEAT_PERIOD} blocs)`);
+  if (metrics.evmVotesEnabled) {
+    console.log(`Surveillance des votes EVM activée avec API endpoint: ${axelarApiEndpoint}`);
+  }
 });
 
 export default server; 

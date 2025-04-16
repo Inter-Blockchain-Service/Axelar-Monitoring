@@ -7,6 +7,7 @@ import ConnectionStatus from '@/components/ConnectionStatus';
 import BlockStatus from '@/components/BlockStatus';
 import ValidatorInfo from '@/components/ValidatorInfo';
 import HeartBeatStatus from '@/components/HeartBeatStatus';
+import EvmVoteStatus from '@/components/EvmVoteStatus';
 import { BLOCKS_HISTORY_SIZE, HEARTBEAT_PERIOD } from '@/constants';
 
 // Période de signature d'Axelar
@@ -190,6 +191,20 @@ export default function Dashboard() {
               </div>
             </section>
             
+            {/* Affichage des votes EVM */}
+            <section>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white">Votes EVM</h2>
+              </div>
+              <div className="grid grid-cols-1 gap-6">
+                <EvmVoteStatus 
+                  evmVotes={metrics.evmVotes}
+                  enabled={metrics.evmVotesEnabled}
+                  lastGlobalPollId={metrics.evmLastGlobalPollId}
+                />
+              </div>
+            </section>
+            
             {/* Informations du validateur */}
             <section>
               <div className="flex justify-between items-center mb-4">
@@ -222,6 +237,9 @@ export default function Dashboard() {
         <p className="mt-1">Statistiques basées sur la période de signature de {BLOCKS_HISTORY_SIZE} blocs</p>
         <p className="mt-1">HeartBeats attendus tous les {HEARTBEAT_PERIOD} blocs</p>
         <p className="mt-1">Affichage visuel des 200 derniers heartbeats avec leurs hauteurs de bloc</p>
+        {metrics.evmVotesEnabled && (
+          <p className="mt-1">Surveillance des votes EVM activée sur les chaînes supportées</p>
+        )}
       </footer>
     </div>
   );

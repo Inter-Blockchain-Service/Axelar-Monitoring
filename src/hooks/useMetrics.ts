@@ -17,6 +17,27 @@ export enum HeartbeatStatusType {
   Signed = 1      // Heartbeat signé avec succès
 }
 
+// Statut d'un vote EVM
+export enum VoteStatusType {
+  Unknown = 'unknown',
+  Unsubmitted = 'unsubmitted',
+  Validated = 'validated',
+  Invalid = 'invalid'
+}
+
+// Interface pour un poll EVM
+export interface PollStatus {
+  pollId: string;
+  result: string;
+}
+
+// Interface pour les données de votes par chaîne
+export interface ChainData {
+  [chain: string]: {
+    pollIds: PollStatus[];
+  }
+}
+
 // Interface pour les métriques du validateur
 export interface ValidatorMetrics {
   chainId: string;
@@ -42,6 +63,10 @@ export interface ValidatorMetrics {
   lastHeartbeatTime: Date | null;
   heartbeatConnected: boolean;
   heartbeatLastError: string;
+  // Métriques de votes EVM
+  evmVotesEnabled: boolean;
+  evmVotes: ChainData;
+  evmLastGlobalPollId: number;
 }
 
 // Informations de connexion
@@ -52,6 +77,7 @@ export interface ConnectionInfo {
   wsEndpoint: string;
   validatorAddress: string;
   broadcasterAddress: string;
+  evmVotesEnabled: boolean;
 }
 
 export function useMetrics() {
@@ -79,7 +105,11 @@ export function useMetrics() {
     lastHeartbeatPeriod: 0,
     lastHeartbeatTime: null,
     heartbeatConnected: false,
-    heartbeatLastError: ''
+    heartbeatLastError: '',
+    // Initialisation des métriques de votes EVM
+    evmVotesEnabled: false,
+    evmVotes: {},
+    evmLastGlobalPollId: 0
   });
   const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo>({
     connected: false,
@@ -87,7 +117,8 @@ export function useMetrics() {
     endpoint: '',
     wsEndpoint: '',
     validatorAddress: '',
-    broadcasterAddress: ''
+    broadcasterAddress: '',
+    evmVotesEnabled: false
   });
   const [isConnected, setIsConnected] = useState(false);
 
@@ -117,6 +148,14 @@ export function useMetrics() {
         data.lastHeartbeatTime = new Date(data.lastHeartbeatTime);
       }
       setMetrics(data);
+    });
+
+    // Écoute des mises à jour des votes EVM
+    socketInstance.on('evm-votes-update', (data: ChainData) => {
+      setMetrics(prevMetrics => ({
+        ...prevMetrics,
+        evmVotes: data
+      }));
     });
 
     // Écoute des informations de connexion

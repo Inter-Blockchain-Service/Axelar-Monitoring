@@ -2,6 +2,7 @@ import WebSocket from 'ws';
 import { EventEmitter } from 'events';
 import { ValidatorSignatureManager } from './validator-signature-manager';
 import { HeartbeatManager, HeartbeatStatusType } from './heartbeat_manager';
+import { EvmVoteManager, PollStatus, VoteStatusType } from './evm-vote-manager';
 
 const QUERY_NEW_BLOCK = `tm.event='NewBlock'`;
 const QUERY_VOTE = `tm.event='Vote'`;
@@ -47,14 +48,24 @@ export class TendermintClient extends EventEmitter {
   private reconnectInterval: number = 5000;
   private signatureManager: ValidatorSignatureManager;
   private heartbeatManager: HeartbeatManager;
+  private evmVoteManager: EvmVoteManager | null = null;
   
-  constructor(endpoint: string, validatorAddress: string, broadcasterAddress: string = '', historySize: number = 700) {
+  constructor(endpoint: string, validatorAddress: string, broadcasterAddress: string = '', historySize: number = 700, axelarApiEndpoint: string = '') {
     super();
     this.endpoint = this.normalizeEndpoint(endpoint);
     this.validatorAddress = validatorAddress.toUpperCase();
     this.broadcasterAddress = broadcasterAddress || validatorAddress;
     this.signatureManager = new ValidatorSignatureManager(validatorAddress);
     this.heartbeatManager = new HeartbeatManager(this.broadcasterAddress, historySize);
+    
+    if (axelarApiEndpoint) {
+      this.evmVoteManager = new EvmVoteManager(this.broadcasterAddress, axelarApiEndpoint);
+      
+      // Transmettre les événements du gestionnaire de votes EVM
+      this.evmVoteManager.on('vote-update', (update) => {
+        this.emit('vote-update', update);
+      });
+    }
     
     // Transmettre les événements du gestionnaire de signatures
     this.signatureManager.on('status-update', (update: StatusUpdate) => {
@@ -194,6 +205,11 @@ export class TendermintClient extends EventEmitter {
       case 'tendermint/event/Tx':
         if (value.TxResult) {
           this.heartbeatManager.handleTransaction(value.TxResult);
+          
+          // Traiter les transactions pour les votes EVM si le gestionnaire est activé
+          if (this.evmVoteManager) {
+            this.evmVoteManager.handleTransaction(reply.result);
+          }
         }
         break;
       default:
@@ -226,5 +242,28 @@ export class TendermintClient extends EventEmitter {
    */
   public getHeartbeatBlocks(): (number | undefined)[] {
     return this.heartbeatManager.getHeartbeatBlocks();
+  }
+
+  /**
+   * Récupère les données de votes EVM pour une chaîne spécifique
+   */
+  public getEvmChainVotes(chain: string): PollStatus[] | null {
+    if (!this.evmVoteManager) return null;
+    return this.evmVoteManager.getChainVotes(chain);
+  }
+
+  /**
+   * Récupère toutes les données de votes EVM
+   */
+  public getAllEvmVotes(): any {
+    if (!this.evmVoteManager) return null;
+    return this.evmVoteManager.getAllVotes();
+  }
+
+  /**
+   * Vérifie si le gestionnaire de votes EVM est activé
+   */
+  public hasEvmVoteManager(): boolean {
+    return !!this.evmVoteManager;
   }
 } 
