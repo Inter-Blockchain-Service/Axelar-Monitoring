@@ -124,7 +124,7 @@ export function useMetrics() {
 
   useEffect(() => {
     // Création de la connexion socket
-    const socketInstance = io('http://localhost:3001');
+    const socketInstance = io(process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001');
 
     // Gestion des événements de connexion
     socketInstance.on('connect', () => {
