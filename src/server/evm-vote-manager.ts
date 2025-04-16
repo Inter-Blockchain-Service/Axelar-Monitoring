@@ -270,20 +270,38 @@ export class EvmVoteManager extends EventEmitter {
 
   // Récupérer les détails d'une transaction par son hash
   private async getTxByHash(txHash: string) {
-    try {
-      const url = `${this.apiEndpoint}/cosmos/tx/v1beta1/txs/${txHash}`;
-      
-      const response = await axios.get(url);
-      
-      if (response.status === 200) {
-        return response.data;
-      } else {
+    const maxRetries = 3;
+    const retryDelay = 2000; // 2 secondes de délai entre les tentatives
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const url = `${this.apiEndpoint}/cosmos/tx/v1beta1/txs/${txHash}`;
+        
+        const response = await axios.get(url);
+        
+        if (response.status === 200) {
+          return response.data;
+        } else {
+          return null;
+        }
+      } catch (error: any) {
+        // Si la transaction n'est pas encore indexée (404), réessayer après un délai
+        if (error.response && error.response.status === 404) {
+          console.log(`💬 Tx ${txHash} pas encore indexée, tentative ${attempt}/${maxRetries}...`);
+          
+          // Si ce n'est pas la dernière tentative, attendre et réessayer
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            continue;
+          }
+        }
+        
+        console.error(`❌ Erreur lors de la requête de la transaction ${txHash}:`, error.message);
         return null;
       }
-    } catch (error) {
-      console.error(`❌ Erreur lors de la requête de la transaction ${txHash}:`, error);
-      return null;
     }
+    
+    return null;
   }
 
   // Fonction pour traiter un message de vote individuel
