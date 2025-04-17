@@ -50,7 +50,7 @@ export default function HeartBeatStatus({ statusList, className = '', lastPeriod
         return 'bg-red-500';
       case HeartbeatStatusType.Unknown:
       default:
-        return 'bg-gray-300 dark:bg-gray-600';
+        return 'bg-[#9e9e9e4d]';
     }
   };
 
@@ -93,7 +93,7 @@ export default function HeartBeatStatus({ statusList, className = '', lastPeriod
   });
   
   return (
-    <div className={`bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md ${className}`}>
+    <div className={`bg-white dark:bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
       <div className="flex flex-col gap-2 mb-3">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">
@@ -127,7 +127,7 @@ export default function HeartBeatStatus({ statusList, className = '', lastPeriod
             <span className="text-xs">Manqué</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-gray-300 dark:bg-gray-600 rounded-sm"></div>
+            <div className="w-3 h-3 bg-[#9e9e9e4d] rounded-sm"></div>
             <span className="text-xs">Pas de données</span>
           </div>
         </div>

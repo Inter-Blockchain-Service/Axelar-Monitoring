@@ -7,6 +7,10 @@ module.exports = {
   ],
   theme: {
     extend: {
+      colors: {
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
+      },
       gridTemplateColumns: {
         // Ajouter un layout de grille avec 20 colonnes
         '20': 'repeat(20, minmax(0, 1fr))',

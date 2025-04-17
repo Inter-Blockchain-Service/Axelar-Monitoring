@@ -53,15 +53,15 @@ export default function Dashboard() {
     : '100.00';
   
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6" suppressHydrationWarning>
+    <div className="min-h-screen bg-background text-foreground p-6" suppressHydrationWarning>
       <header className="mb-8">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-3xl font-bold text-foreground">
             Monitoring du Validateur {metrics.moniker}
           </h1>
           <ConnectionStatus isConnected={isConnected} />
         </div>
-        <p className="text-gray-600 dark:text-gray-300">
+        <p className="text-foreground/70">
           Surveillance en temps réel du validateur via WebSocket
         </p>
       </header>
@@ -91,7 +91,7 @@ export default function Dashboard() {
         {/* Statistiques de Signature */}
         <section>
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">Statistiques de Signature</h2>
+            <h2 className="text-xl font-bold text-foreground">Statistiques de Signature</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
             <MetricCard 
@@ -117,10 +117,34 @@ export default function Dashboard() {
           </div>
         </section>
         
+        {/* Détails des Blocs Manqués */}
+        <section>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-foreground">Détails des Blocs Manqués</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <MetricCard 
+              title="Manqués Consécutifs" 
+              value={isClient ? metrics.consecutiveMissed.toString() : '-'} 
+              className="border-l-4 border-red-500"
+            />
+            <MetricCard 
+              title="Prevote Manqués" 
+              value={isClient ? metrics.prevoteMissed.toString() : '-'} 
+              className="border-l-4 border-orange-500"
+            />
+            <MetricCard 
+              title="Precommit Manqués" 
+              value={isClient ? metrics.precommitMissed.toString() : '-'} 
+              className="border-l-4 border-yellow-500"
+            />
+          </div>
+        </section>
+        
         {/* Statistiques des HeartBeats */}
         <section>
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">Statistiques des HeartBeats</h2>
+            <h2 className="text-xl font-bold text-foreground">Statistiques des HeartBeats</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
             <MetricCard 
@@ -146,36 +170,12 @@ export default function Dashboard() {
           </div>
         </section>
         
-        {/* Détails des Blocs Manqués */}
-        <section>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">Détails des Blocs Manqués</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <MetricCard 
-              title="Manqués Consécutifs" 
-              value={isClient ? metrics.consecutiveMissed.toString() : '-'} 
-              className="border-l-4 border-red-500"
-            />
-            <MetricCard 
-              title="Prevote Manqués" 
-              value={isClient ? metrics.prevoteMissed.toString() : '-'} 
-              className="border-l-4 border-orange-500"
-            />
-            <MetricCard 
-              title="Precommit Manqués" 
-              value={isClient ? metrics.precommitMissed.toString() : '-'} 
-              className="border-l-4 border-yellow-500"
-            />
-          </div>
-        </section>
-        
         {isClient && (
           <>
             {/* Affichage des statuts */}
             <section>
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-white">Visualisation des Statuts</h2>
+                <h2 className="text-xl font-bold text-foreground">Visualisation des Statuts</h2>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -194,7 +194,7 @@ export default function Dashboard() {
             {/* Affichage des votes EVM */}
             <section>
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-white">Votes EVM</h2>
+                <h2 className="text-xl font-bold text-foreground">Votes EVM</h2>
               </div>
               <div className="grid grid-cols-1 gap-6">
                 <EvmVoteStatus 
@@ -208,7 +208,7 @@ export default function Dashboard() {
             {/* Informations du validateur */}
             <section>
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-white">Informations du Validateur</h2>
+                <h2 className="text-xl font-bold text-foreground">Informations du Validateur</h2>
               </div>
               <div className="grid grid-cols-1 gap-6">
                 <ValidatorInfo 
@@ -232,7 +232,7 @@ export default function Dashboard() {
         )}
       </main>
 
-      <footer className="mt-12 text-center text-gray-500 dark:text-gray-400 text-sm">
+      <footer className="mt-12 text-center text-foreground/70">
         <p>Actualisation automatique des données en temps réel</p>
         <p className="mt-1">Statistiques basées sur la période de signature de {BLOCKS_HISTORY_SIZE} blocs</p>
         <p className="mt-1">HeartBeats attendus tous les {HEARTBEAT_PERIOD} blocs</p>

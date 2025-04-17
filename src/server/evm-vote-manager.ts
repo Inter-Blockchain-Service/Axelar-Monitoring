@@ -1,19 +1,21 @@
 import { EventEmitter } from 'events';
 import axios from 'axios';
 
-// Liste des chaînes supportées
-const SUPPORTED_CHAINS = [
-  'ethereum', 'binance',
-  'polygon', 'avalanche',
-  'fantom', 'moonbeam',
-  'arbitrum', 'optimism',
-  'base', 'mantle',
-  'celo', 'kava',
-  'filecoin', 'linea',
-  'centrifuge', 'scroll',
-  'immutable', 'fraxtal',
-  'blast'
-];
+// Liste des chaînes supportées à partir du fichier .env
+const SUPPORTED_CHAINS = process.env.EVM_SUPPORTED_CHAINS 
+  ? process.env.EVM_SUPPORTED_CHAINS.split(',').map(chain => chain.trim()) 
+  : [
+    'ethereum', 'binance',
+    'polygon', 'avalanche',
+    'fantom', 'moonbeam',
+    'arbitrum', 'optimism',
+    'base', 'mantle',
+    'celo', 'kava',
+    'filecoin', 'linea',
+    'centrifuge', 'scroll',
+    'immutable', 'fraxtal',
+    'blast'
+  ]; // Valeurs par défaut si non définies dans .env
 
 // Nombre maximum de poll_ids à stocker par chaîne
 const MAX_POLL_HISTORY = 35;

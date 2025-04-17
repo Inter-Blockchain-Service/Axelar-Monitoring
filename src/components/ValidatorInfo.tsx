@@ -10,7 +10,7 @@ interface ValidatorInfoProps {
 
 export default function ValidatorInfo({ connectionInfo, moniker, chainId, className = '' }: ValidatorInfoProps) {
   return (
-    <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md ${className}`}>
+    <div className={`bg-white dark:bg-[#333333] p-6 rounded-lg shadow-md ${className}`}>
       <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">
         Informations du Validateur
       </h3>

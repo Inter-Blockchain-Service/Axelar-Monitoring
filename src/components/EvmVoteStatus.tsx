@@ -37,7 +37,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
 
   if (!enabled) {
     return (
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
+      <div className="bg-white dark:bg-[#333333] p-4 rounded-lg shadow-md">
         <Typography variant="h6" align="center" gutterBottom>
           Statut des Votes EVM
         </Typography>
@@ -53,11 +53,11 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'validated':
-        return '#4caf50'; // vert
+        return 'rgb(34, 197, 94)'; // bg-green-500
       case 'unsubmitted':
-        return '#ff9800'; // orange
+        return 'rgb(249, 115, 22)'; // bg-orange-500
       case 'invalid':
-        return '#f44336'; // rouge
+        return 'rgb(239, 68, 68)'; // bg-red-500
       case 'unknown':
       default:
         return '#9e9e9e4d'; // gris transparent (comme bg-gray-300 dark:bg-gray-600)
@@ -79,7 +79,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
+    <div className="bg-white dark:bg-[#333333] p-4 rounded-lg shadow-md">
       <div className="flex flex-col gap-2 mb-3">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">

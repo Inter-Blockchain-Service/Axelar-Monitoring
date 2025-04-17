@@ -10,7 +10,7 @@ interface MetricCardProps {
 
 export default function MetricCard({ title, value, icon, trend, className = '' }: MetricCardProps) {
   return (
-    <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md ${className}`}>
+    <div className={`bg-white dark:bg-[#333333] px-6 py-4 rounded-lg shadow-md dark:shadow-[0_4px_12px_rgba(200,200,200,0.1)] ${className}`}>
       <div className="flex justify-between items-center mb-2">
         <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">{title}</h3>
         {icon && <div className="text-gray-500 dark:text-gray-400">{icon}</div>}
