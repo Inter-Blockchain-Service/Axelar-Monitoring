@@ -133,7 +133,6 @@ export class EvmVoteManager extends EventEmitter {
           
           try {
             const logs = JSON.parse(logData);
-            console.log(logs.events)
             
             // Chercher les événements qui contiennent des poll_id dans les attributs
             for (const log of logs) {

@@ -67,43 +67,50 @@ export class AmpdManager extends EventEmitter {
         if (!txResult || !txResult.events) return;
 
         // Traitement des poll_started
-        this.processPollStarted(txResult);
+        if (txResult.events['wasm-messages_poll_started.messages']) {
+            this.processPollStarted(txResult);
+        }
         
         // Traitement des sessions de signature
-        this.processSigningSessions(txResult);
+        if (txResult.events && txResult.events['wasm-proof_under_construction.multisig_session_id']) {
+            this.processSigningSessions(txResult);
+        }
         
         // Traitement des votes et soumissions de signature
-        this.processVotesAndSignatures(txResult);
+        if (txResult.events &&
+            (txResult.events['wasm-voted.poll_id'] || txResult.events['wasm-signature_submitted.session_id']) &&
+            txResult.events['tx.fee_payer'] && 
+            txResult.events['tx.fee_payer'].includes(this.ampdAddress)) {
+            this.processVotesAndSignatures(txResult);
+        }
     }
 
     /**
      * Traite les événements poll_started
      */
     private processPollStarted(txResult: any): void {
-        if (txResult.events['wasm-messages_poll_started.messages']) {
-            const pollId = txResult.events['wasm-messages_poll_started.poll_id'] ? 
-                txResult.events['wasm-messages_poll_started.poll_id'][0] : null;
-            const sourceChain = txResult.events['wasm-messages_poll_started.source_chain'] ? 
-                txResult.events['wasm-messages_poll_started.source_chain'][0] : null;
-            const contractAddress = txResult.events['wasm-messages_poll_started._contract_address'] ? 
-                txResult.events['wasm-messages_poll_started._contract_address'][0] : null;
-            
-            // Vérifier si notre adresse AMPD est dans la liste des participants
-            if (txResult.events['wasm-messages_poll_started.participants']) {
-                const participantsStr = txResult.events['wasm-messages_poll_started.participants'][0];
-                try {
-                    const participants = JSON.parse(participantsStr);
-                    const isParticipant = participants.includes(this.ampdAddress);
+        const pollId = txResult.events['wasm-messages_poll_started.poll_id'] ? 
+            txResult.events['wasm-messages_poll_started.poll_id'][0] : null;
+        const sourceChain = txResult.events['wasm-messages_poll_started.source_chain'] ? 
+            txResult.events['wasm-messages_poll_started.source_chain'][0] : null;
+        const contractAddress = txResult.events['wasm-messages_poll_started._contract_address'] ? 
+            txResult.events['wasm-messages_poll_started._contract_address'][0] : null;
+        
+        // Vérifier si notre adresse AMPD est dans la liste des participants
+        if (txResult.events['wasm-messages_poll_started.participants']) {
+            const participantsStr = txResult.events['wasm-messages_poll_started.participants'][0];
+            try {
+                const participants = JSON.parse(participantsStr);
+                const isParticipant = participants.includes(this.ampdAddress);
+                
+                if (isParticipant) {
+                    this.updateChainDataWithPoll(sourceChain, pollId, contractAddress);
                     
-                    if (isParticipant) {
-                        this.updateChainDataWithPoll(sourceChain, pollId, contractAddress);
-                        
-                        // Émettre un événement de mise à jour
-                        this.emit('vote-update', { chain: sourceChain, pollId, status: 'unsubmit' });
-                    }
-                } catch (error) {
-                    console.error("Erreur lors du parsing des participants:", error);
+                    // Émettre un événement de mise à jour
+                    this.emit('vote-update', { chain: sourceChain, pollId, status: 'unsubmit' });
                 }
+            } catch (error) {
+                console.error("Erreur lors du parsing des participants:", error);
             }
         }
     }
@@ -112,25 +119,23 @@ export class AmpdManager extends EventEmitter {
      * Traite les événements de session de signature
      */
     private processSigningSessions(txResult: any): void {
-        if (txResult.events && txResult.events['wasm-proof_under_construction.multisig_session_id']) {
-            const sessionId = txResult.events['wasm-proof_under_construction.multisig_session_id'][0];
-            const cleanSessionId = sessionId ? sessionId.replace(/"/g, '') : null;
+        const sessionId = txResult.events['wasm-proof_under_construction.multisig_session_id'][0];
+        const cleanSessionId = sessionId ? sessionId.replace(/"/g, '') : null;
+        
+        const contractAddress = txResult.events['wasm-signing_started._contract_address'] ? 
+            txResult.events['wasm-signing_started._contract_address'][0] : null;
+        
+        const destinationChain = txResult.events['wasm-proof_under_construction.destination_chain'] ? 
+            txResult.events['wasm-proof_under_construction.destination_chain'][0].replace(/"/g, '') : null;
+        
+        // Vérifier si notre adresse AMPD est dans les clés publiques
+        if (txResult.events['wasm-signing_started.pub_keys'] && 
+            txResult.events['wasm-signing_started.pub_keys'][0].includes(this.ampdAddress)) {
             
-            const contractAddress = txResult.events['wasm-signing_started._contract_address'] ? 
-                txResult.events['wasm-signing_started._contract_address'][0] : null;
+            this.updateSigningSession(destinationChain, cleanSessionId, contractAddress);
             
-            const destinationChain = txResult.events['wasm-proof_under_construction.destination_chain'] ? 
-                txResult.events['wasm-proof_under_construction.destination_chain'][0].replace(/"/g, '') : null;
-            
-            // Vérifier si notre adresse AMPD est dans les clés publiques
-            if (txResult.events['wasm-signing_started.pub_keys'] && 
-                txResult.events['wasm-signing_started.pub_keys'][0].includes(this.ampdAddress)) {
-                
-                this.updateSigningSession(destinationChain, cleanSessionId, contractAddress);
-                
-                // Émettre un événement de mise à jour
-                this.emit('signing-update', { chain: destinationChain, signingId: cleanSessionId, status: 'unsubmit' });
-            }
+            // Émettre un événement de mise à jour
+            this.emit('signing-update', { chain: destinationChain, signingId: cleanSessionId, status: 'unsubmit' });
         }
     }
 
@@ -138,32 +143,26 @@ export class AmpdManager extends EventEmitter {
      * Traite les votes et soumissions de signature
      */
     private processVotesAndSignatures(txResult: any): void {
-        if (txResult.events &&
-            (txResult.events['wasm-voted.poll_id'] || txResult.events['wasm-signature_submitted.session_id']) &&
-            txResult.events['tx.fee_payer'] && 
-            txResult.events['tx.fee_payer'].includes(this.ampdAddress)) {
-            
-            // Traitement des votes
-            if (txResult.events['wasm-voted.poll_id']) {
-                // Récupérer le hash de transaction pour obtenir les détails
-                if (txResult.events['tx.hash'] && txResult.events['tx.hash'].length > 0) {
-                    const txHash = txResult.events['tx.hash'][0];
-                    this.fetchVoteDetails(txHash);
-                }
+        // Traitement des votes
+        if (txResult.events['wasm-voted.poll_id']) {
+            // Récupérer le hash de transaction pour obtenir les détails
+            if (txResult.events['tx.hash'] && txResult.events['tx.hash'].length > 0) {
+                const txHash = txResult.events['tx.hash'][0];
+                this.fetchVoteDetails(txHash);
             }
+        }
+        
+        // Traitement des signatures
+        if (txResult.events['wasm-signature_submitted.session_id']) {
+            const sessionIds = txResult.events['wasm-signature_submitted.session_id'];
+            const contractAddresses = txResult.events['wasm-signature_submitted._contract_address'] || [];
             
-            // Traitement des signatures
-            if (txResult.events['wasm-signature_submitted.session_id']) {
-                const sessionIds = txResult.events['wasm-signature_submitted.session_id'];
-                const contractAddresses = txResult.events['wasm-signature_submitted._contract_address'] || [];
+            for (let i = 0; i < sessionIds.length; i++) {
+                const sessionId = sessionIds[i];
+                const contractAddress = i < contractAddresses.length ? contractAddresses[i] : null;
                 
-                for (let i = 0; i < sessionIds.length; i++) {
-                    const sessionId = sessionIds[i];
-                    const contractAddress = i < contractAddresses.length ? contractAddresses[i] : null;
-                    
-                    if (sessionId && contractAddress) {
-                        this.updateSigningStatusInChainData(sessionId, contractAddress);
-                    }
+                if (sessionId && contractAddress) {
+                    this.updateSigningStatusInChainData(sessionId, contractAddress);
                 }
             }
         }
