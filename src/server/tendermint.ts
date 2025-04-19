@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import { ValidatorSignatureManager } from './validator-signature-manager';
 import { HeartbeatManager, HeartbeatStatusType } from './heartbeat_manager';
 import { EvmVoteManager, PollStatus, VoteStatusType } from './evm-vote-manager';
+import { AmpdManager } from './ampd-manager';
 
 const QUERY_NEW_BLOCK = `tm.event='NewBlock'`;
 const QUERY_VOTE = `tm.event='Vote'`;
@@ -43,18 +44,29 @@ export class TendermintClient extends EventEmitter {
   private endpoint: string;
   private validatorAddress: string;
   private broadcasterAddress: string;
+  private ampdAddress: string;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 10;
   private reconnectInterval: number = 5000;
   private signatureManager: ValidatorSignatureManager;
   private heartbeatManager: HeartbeatManager;
   private evmVoteManager: EvmVoteManager | null = null;
+  private ampdManager: AmpdManager | null = null;
   
-  constructor(endpoint: string, validatorAddress: string, broadcasterAddress: string = '', historySize: number = 700, axelarApiEndpoint: string = '') {
+  constructor(
+    endpoint: string, 
+    validatorAddress: string, 
+    broadcasterAddress: string = '', 
+    historySize: number = 700, 
+    axelarApiEndpoint: string = '', 
+    ampdSupportedChains: string[] = [],
+    ampdAddress: string = ''
+  ) {
     super();
     this.endpoint = this.normalizeEndpoint(endpoint);
     this.validatorAddress = validatorAddress.toUpperCase();
     this.broadcasterAddress = broadcasterAddress || validatorAddress;
+    this.ampdAddress = ampdAddress || this.broadcasterAddress;
     this.signatureManager = new ValidatorSignatureManager(validatorAddress);
     this.heartbeatManager = new HeartbeatManager(this.broadcasterAddress, historySize);
     
@@ -65,6 +77,24 @@ export class TendermintClient extends EventEmitter {
       this.evmVoteManager.on('vote-update', (update) => {
         this.emit('vote-update', update);
       });
+      
+      // Initialiser le gestionnaire AMPD si des chaînes sont spécifiées
+      if (ampdSupportedChains && ampdSupportedChains.length > 0) {
+        this.ampdManager = new AmpdManager(
+          axelarApiEndpoint, 
+          ampdSupportedChains,
+          this.ampdAddress
+        );
+        
+        // Transmettre les événements du gestionnaire AMPD
+        this.ampdManager.on('vote-update', (update) => {
+          this.emit('ampd-vote-update', update);
+        });
+        
+        this.ampdManager.on('signing-update', (update) => {
+          this.emit('ampd-signing-update', update);
+        });
+      }
     }
     
     // Transmettre les événements du gestionnaire de signatures
@@ -210,6 +240,11 @@ export class TendermintClient extends EventEmitter {
           if (this.evmVoteManager) {
             this.evmVoteManager.handleTransaction(reply.result);
           }
+          
+          // Traiter les transactions pour les votes et signatures AMPD si le gestionnaire est activé
+          if (this.ampdManager) {
+            this.ampdManager.handleTransaction(reply.result);
+          }
         }
         break;
       default:
@@ -265,5 +300,51 @@ export class TendermintClient extends EventEmitter {
    */
   public hasEvmVoteManager(): boolean {
     return !!this.evmVoteManager;
+  }
+
+  /**
+   * Vérifie si le gestionnaire AMPD est activé
+   */
+  public hasAmpdManager(): boolean {
+    return !!this.ampdManager;
+  }
+  
+  /**
+   * Récupère les données de votes AMPD pour une chaîne spécifique
+   */
+  public getAmpdChainVotes(chain: string): PollStatus[] | null {
+    if (!this.ampdManager) return null;
+    return this.ampdManager.getChainVotes(chain);
+  }
+  
+  /**
+   * Récupère les données de signatures AMPD pour une chaîne spécifique
+   */
+  public getAmpdChainSignings(chain: string): any {
+    if (!this.ampdManager) return null;
+    return this.ampdManager.getChainSignings(chain);
+  }
+  
+  /**
+   * Récupère toutes les données AMPD
+   */
+  public getAllAmpdData(): any {
+    if (!this.ampdManager) return null;
+    return this.ampdManager.getAllData();
+  }
+  
+  /**
+   * Récupère la liste des chaînes AMPD supportées
+   */
+  public getAmpdSupportedChains(): string[] {
+    if (!this.ampdManager) return [];
+    return this.ampdManager.getSupportedChains();
+  }
+
+  /**
+   * Récupère l'adresse AMPD utilisée
+   */
+  public getAmpdAddress(): string {
+    return this.ampdAddress;
   }
 } 

@@ -55,6 +55,11 @@ interface ValidatorMetrics {
   evmVotesEnabled: boolean;
   evmVotes: any;
   evmLastGlobalPollId: number;
+  // Métriques AMPD
+  ampdEnabled: boolean;
+  ampdVotes: any;
+  ampdSignings: any;
+  ampdSupportedChains: string[];
 }
 
 // Initialiser les métriques avec des valeurs par défaut
@@ -85,7 +90,12 @@ let metrics: ValidatorMetrics = {
   // Initialisation des métriques EVM votes
   evmVotesEnabled: false,
   evmVotes: {},
-  evmLastGlobalPollId: 0
+  evmLastGlobalPollId: 0,
+  // Initialisation des métriques AMPD
+  ampdEnabled: false,
+  ampdVotes: {},
+  ampdSignings: {},
+  ampdSupportedChains: []
 };
 
 // Créer et configurer le client Tendermint
@@ -93,19 +103,26 @@ const rpcEndpoint = process.env.RPC_ENDPOINT || DEFAULT_RPC_ENDPOINT;
 const validatorAddress = process.env.VALIDATOR_ADDRESS || DEFAULT_VALIDATOR_ADDRESS;
 const broadcasterAddress = process.env.BROADCASTER_ADDRESS || validatorAddress;
 const axelarApiEndpoint = process.env.AXELAR_API_ENDPOINT || '';
+const ampdAddress = process.env.AMPD_ADDRESS || broadcasterAddress;
 
 if (!validatorAddress) {
   console.error("ERREUR: Adresse du validateur non spécifiée. Définissez VALIDATOR_ADDRESS dans les variables d'environnement.");
   process.exit(1);
 }
 
-// Créer le client Tendermint qui gère maintenant à la fois les blocs/votes, les heartbeats et les votes EVM
+// Récupérer les chaînes AMPD supportées depuis les variables d'environnement
+const ampdSupportedChainsEnv = process.env.AMPD_SUPPORTED_CHAINS || '';
+const ampdSupportedChains = ampdSupportedChainsEnv.split(',').filter(chain => chain.trim() !== '');
+
+// Créer le client Tendermint qui gère maintenant à la fois les blocs/votes, les heartbeats, les votes EVM et AMPD
 const tendermintClient = new TendermintClient(
   rpcEndpoint,
   validatorAddress,
   broadcasterAddress,
   HEARTBEAT_HISTORY_SIZE,
-  axelarApiEndpoint
+  axelarApiEndpoint,
+  ampdSupportedChains,
+  ampdAddress
 );
 
 // Vérifier si le gestionnaire de votes EVM est activé
@@ -116,6 +133,18 @@ if (metrics.evmVotesEnabled) {
   console.log(`Surveillance des votes EVM activée avec API endpoint: ${axelarApiEndpoint}`);
   // Initialiser les votes EVM
   metrics.evmVotes = tendermintClient.getAllEvmVotes() || {};
+}
+
+// Vérifier si le gestionnaire AMPD est activé
+metrics.ampdEnabled = tendermintClient.hasAmpdManager();
+
+// Si le gestionnaire AMPD est activé, récupérer les données initiales
+if (metrics.ampdEnabled) {
+  console.log(`Surveillance AMPD activée pour les chaînes: ${ampdSupportedChains.join(', ')}`);
+  // Initialiser les données AMPD
+  metrics.ampdVotes = tendermintClient.getAllAmpdData() || {};
+  metrics.ampdSignings = tendermintClient.getAllAmpdData() || {};
+  metrics.ampdSupportedChains = tendermintClient.getAmpdSupportedChains() || [];
 }
 
 // Calculer les statistiques sur la base de l'historique des blocs
@@ -264,6 +293,34 @@ tendermintClient.on('vote-update', (update: any) => {
   }
 });
 
+// Gérer les mises à jour des votes AMPD
+tendermintClient.on('ampd-vote-update', (update: any) => {
+  if (metrics.ampdEnabled && update.chain) {
+    // Mise à jour des données complètes
+    metrics.ampdVotes = tendermintClient.getAllAmpdData();
+    
+    // Émettre les données mises à jour aux clients connectés
+    io.emit('ampd-votes-update', { chain: update.chain, votes: tendermintClient.getAmpdChainVotes(update.chain) });
+    
+    // Log pour debug
+    console.log(`Mis à jour des votes AMPD pour ${update.chain}, pollId: ${update.pollId}`);
+  }
+});
+
+// Gérer les mises à jour des signatures AMPD
+tendermintClient.on('ampd-signing-update', (update: any) => {
+  if (metrics.ampdEnabled && update.chain) {
+    // Mise à jour des données complètes
+    metrics.ampdSignings = tendermintClient.getAllAmpdData();
+    
+    // Émettre les données mises à jour aux clients connectés
+    io.emit('ampd-signings-update', { chain: update.chain, signings: tendermintClient.getAmpdChainSignings(update.chain) });
+    
+    // Log pour debug
+    console.log(`Mis à jour des signatures AMPD pour ${update.chain}, signingId: ${update.signingId}`);
+  }
+});
+
 // Gérer les déconnexions permanentes
 tendermintClient.on('permanent-disconnect', () => {
   metrics.connected = false;
@@ -286,13 +343,45 @@ io.on('connection', (socket) => {
     socket.emit('evm-votes-update', metrics.evmVotes);
   }
   
+  // Envoyer les données AMPD si activées
+  if (metrics.ampdEnabled) {
+    socket.emit('ampd-chains', { chains: metrics.ampdSupportedChains });
+  }
+  
   socket.emit('connection-status', {
     connected: tendermintClient.isConnected(),
     heartbeatConnected: tendermintClient.isConnected(),
     endpoint: rpcEndpoint,
     validatorAddress,
     broadcasterAddress,
-    evmVotesEnabled: metrics.evmVotesEnabled
+    evmVotesEnabled: metrics.evmVotesEnabled,
+    ampdEnabled: metrics.ampdEnabled,
+    ampdAddress: metrics.ampdEnabled ? tendermintClient.getAmpdAddress() : ''
+  });
+  
+  // Gestion des requêtes pour les données AMPD
+  socket.on('get-ampd-chains', () => {
+    if (metrics.ampdEnabled) {
+      socket.emit('ampd-chains', { chains: metrics.ampdSupportedChains });
+    }
+  });
+  
+  socket.on('get-ampd-votes', (data) => {
+    if (metrics.ampdEnabled && data.chain) {
+      const votes = tendermintClient.getAmpdChainVotes(data.chain);
+      if (votes) {
+        socket.emit('ampd-votes', { chain: data.chain, votes });
+      }
+    }
+  });
+  
+  socket.on('get-ampd-signings', (data) => {
+    if (metrics.ampdEnabled && data.chain) {
+      const signings = tendermintClient.getAmpdChainSignings(data.chain);
+      if (signings) {
+        socket.emit('ampd-signings', { chain: data.chain, signings });
+      }
+    }
   });
   
   socket.on('disconnect', () => {
@@ -329,6 +418,43 @@ app.get('/api/evm-votes/:chain', (req, res) => {
   }
 });
 
+// Routes pour l'API AMPD
+app.get('/api/ampd/chains', (req, res) => {
+  if (metrics.ampdEnabled) {
+    res.json(metrics.ampdSupportedChains);
+  } else {
+    res.status(404).json({ error: "AMPD manager not enabled" });
+  }
+});
+
+app.get('/api/ampd/votes/:chain', (req, res) => {
+  if (metrics.ampdEnabled) {
+    const chain = req.params.chain.toLowerCase();
+    const votes = tendermintClient.getAmpdChainVotes(chain);
+    if (votes) {
+      res.json(votes);
+    } else {
+      res.status(404).json({ error: `No votes data for chain: ${chain}` });
+    }
+  } else {
+    res.status(404).json({ error: "AMPD manager not enabled" });
+  }
+});
+
+app.get('/api/ampd/signings/:chain', (req, res) => {
+  if (metrics.ampdEnabled) {
+    const chain = req.params.chain.toLowerCase();
+    const signings = tendermintClient.getAmpdChainSignings(chain);
+    if (signings) {
+      res.json(signings);
+    } else {
+      res.status(404).json({ error: `No signings data for chain: ${chain}` });
+    }
+  } else {
+    res.status(404).json({ error: "AMPD manager not enabled" });
+  }
+});
+
 // Démarrer le serveur
 const PORT = process.env.PORT || 3001;
 server.listen(Number(PORT), '0.0.0.0', () => {
@@ -338,6 +464,10 @@ server.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Surveillance des heartbeats définie sur ${HEARTBEAT_HISTORY_SIZE} périodes (1 période = ${HEARTBEAT_PERIOD} blocs)`);
   if (metrics.evmVotesEnabled) {
     console.log(`Surveillance des votes EVM activée avec API endpoint: ${axelarApiEndpoint}`);
+  }
+  if (metrics.ampdEnabled) {
+    console.log(`Surveillance AMPD activée pour les chaînes: ${metrics.ampdSupportedChains.join(', ')}`);
+    console.log(`Adresse AMPD utilisée: ${tendermintClient.getAmpdAddress()}`);
   }
 });
 

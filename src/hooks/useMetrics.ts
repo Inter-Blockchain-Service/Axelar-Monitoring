@@ -67,6 +67,11 @@ export interface ValidatorMetrics {
   evmVotesEnabled: boolean;
   evmVotes: ChainData;
   evmLastGlobalPollId: number;
+  // Métriques AMPD
+  ampdEnabled: boolean;
+  ampdVotes: any;
+  ampdSignings: any;
+  ampdSupportedChains: string[];
 }
 
 // Informations de connexion
@@ -78,6 +83,8 @@ export interface ConnectionInfo {
   validatorAddress: string;
   broadcasterAddress: string;
   evmVotesEnabled: boolean;
+  ampdEnabled: boolean;
+  ampdAddress: string;
 }
 
 export function useMetrics() {
@@ -109,7 +116,12 @@ export function useMetrics() {
     // Initialisation des métriques de votes EVM
     evmVotesEnabled: false,
     evmVotes: {},
-    evmLastGlobalPollId: 0
+    evmLastGlobalPollId: 0,
+    // Initialisation des métriques AMPD
+    ampdEnabled: false,
+    ampdVotes: {},
+    ampdSignings: {},
+    ampdSupportedChains: []
   });
   const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo>({
     connected: false,
@@ -118,7 +130,9 @@ export function useMetrics() {
     wsEndpoint: '',
     validatorAddress: '',
     broadcasterAddress: '',
-    evmVotesEnabled: false
+    evmVotesEnabled: false,
+    ampdEnabled: false,
+    ampdAddress: ''
   });
   const [isConnected, setIsConnected] = useState(false);
 
@@ -171,5 +185,5 @@ export function useMetrics() {
     };
   }, []);
 
-  return { metrics, connectionInfo, isConnected };
+  return { metrics, connectionInfo, isConnected, socket };
 } 
