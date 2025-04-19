@@ -37,7 +37,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
 
   if (!enabled) {
     return (
-      <div className="bg-white dark:bg-[#333333] p-4 rounded-lg shadow-md">
+      <div className="bg-[#333333] p-4 rounded-lg shadow-md">
         <Typography variant="h6" align="center" gutterBottom>
           Statut des Votes EVM
         </Typography>
@@ -79,10 +79,10 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
   };
 
   return (
-    <div className="bg-white dark:bg-[#333333] p-4 rounded-lg shadow-md">
+    <div className="bg-[#333333] p-4 rounded-lg shadow-md">
       <div className="flex flex-col gap-2 mb-3">
         <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">
+          <h3 className="text-lg font-semibold text-gray-200">
             Statut des Votes EVM
           </h3>
           <div className="text-sm text-gray-500">

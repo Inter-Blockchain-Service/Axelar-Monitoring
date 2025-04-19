@@ -85,16 +85,16 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
   // Si aucune chaîne n'est supportée
   if (supportedChains.length === 0) {
     return (
-      <div className={`bg-white dark:bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
+      <div className={`bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
         <div className="flex flex-col gap-2 mb-3">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">
+            <h3 className="text-lg font-semibold text-gray-200">
               Signatures AMPD
             </h3>
           </div>
         </div>
         <div className="flex justify-center items-center h-[200px]">
-          <p className="text-gray-500 dark:text-gray-400">
+          <p className="text-gray-400">
             La surveillance AMPD n'est pas activée
           </p>
         </div>
@@ -106,10 +106,10 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
   const chainsToDisplay = chain ? supportedChains.filter(c => c === chain) : supportedChains;
 
   return (
-    <div className={`bg-white dark:bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
+    <div className={`bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
       <div className="flex flex-col gap-2 mb-3">
         <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">
+          <h3 className="text-lg font-semibold text-gray-200">
             Signatures AMPD
           </h3>
         </div>
@@ -137,7 +137,7 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
                       />
                     ))
                   ) : (
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    <p className="text-gray-400 text-sm">
                       Aucune signature disponible
                     </p>
                   )}

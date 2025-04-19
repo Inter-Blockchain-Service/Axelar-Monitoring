@@ -82,10 +82,10 @@ export default function BlockStatus({ statusList, className = '', lastBlockHeigh
   const visibleBlocks = statusList.slice(0, 200).map((status, index) => ({ status, index }));
   
   return (
-    <div className={`bg-white dark:bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
+    <div className={`bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
       <div className="flex flex-col gap-2 mb-3">
         <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">
+          <h3 className="text-lg font-semibold text-gray-200">
             Statut des blocs récents
           </h3>
           <div className="text-sm text-gray-500">
