@@ -26,6 +26,13 @@ export default function Dashboard() {
     setIsClient(true);
   }, []);
   
+  // Débogage des connections AMPD
+  useEffect(() => {
+    if (isClient) {
+      console.log("AMPD Enabled:", metrics.ampdEnabled, "Socket:", socket ? "Connected" : "Not connected");
+    }
+  }, [metrics.ampdEnabled, socket, isClient]);
+  
   // Mise à jour de la date formatée côté client uniquement
   useEffect(() => {
     if (isClient) {
@@ -193,32 +200,31 @@ export default function Dashboard() {
               </div>
             </section>
             
-            {/* Affichage des votes EVM */}
+            {/* Affichage des votes EVM et AMPD */}
             <section>
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-foreground">Votes EVM</h2>
+                <h2 className="text-xl font-bold text-foreground">Votes EVM et AMPD</h2>
               </div>
-              <div className="grid grid-cols-1 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-h-[500px]">
+                {/* Colonne de gauche: Votes EVM */}
                 <EvmVoteStatus 
                   evmVotes={metrics.evmVotes}
                   enabled={metrics.evmVotesEnabled}
                   lastGlobalPollId={metrics.evmLastGlobalPollId}
+                  className="h-full"
                 />
+                
+                {/* Colonne de droite: AMPD (Votes et Signatures empilés) */}
+                <div className="flex flex-col gap-4 h-full">
+                  <div className="flex-1">
+                    <AmpdVoting socket={socket} className="h-full" />
+                  </div>
+                  <div className="flex-1">
+                    <AmpdSigning socket={socket} className="h-full" />
+                  </div>
+                </div>
               </div>
             </section>
-            
-            {/* Affichage des votes et signatures AMPD */}
-            {metrics.ampdEnabled && (
-              <section>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-bold text-foreground">Votes et Signatures AMPD</h2>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <AmpdVoting socket={socket} />
-                  <AmpdSigning socket={socket} />
-                </div>
-              </section>
-            )}
             
             {/* Informations du validateur */}
             <section>

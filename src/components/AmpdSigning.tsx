@@ -12,13 +12,16 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
   const [signingData, setSigningData] = useState<Record<string, SigningStatus[]>>({});
   const [supportedChains, setSupportedChains] = useState<string[]>([]);
   const [displayLimit, setDisplayLimit] = useState(35); // Afficher un maximum de signatures
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Configuration des écouteurs d'événements Socket.io
     if (socket) {
       // Écouteur pour les chaînes supportées
       socket.on('ampd-chains', (data) => {
+        console.log("AMPD Chains received (signing):", data);
         setSupportedChains(data.chains || []);
+        setIsLoading(false);
         
         // Si des chaînes sont disponibles, demander les données pour chacune
         if (data.chains && data.chains.length > 0) {
@@ -82,7 +85,27 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
     return signingId.length > 20 ? `${signingId.substring(0, 8)}...${signingId.substring(signingId.length - 8)}` : signingId;
   };
 
-  // Si aucune chaîne n'est supportée
+  // Si les données sont en cours de chargement, afficher un indicateur
+  if (isLoading) {
+    return (
+      <div className={`bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
+        <div className="flex flex-col gap-2 mb-3">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-gray-200">
+              Signatures AMPD
+            </h3>
+          </div>
+        </div>
+        <div className="flex justify-center items-center h-[200px]">
+          <p className="text-gray-400">
+            Chargement des données AMPD...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Si aucune chaîne n'est supportée après le chargement
   if (supportedChains.length === 0) {
     return (
       <div className={`bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
@@ -106,8 +129,8 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
   const chainsToDisplay = chain ? supportedChains.filter(c => c === chain) : supportedChains;
 
   return (
-    <div className={`bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
-      <div className="flex flex-col gap-2 mb-3">
+    <div className={`bg-[#333333] p-4 rounded-lg shadow-md flex flex-col h-full ${className}`}>
+      <div className="mb-3">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold text-gray-200">
             Signatures AMPD
@@ -115,7 +138,7 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
         </div>
       </div>
       
-      <div className="overflow-y-auto max-h-[180px]">
+      <div className="overflow-y-auto flex-grow">
         {chainsToDisplay.map((chainName) => {
           const chainSignings = signingData[chainName] || [];
           // On prend toutes les signatures, y compris celles marquées "unknown"
@@ -148,8 +171,8 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
         })}
       </div>
 
-      <div className="flex justify-start mt-4">
-        <div className="grid grid-cols-3 gap-2">
+      <div className="mt-auto pt-4">
+        <div className="flex flex-wrap gap-4">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-[#9e9e9e4d] rounded-sm"></div>
             <span className="text-xs">Pas de donnée</span>

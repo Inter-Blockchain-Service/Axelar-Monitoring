@@ -13,13 +13,16 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '' }
   const [voteData, setVoteData] = useState<Record<string, PollStatus[]>>({});
   const [supportedChains, setSupportedChains] = useState<string[]>([]);
   const [displayLimit, setDisplayLimit] = useState(35); // Afficher un maximum de votes
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Configuration des écouteurs d'événements Socket.io
     if (socket) {
       // Écouteur pour les chaînes supportées
       socket.on('ampd-chains', (data) => {
+        console.log("AMPD Chains received:", data);
         setSupportedChains(data.chains || []);
+        setIsLoading(false);
         
         // Si des chaînes sont disponibles, demander les données pour chacune
         if (data.chains && data.chains.length > 0) {
@@ -85,7 +88,27 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '' }
     return pollId.length > 20 ? `${pollId.substring(0, 8)}...${pollId.substring(pollId.length - 8)}` : pollId;
   };
 
-  // Si aucune chaîne n'est supportée
+  // Si les données sont en cours de chargement, afficher un indicateur
+  if (isLoading) {
+    return (
+      <div className={`bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
+        <div className="flex flex-col gap-2 mb-3">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-gray-200">
+              Votes AMPD
+            </h3>
+          </div>
+        </div>
+        <div className="flex justify-center items-center h-[200px]">
+          <p className="text-gray-400">
+            Chargement des données AMPD...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Si aucune chaîne n'est supportée après le chargement
   if (supportedChains.length === 0) {
     return (
       <div className={`bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
@@ -109,8 +132,8 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '' }
   const chainsToDisplay = chain ? supportedChains.filter(c => c === chain) : supportedChains;
 
   return (
-    <div className={`bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
-      <div className="flex flex-col gap-2 mb-3">
+    <div className={`bg-[#333333] p-4 rounded-lg shadow-md flex flex-col h-full ${className}`}>
+      <div className="mb-3">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold text-gray-200">
             Votes AMPD
@@ -118,7 +141,7 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '' }
         </div>
       </div>
       
-      <div className="overflow-y-auto max-h-[180px]">
+      <div className="overflow-y-auto flex-grow">
         {chainsToDisplay.map((chainName) => {
           const chainVotes = voteData[chainName] || [];
           // On prend tous les votes, y compris ceux marqués "unknown"
@@ -151,8 +174,8 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '' }
         })}
       </div>
 
-      <div className="flex justify-start mt-4">
-        <div className="grid grid-cols-4 gap-2">
+      <div className="mt-auto pt-4">
+        <div className="flex flex-wrap gap-4">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-[#9e9e9e4d] rounded-sm"></div>
             <span className="text-xs">Pas de donnée</span>

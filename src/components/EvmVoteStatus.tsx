@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Box, Tooltip } from '@mui/material';
 
 interface PollStatus {
   pollId: string;
@@ -16,11 +15,11 @@ interface EvmVoteStatusProps {
   evmVotes: ChainData;
   enabled: boolean;
   lastGlobalPollId: number;
+  className?: string;
 }
 
-const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGlobalPollId }) => {
+const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGlobalPollId, className = '' }) => {
   const [availableChains, setAvailableChains] = useState<string[]>([]);
-  const [displayLimit, setDisplayLimit] = useState(35); // Afficher tous les votes (MAX_POLL_HISTORY)
 
   useEffect(() => {
     if (evmVotes && Object.keys(evmVotes).length > 0) {
@@ -37,15 +36,19 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
 
   if (!enabled) {
     return (
-      <div className="bg-[#333333] p-4 rounded-lg shadow-md">
-        <Typography variant="h6" align="center" gutterBottom>
-          Statut des Votes EVM
-        </Typography>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
-          <Typography variant="body1" color="text.secondary">
+      <div className={`bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
+        <div className="flex flex-col gap-2 mb-3">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-gray-200">
+              Statut des Votes EVM
+            </h3>
+          </div>
+        </div>
+        <div className="flex justify-center items-center h-[200px]">
+          <p className="text-gray-400">
             La surveillance des votes EVM n'est pas activée
-          </Typography>
-        </Box>
+          </p>
+        </div>
       </div>
     );
   }
@@ -53,14 +56,14 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'validated':
-        return 'rgb(34, 197, 94)'; // bg-green-500
+        return 'bg-green-500'; // vert pour validé
       case 'unsubmitted':
-        return 'rgb(249, 115, 22)'; // bg-orange-500
+        return 'bg-orange-500'; // orange pour non soumis
       case 'invalid':
-        return 'rgb(239, 68, 68)'; // bg-red-500
+        return 'bg-red-500'; // rouge pour invalide
       case 'unknown':
       default:
-        return '#9e9e9e4d'; // gris transparent (comme bg-gray-300 dark:bg-gray-600)
+        return 'bg-[#9e9e9e4d]'; // gris transparent pour pas de donnée
     }
   };
 
@@ -79,8 +82,8 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
   };
 
   return (
-    <div className="bg-[#333333] p-4 rounded-lg shadow-md">
-      <div className="flex flex-col gap-2 mb-3">
+    <div className={`bg-[#333333] p-4 rounded-lg shadow-md flex flex-col h-full ${className}`}>
+      <div className="mb-3">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold text-gray-200">
             Statut des Votes EVM
@@ -91,58 +94,53 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
         </div>
       </div>
 
-      <Box sx={{ overflow: 'auto', maxHeight: 600, mt: 2 }}>
+      <div className="flex-grow">
         {availableChains.map((chain) => {
           const chainVotes = evmVotes[chain]?.pollIds || [];
-          const votesToDisplay = chainVotes.slice(0, displayLimit);
 
           return (
-            <Box key={chain} sx={{ mb: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Typography variant="body2" sx={{ minWidth: 120, fontWeight: 'bold', color: 'white' }}>
+            <div key={chain} className="mb-2">
+              <div className="flex items-start">
+                <div className="w-30 font-semibold text-white text-sm">
                   {chain.toUpperCase()}:
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {votesToDisplay.map((vote, index) => (
-                    <Tooltip 
-                      key={`${vote.pollId}-${index}`} 
-                      title={`Poll ID: ${vote.pollId} - ${getStatusTooltip(vote.result.toString())}`}
-                    >
-                      <Box
-                        sx={{
-                          width: 16,
-                          height: 16,
-                          backgroundColor: getStatusColor(vote.result.toString()),
-                          borderRadius: 1,
-                          cursor: 'pointer',
-                          transition: 'transform 0.2s',
-                          '&:hover': {
-                            transform: 'scale(1.1)',
-                            zIndex: 1
-                          }
-                        }}
+                </div>
+                <div className="grid grid-cols-35 gap-1 flex-1">
+                  {chainVotes.length > 0 ? (
+                    chainVotes.map((vote, index) => (
+                      <div 
+                        key={`${vote.pollId}-${index}`} 
+                        className={`w-4 h-4 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm`}
+                        title={`Poll ID: ${vote.pollId} - ${getStatusTooltip(vote.result.toString())}`}
                       />
-                    </Tooltip>
-                  ))}
-                </Box>
-              </Box>
-            </Box>
+                    ))
+                  ) : (
+                    <p className="text-gray-400 text-sm">
+                      Aucun vote disponible
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
           );
         })}
-      </Box>
+      </div>
 
-      <div className="flex justify-start mt-4">
-        <div className="grid grid-cols-3 gap-2">
+      <div className="mt-auto pt-4">
+        <div className="flex flex-wrap gap-4">
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-sm" style={{backgroundColor: getStatusColor('unsubmitted')}}></div>
-            <span className="text-xs">Unsubmitted</span>
+            <div className="w-3 h-3 bg-[#9e9e9e4d] rounded-sm"></div>
+            <span className="text-xs">Pas de donnée</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-sm" style={{backgroundColor: getStatusColor('validated')}}></div>
+            <div className="w-3 h-3 bg-orange-500 rounded-sm"></div>
+            <span className="text-xs">Non soumis</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-green-500 rounded-sm"></div>
             <span className="text-xs">Validé</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-sm" style={{backgroundColor: getStatusColor('invalid')}}></div>
+            <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
             <span className="text-xs">Invalide</span>
           </div>
         </div>
