@@ -320,8 +320,11 @@ tendermintClient.on('ampd-vote-update', (update: AmpdVoteUpdate) => {
     // Update complete data
     metrics.ampdVotes = tendermintClient.getAllAmpdVotes() || {};
     
-    // Emit updated data to connected clients
-    io.emit('ampd-votes-update', { chain: update.chain, votes: tendermintClient.getAmpdChainVotes(update.chain) });
+    // Emit updated data to ALL connected clients
+    io.emit('ampd-votes', { 
+      chain: update.chain, 
+      votes: tendermintClient.getAmpdChainVotes(update.chain) 
+    });
     
     // Debug log
     console.log(`Updated AMPD votes for ${update.chain}, pollId: ${update.pollId}`);
@@ -334,8 +337,11 @@ tendermintClient.on('ampd-signing-update', (update: AmpdSigningUpdate) => {
     // Update complete data
     metrics.ampdSignings = tendermintClient.getAllAmpdSignings() || {};
     
-    // Emit updated data to connected clients
-    io.emit('ampd-signings-update', { chain: update.chain, signings: tendermintClient.getAmpdChainSignings(update.chain) });
+    // Emit updated data to ALL connected clients
+    io.emit('ampd-signings', { 
+      chain: update.chain, 
+      signings: tendermintClient.getAmpdChainSignings(update.chain) 
+    });
     
     // Debug log
     console.log(`Updated AMPD signatures for ${update.chain}, signingId: ${update.signingId}`);
@@ -366,7 +372,22 @@ io.on('connection', (socket) => {
   
   // Send AMPD data if enabled
   if (metrics.ampdEnabled) {
-    socket.emit('ampd-chains', { chains: metrics.ampdSupportedChains });
+    // Envoyer la liste des chaînes supportées
+    io.emit('ampd-chains', { chains: metrics.ampdSupportedChains });
+    
+    // Envoyer les données initiales pour chaque chaîne
+    metrics.ampdSupportedChains.forEach(chainName => {
+      const votes = tendermintClient.getAmpdChainVotes(chainName);
+      const signings = tendermintClient.getAmpdChainSignings(chainName);
+      
+      if (votes) {
+        io.emit('ampd-votes', { chain: chainName, votes });
+      }
+      
+      if (signings) {
+        io.emit('ampd-signings', { chain: chainName, signings });
+      }
+    });
   }
   
   socket.emit('connection-status', {
@@ -378,31 +399,6 @@ io.on('connection', (socket) => {
     evmVotesEnabled: metrics.evmVotesEnabled,
     ampdEnabled: metrics.ampdEnabled,
     ampdAddress: metrics.ampdEnabled ? tendermintClient.getAmpdAddress() : ''
-  });
-  
-  // Handle requests for AMPD data
-  socket.on('get-ampd-chains', () => {
-    if (metrics.ampdEnabled) {
-      socket.emit('ampd-chains', { chains: metrics.ampdSupportedChains });
-    }
-  });
-  
-  socket.on('get-ampd-votes', (data) => {
-    if (metrics.ampdEnabled && data.chain) {
-      const votes = tendermintClient.getAmpdChainVotes(data.chain);
-      if (votes) {
-        socket.emit('ampd-votes', { chain: data.chain, votes });
-      }
-    }
-  });
-  
-  socket.on('get-ampd-signings', (data) => {
-    if (metrics.ampdEnabled && data.chain) {
-      const signings = tendermintClient.getAmpdChainSignings(data.chain);
-      if (signings) {
-        socket.emit('ampd-signings', { chain: data.chain, signings });
-      }
-    }
   });
   
   socket.on('disconnect', () => {

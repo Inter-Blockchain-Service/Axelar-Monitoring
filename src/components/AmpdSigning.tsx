@@ -22,13 +22,6 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
         console.log("AMPD Chains received (signing):", data);
         setSupportedChains(data.chains || []);
         setIsLoading(false);
-        
-        // Si des chaînes sont disponibles, demander les données pour chacune
-        if (data.chains && data.chains.length > 0) {
-          data.chains.forEach((chainName: string) => {
-            socket.emit('get-ampd-signings', { chain: chainName });
-          });
-        }
       });
       
       // Écouteur pour les données de signature
@@ -40,17 +33,6 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
           }));
         }
       });
-      
-      // Écouteur pour les mises à jour de signature
-      socket.on('ampd-signings-update', (data) => {
-        if (data.chain) {
-          // Demander une mise à jour complète des données
-          socket.emit('get-ampd-signings', { chain: data.chain });
-        }
-      });
-      
-      // Demander la liste des chaînes supportées
-      socket.emit('get-ampd-chains');
     }
 
     // Nettoyage lors du démontage du composant
@@ -58,7 +40,6 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
       if (socket) {
         socket.off('ampd-chains');
         socket.off('ampd-signings');
-        socket.off('ampd-signings-update');
       }
     };
   }, [socket]);

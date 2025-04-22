@@ -23,13 +23,6 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '' }
         console.log("AMPD Chains received:", data);
         setSupportedChains(data.chains || []);
         setIsLoading(false);
-        
-        // Si des chaînes sont disponibles, demander les données pour chacune
-        if (data.chains && data.chains.length > 0) {
-          data.chains.forEach((chainName: string) => {
-            socket.emit('get-ampd-votes', { chain: chainName });
-          });
-        }
       });
       
       // Écouteur pour les données de vote
@@ -41,17 +34,6 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '' }
           }));
         }
       });
-      
-      // Écouteur pour les mises à jour de vote
-      socket.on('ampd-votes-update', (data) => {
-        if (data.chain) {
-          // Demander une mise à jour complète des données
-          socket.emit('get-ampd-votes', { chain: data.chain });
-        }
-      });
-      
-      // Demander la liste des chaînes supportées
-      socket.emit('get-ampd-chains');
     }
 
     // Nettoyage lors du démontage du composant
@@ -59,7 +41,6 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '' }
       if (socket) {
         socket.off('ampd-chains');
         socket.off('ampd-votes');
-        socket.off('ampd-votes-update');
       }
     };
   }, [socket]);
