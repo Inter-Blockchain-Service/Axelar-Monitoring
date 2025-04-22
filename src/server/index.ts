@@ -7,6 +7,7 @@ import { setupApiRoutes } from './api';
 import { setupWebSockets } from './websockets';
 import { setupEventHandlers } from './events';
 import { connectToNode, createReconnectionHandler } from './node-manager';
+import { AlertManager } from './alert-manager';
 import { BLOCKS_HISTORY_SIZE, HEARTBEAT_HISTORY_SIZE, HEARTBEAT_PERIOD } from '../constants';
 
 // Charger les variables d'environnement
@@ -75,6 +76,9 @@ if (metrics.ampdEnabled) {
   metrics.ampdSupportedChains = tendermintClient.getAmpdSupportedChains() || [];
 }
 
+// Initialiser le gestionnaire d'alertes
+const alertManager = new AlertManager(metrics);
+
 // Créer la fonction de reconnexion
 const reconnectToNode = createReconnectionHandler(tendermintClient, metrics, rpcEndpoint);
 
@@ -86,6 +90,24 @@ setupEventHandlers(tendermintClient, metrics, reconnectToNode);
 
 // Configurer les routes API
 setupApiRoutes(app, metrics, tendermintClient);
+
+// Ajouter des routes API pour les alertes
+app.get('/api/alerts/status', (req, res) => {
+  const status = {
+    enabled: true,
+    thresholds: {
+      consecutiveBlocksMissed: parseInt(process.env.ALERT_CONSECUTIVE_BLOCKS_THRESHOLD || '3', 10),
+      consecutiveHeartbeatsMissed: parseInt(process.env.ALERT_CONSECUTIVE_HEARTBEATS_THRESHOLD || '2', 10),
+      signRateThreshold: parseFloat(process.env.ALERT_SIGN_RATE_THRESHOLD || '98.5'),
+      heartbeatRateThreshold: parseFloat(process.env.ALERT_HEARTBEAT_RATE_THRESHOLD || '98.0')
+    },
+    notifications: {
+      discord: process.env.DISCORD_ALERTS_ENABLED === 'true',
+      telegram: process.env.TELEGRAM_ALERTS_ENABLED === 'true'
+    }
+  };
+  res.json(status);
+});
 
 // Démarrer le serveur et connecter au nœud RPC
 const PORT = process.env.PORT || 3001;
@@ -103,6 +125,10 @@ server.listen(Number(PORT), '0.0.0.0', async () => {
     console.log(`AMPD monitoring enabled for chains: ${metrics.ampdSupportedChains.join(', ')}`);
     console.log(`AMPD address used: ${tendermintClient.getAmpdAddress()}`);
   }
+  
+  // Démarrer la vérification périodique des alertes (chaque minute)
+  alertManager.startPeriodicChecks(60000);
+  console.log('Alert system started with periodic checks every minute');
   
   // Connecter au nœud RPC après vérification de son statut
   await connectToNode(tendermintClient, metrics, rpcEndpoint);
