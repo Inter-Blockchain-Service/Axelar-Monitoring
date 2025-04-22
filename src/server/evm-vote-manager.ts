@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import axios from 'axios';
 
-// Liste des chaînes supportées à partir du fichier .env
+// List of supported chains from the .env file
 const SUPPORTED_CHAINS = process.env.EVM_SUPPORTED_CHAINS 
   ? process.env.EVM_SUPPORTED_CHAINS.split(',').map(chain => chain.trim()) 
   : [
@@ -15,12 +15,12 @@ const SUPPORTED_CHAINS = process.env.EVM_SUPPORTED_CHAINS
     'centrifuge', 'scroll',
     'immutable', 'fraxtal',
     'blast'
-  ]; // Valeurs par défaut si non définies dans .env
+  ]; // Default values if not defined in .env
 
-// Nombre maximum de poll_ids à stocker par chaîne
+// Maximum number of poll_ids to store per chain
 const MAX_POLL_HISTORY = 35;
 
-// Type de statut d'un vote
+// Vote status type
 export enum VoteStatusType {
   Unknown = 'unknown',
   Unsubmitted = 'unsubmitted',
@@ -28,21 +28,21 @@ export enum VoteStatusType {
   Invalid = 'invalid'
 }
 
-// Interface pour représenter un poll
+// Interface to represent a poll
 export interface PollStatus {
   pollId: string;
   result: VoteStatusType | string;
 }
 
-// Interface pour les données de chaîne
-interface ChainData {
+// Interface for chain data
+export interface EvmVoteData {
   [chain: string]: {
     pollIds: PollStatus[];
   }
 }
 
 export class EvmVoteManager extends EventEmitter {
-  private chainData: ChainData = {};
+  private chainData: EvmVoteData = {};
   private lastGlobalPollId: number = 0;
   private validatorAddress: string;
   private apiEndpoint: string;
@@ -52,7 +52,7 @@ export class EvmVoteManager extends EventEmitter {
     this.validatorAddress = validatorAddress;
     this.apiEndpoint = apiEndpoint;
 
-    // Initialiser la structure de données pour chaque chaîne
+    // Initialize data structure for each chain
     SUPPORTED_CHAINS.forEach(chain => {
       this.chainData[chain.toLowerCase()] = {
         pollIds: Array(MAX_POLL_HISTORY).fill(undefined).map(() => ({
@@ -62,64 +62,64 @@ export class EvmVoteManager extends EventEmitter {
       };
     });
 
-    console.log(`Gestionnaire de votes EVM initialisé pour ${validatorAddress}`);
+    console.log(`EVM vote manager initialized for ${validatorAddress}`);
   }
 
-  // Fonction pour traiter les transactions
+  // Function to process transactions
   public handleTransaction(txResult: any): void {
     const height = parseInt(txResult.height);
 
     
-    // Vérifier si txResult.events contient les informations de vote pour notre validateur
+    // Check if txResult.events contains vote information for our validator
     if (txResult.events && 
         txResult.events['axelar.vote.v1beta1.Voted.voter'] &&
         txResult.events['axelar.vote.v1beta1.Voted.voter'].some((voter: string) => voter.includes(this.validatorAddress))) {
         
-      // Récupérer le hash de la transaction
+      // Get transaction hash
       if (txResult.events['tx.hash'] && txResult.events['tx.hash'].length > 0) {
         const txHash = txResult.events['tx.hash'][0];
         
-        // Interroger l'API Axelar pour les détails de la transaction
+        // Query Axelar API for transaction details
         this.getTxByHash(txHash)
           .then(txDetails => {
             try {
-              // Vérifier si c'est un BatchRequest ou un message direct
+              // Check if it's a BatchRequest or a direct message
               if (!txDetails) {
-                console.log(`⚠️ Pas de détails pour la transaction ${txHash}`);
+                console.log(`⚠️ No details for transaction ${txHash}`);
                 return;
               }
               
               const messages = txDetails.tx.body.messages;
               if (!messages || messages.length === 0) {
-                console.log("⚠️ Pas de messages trouvés dans la transaction");
+                console.log("⚠️ No messages found in transaction");
                 return;
               }
 
-              // Traiter différemment selon le type de message
+              // Process differently based on message type
               if (messages[0]["@type"] === "/axelar.auxiliary.v1beta1.BatchRequest") {
                 const batchMessages = messages[0].messages;
                 
                 if (batchMessages && batchMessages.length > 0) {
-                  console.log(`📝 Traitement de ${batchMessages.length} messages dans le batch`);
-                  // Traiter chaque message dans le batch
+                  console.log(`📝 Processing ${batchMessages.length} messages in batch`);
+                  // Process each message in the batch
                   batchMessages.forEach((batchMsg: any, index: number) => {
-                    console.log(`📝 Traitement du message ${index + 1}/${batchMessages.length} du batch`);
+                    console.log(`📝 Processing message ${index + 1}/${batchMessages.length} from batch`);
                     this.processVoteMessage(batchMsg);
                   });
                 } else {
-                  console.log("⚠️ Pas de messages dans le BatchRequest");
+                  console.log("⚠️ No messages in BatchRequest");
                 }
               } else {
-                // Cas d'un seul message
-                console.log(`📝 Traitement d'un message direct de type ${messages[0]["@type"]}`);
+                // Case of a single message
+                console.log(`📝 Processing direct message of type ${messages[0]["@type"]}`);
                 this.processVoteMessage(messages[0]);
               }
             } catch (e) {
-              console.error("❌ Erreur lors du traitement du vote:", e);
+              console.error("❌ Error processing vote:", e);
             }
           })
           .catch(error => {
-            console.error("❌ Erreur lors de la requête des détails de la transaction:", error);
+            console.error("❌ Error requesting transaction details:", error);
           });
       }
     }
@@ -128,24 +128,24 @@ export class EvmVoteManager extends EventEmitter {
       try {
         const logData = txResult.data.value.TxResult.result.log;
         
-        // Vérifier si le log contient "poll_id" pour détecter tous les types de transactions avec des poll_id
+        // Check if log contains "poll_id" to detect all transaction types with poll_ids
         if (logData.includes('"poll_id"') || logData.includes('poll_id')) {
           
           try {
             const logs = JSON.parse(logData);
             
-            // Chercher les événements qui contiennent des poll_id dans les attributs
+            // Look for events that contain poll_id in attributes
             for (const log of logs) {
               if (log.events) {
                 for (const event of log.events) {
-                  // Filtrer les types de transactions que nous voulons traiter
-                  // Exclure les événements de vote qui sont traités ailleurs
+                  // Filter transaction types we want to process
+                  // Exclude vote events which are processed elsewhere
                   if (event.type !== 'axelar.vote.v1beta1.Voted' && event.attributes) {
-                    // Variables pour stocker la chaîne et le poll_id
+                    // Variables to store chain and poll_id
                     let chain = null;
                     let pollId = null;
                     
-                    // Extraire d'abord la chaîne qui est généralement dans un attribut 'chain'
+                    // First extract the chain which is usually in a 'chain' attribute
                     for (const attr of event.attributes) {
                       if (attr.key === 'chain') {
                         chain = attr.value.replace(/^"(.*)"$/, '$1').replace(/\\"/g, '');
@@ -153,9 +153,9 @@ export class EvmVoteManager extends EventEmitter {
                       }
                     }
                     
-                    // Chercher le poll_id selon différentes structures
+                    // Look for poll_id according to different structures
                     for (const attr of event.attributes) {
-                      // Cas 1: Dans un attribut 'participants'
+                      // Case 1: In a 'participants' attribute
                       if (attr.key === 'participants' && attr.value && attr.value.includes('poll_id')) {
                         try {
                           const participantsObj = JSON.parse(attr.value.replace(/\\"/g, '"'));
@@ -164,14 +164,14 @@ export class EvmVoteManager extends EventEmitter {
                             break;
                           }
                         } catch (e) {
-                          console.error("Erreur lors du parsing de l'attribut participants:", e);
+                          console.error("Error parsing participants attribute:", e);
                         }
                       }
-                      // Cas 2: Dans poll_mappings (comme dans ConfirmGatewayTxsStarted)
+                      // Case 2: In poll_mappings (as in ConfirmGatewayTxsStarted)
                       else if (attr.key === 'poll_mappings') {
                         try {
                           const pollMappings = attr.value;
-                          // Essayer de parser les poll_mappings pour obtenir le poll_id
+                          // Try to parse poll_mappings to get poll_id
                           try {
                             const mappings = JSON.parse(pollMappings);
                             if (Array.isArray(mappings) && mappings.length > 0 && mappings[0].poll_id) {
@@ -179,7 +179,7 @@ export class EvmVoteManager extends EventEmitter {
                               break;
                             }
                           } catch (e) {
-                            // Si le parsing échoue, chercher le poll_id par regex
+                            // If parsing fails, look for poll_id by regex
                             const pollIdMatch = pollMappings.match(/"poll_id"\s*:\s*"(\d+)"/);
                             if (pollIdMatch && pollIdMatch[1]) {
                               pollId = pollIdMatch[1];
@@ -187,14 +187,14 @@ export class EvmVoteManager extends EventEmitter {
                             }
                           }
                         } catch (e) {
-                          console.error("Erreur lors de l'extraction du poll_id:", e);
+                          console.error("Error extracting poll_id:", e);
                         }
                       }
                     }
                     
-                    // Si on a trouvé à la fois une chaîne et un poll_id, les traiter
+                    // If we found both a chain and a poll_id, process them
                     if (chain && pollId) {
-                      // Ajouter le poll_id à la chaîne correspondante
+                      // Add poll_id to corresponding chain
                       this.addPollIdToChain(chain, pollId);
                     }
                   }
@@ -202,63 +202,63 @@ export class EvmVoteManager extends EventEmitter {
               }
             }
           } catch (e) {
-            console.error("Erreur lors du parsing des logs:", e);
+            console.error("Error parsing logs:", e);
           }
         }
       } catch (e) {
-        // Ignorer les erreurs
+        // Ignore errors
       }
     }
   }
 
-  // Fonction pour ajouter un nouveau poll_id à une chaîne
+  // Function to add a new poll_id to a chain
   private addPollIdToChain(chain: string, pollId: string): boolean {
     if (!chain) return false;
     
-    // Normaliser le nom de la chaîne
+    // Normalize chain name
     const normalizedChain = chain.toLowerCase().replace(/[\"\\]/g, '');
     
-    // Vérifier si la chaîne est supportée
+    // Check if chain is supported
     if (this.chainData[normalizedChain]) {
-      // Vérifier si ce poll_id existe déjà dans notre historique
+      // Check if this poll_id already exists in our history
       const existingIndex = this.chainData[normalizedChain].pollIds.findIndex(item => 
         item.pollId === pollId && item.pollId !== "unknown"
       );
       
-      // Si le poll_id existe déjà, ne pas l'ajouter à nouveau
+      // If poll_id already exists, don't add it again
       if (existingIndex >= 0) {
         return false;
       }
       
-      // Convertir le poll_id en nombre pour la vérification
+      // Convert poll_id to number for validation
       const numericPollId = parseInt(pollId, 10);
       
-      // Vérifier si le poll_id s'incrémente bien de 1 par rapport au dernier poll global
+      // Check if poll_id increments by 1 from last global poll
       if (this.lastGlobalPollId > 0 && numericPollId !== this.lastGlobalPollId + 1) {
-        console.log(`\n⚠️ ALERTE - POLL ID NON SÉQUENTIEL GLOBAL`);
-        console.log(`   Dernier Poll ID global: ${this.lastGlobalPollId}`);
-        console.log(`   Nouveau Poll ID: ${numericPollId}`);
-        console.log(`   Écart: ${numericPollId - this.lastGlobalPollId}`);
-        console.log(`   Chaîne: ${normalizedChain.toUpperCase()}`);
+        console.log(`\n⚠️ ALERT - NON-SEQUENTIAL GLOBAL POLL ID`);
+        console.log(`   Last global Poll ID: ${this.lastGlobalPollId}`);
+        console.log(`   New Poll ID: ${numericPollId}`);
+        console.log(`   Gap: ${numericPollId - this.lastGlobalPollId}`);
+        console.log(`   Chain: ${normalizedChain.toUpperCase()}`);
       }
       
-      // Mettre à jour le dernier poll_id global connu
+      // Update last known global poll_id
       if (!isNaN(numericPollId)) {
         this.lastGlobalPollId = numericPollId;
       }
       
-      // Ajouter le nouveau poll_id au début du tableau et supprimer le plus ancien
+      // Add new poll_id to the beginning of the array and remove the oldest
       this.chainData[normalizedChain].pollIds.unshift({
         pollId: pollId,
         result: VoteStatusType.Unsubmitted
       });
       
-      // Limiter la taille du tableau
+      // Limit array size
       if (this.chainData[normalizedChain].pollIds.length > MAX_POLL_HISTORY) {
         this.chainData[normalizedChain].pollIds.pop();
       }
 
-      // Émettre un événement pour notifier de la mise à jour
+      // Emit event to notify of update
       this.emit('vote-update', {
         chain: normalizedChain,
         pollIds: this.chainData[normalizedChain].pollIds,
@@ -271,10 +271,10 @@ export class EvmVoteManager extends EventEmitter {
     return false;
   }
 
-  // Récupérer les détails d'une transaction par son hash
+  // Get transaction details by hash
   private async getTxByHash(txHash: string) {
     const maxRetries = 3;
-    const retryDelay = 2000; // 2 secondes de délai entre les tentatives
+    const retryDelay = 2000; // 2 seconds delay between attempts
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -288,18 +288,18 @@ export class EvmVoteManager extends EventEmitter {
           return null;
         }
       } catch (error: any) {
-        // Si la transaction n'est pas encore indexée (404), réessayer après un délai
+        // If transaction is not yet indexed (404), retry after delay
         if (error.response && error.response.status === 404) {
-          console.log(`💬 Tx ${txHash} pas encore indexée, tentative ${attempt}/${maxRetries}...`);
+          console.log(`💬 Tx ${txHash} not yet indexed, attempt ${attempt}/${maxRetries}...`);
           
-          // Si ce n'est pas la dernière tentative, attendre et réessayer
+          // If not the last attempt, wait and retry
           if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, retryDelay));
             continue;
           }
         }
         
-        console.error(`❌ Erreur lors de la requête de la transaction ${txHash}:`, error.message);
+        console.error(`❌ Error requesting transaction ${txHash}:`, error.message);
         return null;
       }
     }
@@ -307,10 +307,10 @@ export class EvmVoteManager extends EventEmitter {
     return null;
   }
 
-  // Fonction pour traiter un message de vote individuel
+  // Function to process an individual vote message
   private processVoteMessage(message: any) {
     try {
-      // Vérifier si c'est un RefundMsgRequest contenant un VoteRequest
+      // Check if it's a RefundMsgRequest containing a VoteRequest
       if (message["@type"] === "/axelar.reward.v1beta1.RefundMsgRequest" && message.inner_message) {
         const innerMessage = message.inner_message;
         
@@ -322,54 +322,54 @@ export class EvmVoteManager extends EventEmitter {
             const voteChain = vote.chain;
             const events = vote.events;
             
-            // Vérifier si le vote est valide
+            // Check if vote is valid
             let isValid = false;
             if (events && events.length > 0) {
-              // Vérifier que la chaîne dans events correspond à celle dans vote
+              // Check that chain in events matches the one in vote
               isValid = events.some((event: any) => event.chain === voteChain);
             }
             
-            // Déterminer le statut en fonction de la validité
+            // Determine status based on validity
             const status = isValid ? VoteStatusType.Validated : VoteStatusType.Invalid;
             
-            // Mettre à jour le statut du poll
+            // Update poll status
             this.updatePollStatus(pollId, status, voteChain);
           } else {
-            console.log(`Type de vote non supporté: ${vote?.["@type"] || "inconnu"}`);
+            console.log(`Unsupported vote type: ${vote?.["@type"] || "unknown"}`);
           }
         } else {
-          console.log("Pas de poll_id trouvé dans l'inner_message");
+          console.log("No poll_id found in inner_message");
         }
       } else {
-        console.log(`Type de message non supporté: ${message["@type"]}`);
+        console.log(`Unsupported message type: ${message["@type"]}`);
       }
     } catch (e) {
-      console.error("Erreur lors du traitement d'un message individuel:", e);
+      console.error("Error processing individual message:", e);
     }
   }
 
-  // Fonction pour mettre à jour le statut d'un poll_id
+  // Function to update a poll_id status
   private updatePollStatus(pollId: string, newStatus: VoteStatusType, chain?: string): boolean {
     if (!pollId) return false;
     
     let updated = false;
     
-    // Si une chaîne est spécifiée, mettre à jour uniquement cette chaîne
+    // If a chain is specified, update only that chain
     if (chain) {
       const normalizedChain = chain.toLowerCase();
       if (this.chainData[normalizedChain]) {
-        // Chercher l'index du poll
+        // Find poll index
         const pollIndex = this.chainData[normalizedChain].pollIds.findIndex(item => 
           item.pollId === pollId && item.pollId !== "unknown"
         );
         
-        // Si trouvé, mettre à jour son statut
+        // If found, update its status
         if (pollIndex >= 0) {
           const oldStatus = this.chainData[normalizedChain].pollIds[pollIndex].result;
           this.chainData[normalizedChain].pollIds[pollIndex].result = newStatus;
           updated = true;
           
-          // Émettre un événement pour notifier de la mise à jour
+          // Emit event to notify of update
           this.emit('vote-update', {
             chain: normalizedChain,
             pollIds: this.chainData[normalizedChain].pollIds,
@@ -381,24 +381,24 @@ export class EvmVoteManager extends EventEmitter {
       }
     }
     
-    // Si aucune mise à jour n'a été effectuée ou si aucune chaîne n'est spécifiée, rechercher dans toutes les chaînes
+    // If no update was made or no chain is specified, search in all chains
     for (const chainName of SUPPORTED_CHAINS) {
       const normalizedChain = chainName.toLowerCase();
       const chain = this.chainData[normalizedChain];
       
       if (chain) {
-        // Chercher l'index du poll
+        // Find poll index
         const pollIndex = chain.pollIds.findIndex(item => 
           item.pollId === pollId && item.pollId !== "unknown"
         );
         
-        // Si trouvé, mettre à jour son statut
+        // If found, update its status
         if (pollIndex >= 0) {
           const oldStatus = chain.pollIds[pollIndex].result;
           chain.pollIds[pollIndex].result = newStatus;
           updated = true;
           
-          // Émettre un événement pour notifier de la mise à jour
+          // Emit event to notify of update
           this.emit('vote-update', {
             chain: normalizedChain,
             pollIds: this.chainData[normalizedChain].pollIds,
@@ -414,7 +414,7 @@ export class EvmVoteManager extends EventEmitter {
   }
 
   /**
-   * Récupère les données de votes pour une chaîne spécifique
+   * Get vote data for a specific chain
    */
   public getChainVotes(chain: string): PollStatus[] | null {
     const normalizedChain = chain.toLowerCase();
@@ -422,14 +422,14 @@ export class EvmVoteManager extends EventEmitter {
   }
 
   /**
-   * Récupère toutes les données de votes pour toutes les chaînes
+   * Get all vote data for all chains
    */
-  public getAllVotes(): ChainData {
+  public getAllVotes(): EvmVoteData {
     return this.chainData;
   }
 
   /**
-   * Récupère le dernier ID de poll global
+   * Get the last global poll ID
    */
   public getLastGlobalPollId(): number {
     return this.lastGlobalPollId;

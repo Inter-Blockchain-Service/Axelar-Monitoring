@@ -3,22 +3,23 @@ import http from 'http';
 import { Server } from 'socket.io';
 import { TendermintClient, StatusType, StatusUpdate } from './tendermint';
 import { HeartbeatStatusType, HeartbeatUpdate } from './heartbeat_manager';
-import { VoteStatusType, PollStatus } from './evm-vote-manager';
 import { BLOCKS_HISTORY_SIZE, HEARTBEAT_HISTORY_SIZE, HEARTBEAT_PERIOD } from '../constants';
 import dotenv from 'dotenv';
+import { AmpdVoteData, AmpdSigningData } from './ampd-manager';
+import { EvmVoteData, PollStatus as EvmPollStatus } from './evm-vote-manager';
 
-// Charger les variables d'environnement
+// Load environment variables
 dotenv.config();
 
-// Configuration par défaut
+// Default configuration
 const DEFAULT_RPC_ENDPOINT = 'http://localhost:26657';
 const DEFAULT_VALIDATOR_ADDRESS = '';
 
-// Créer l'application Express
+// Create Express application
 const app = express();
 const server = http.createServer(app);
 
-// Configurer Socket.io avec CORS
+// Configure Socket.io with CORS
 const io = new Server(server, {
   cors: {
     origin: '*',
@@ -26,7 +27,7 @@ const io = new Server(server, {
   }
 });
 
-// Interface pour les métriques du validateur
+// Interface for validator metrics
 interface ValidatorMetrics {
   chainId: string;
   moniker: string;
@@ -41,9 +42,9 @@ interface ValidatorMetrics {
   precommitMissed: number;
   connected: boolean;
   lastError: string;
-  // Métriques de Heartbeat
+  // Heartbeat metrics
   heartbeatStatus: number[];
-  heartbeatBlocks: (number | undefined)[]; // Modifié pour accepter undefined
+  heartbeatBlocks: (number | undefined)[]; // Modified to accept undefined
   heartbeatsMissed: number;
   heartbeatsSigned: number;
   heartbeatsConsecutiveMissed: number;
@@ -51,24 +52,24 @@ interface ValidatorMetrics {
   lastHeartbeatTime: Date | null;
   heartbeatConnected: boolean;
   heartbeatLastError: string;
-  // Métriques EVM Votes
+  // EVM Votes metrics
   evmVotesEnabled: boolean;
-  evmVotes: any;
+  evmVotes: EvmVoteData;
   evmLastGlobalPollId: number;
-  // Métriques AMPD
+  // AMPD metrics
   ampdEnabled: boolean;
-  ampdVotes: any;
-  ampdSignings: any;
+  ampdVotes: AmpdVoteData;
+  ampdSignings: AmpdSigningData;
   ampdSupportedChains: string[];
 }
 
-// Initialiser les métriques avec des valeurs par défaut
+// Initialize metrics with default values
 let metrics: ValidatorMetrics = {
   chainId: process.env.CHAIN_ID || 'axelar',
-  moniker: process.env.VALIDATOR_MONIKER || 'Mon Validateur',
+  moniker: process.env.VALIDATOR_MONIKER || 'My Validator',
   lastBlock: 0,
   lastBlockTime: new Date(),
-  signStatus: Array(BLOCKS_HISTORY_SIZE).fill(-1), // Historique pour la période de signature complète
+  signStatus: Array(BLOCKS_HISTORY_SIZE).fill(-1), // History for the complete signature period
   totalMissed: 0,
   totalSigned: 0,
   totalProposed: 0,
@@ -77,9 +78,9 @@ let metrics: ValidatorMetrics = {
   precommitMissed: 0,
   connected: false,
   lastError: '',
-  // Initialisation des métriques heartbeats
+  // Initialize heartbeat metrics
   heartbeatStatus: Array(HEARTBEAT_HISTORY_SIZE).fill(-1),
-  heartbeatBlocks: Array(HEARTBEAT_HISTORY_SIZE).fill(undefined), // Ajout des hauteurs de bloc
+  heartbeatBlocks: Array(HEARTBEAT_HISTORY_SIZE).fill(undefined), // Adding block heights
   heartbeatsMissed: 0,
   heartbeatsSigned: 0,
   heartbeatsConsecutiveMissed: 0,
@@ -87,18 +88,18 @@ let metrics: ValidatorMetrics = {
   lastHeartbeatTime: null,
   heartbeatConnected: false,
   heartbeatLastError: '',
-  // Initialisation des métriques EVM votes
+  // Initialize EVM votes metrics
   evmVotesEnabled: false,
   evmVotes: {},
   evmLastGlobalPollId: 0,
-  // Initialisation des métriques AMPD
+  // Initialize AMPD metrics
   ampdEnabled: false,
   ampdVotes: {},
   ampdSignings: {},
   ampdSupportedChains: []
 };
 
-// Créer et configurer le client Tendermint
+// Create and configure the Tendermint client
 const rpcEndpoint = process.env.RPC_ENDPOINT || DEFAULT_RPC_ENDPOINT;
 const validatorAddress = process.env.VALIDATOR_ADDRESS || DEFAULT_VALIDATOR_ADDRESS;
 const broadcasterAddress = process.env.BROADCASTER_ADDRESS || validatorAddress;
@@ -106,15 +107,15 @@ const axelarApiEndpoint = process.env.AXELAR_API_ENDPOINT || '';
 const ampdAddress = process.env.AMPD_ADDRESS || broadcasterAddress;
 
 if (!validatorAddress) {
-  console.error("ERREUR: Adresse du validateur non spécifiée. Définissez VALIDATOR_ADDRESS dans les variables d'environnement.");
+  console.error("ERROR: Validator address not specified. Set VALIDATOR_ADDRESS in environment variables.");
   process.exit(1);
 }
 
-// Récupérer les chaînes AMPD supportées depuis les variables d'environnement
+// Get supported AMPD chains from environment variables
 const ampdSupportedChainsEnv = process.env.AMPD_SUPPORTED_CHAINS || '';
 const ampdSupportedChains = ampdSupportedChainsEnv.split(',').filter(chain => chain.trim() !== '');
 
-// Créer le client Tendermint qui gère maintenant à la fois les blocs/votes, les heartbeats, les votes EVM et AMPD
+// Create Tendermint client that now manages blocks/votes, heartbeats, EVM votes and AMPD
 const tendermintClient = new TendermintClient(
   rpcEndpoint,
   validatorAddress,
@@ -125,44 +126,44 @@ const tendermintClient = new TendermintClient(
   ampdAddress
 );
 
-// Vérifier si le gestionnaire de votes EVM est activé
+// Check if EVM vote manager is enabled
 metrics.evmVotesEnabled = tendermintClient.hasEvmVoteManager();
 
-// Si le gestionnaire de votes EVM est activé, récupérer les votes initiaux
+// If EVM vote manager is enabled, get initial votes
 if (metrics.evmVotesEnabled) {
-  console.log(`Surveillance des votes EVM activée avec API endpoint: ${axelarApiEndpoint}`);
-  // Initialiser les votes EVM
+  console.log(`EVM votes monitoring enabled with API endpoint: ${axelarApiEndpoint}`);
+  // Initialize EVM votes
   metrics.evmVotes = tendermintClient.getAllEvmVotes() || {};
 }
 
-// Vérifier si le gestionnaire AMPD est activé
+// Check if AMPD manager is enabled
 metrics.ampdEnabled = tendermintClient.hasAmpdManager();
 
-// Si le gestionnaire AMPD est activé, récupérer les données initiales
+// If AMPD manager is enabled, get initial data
 if (metrics.ampdEnabled) {
-  console.log(`Surveillance AMPD activée pour les chaînes: ${ampdSupportedChains.join(', ')}`);
-  // Initialiser les données AMPD
-  metrics.ampdVotes = tendermintClient.getAllAmpdData() || {};
-  metrics.ampdSignings = tendermintClient.getAllAmpdData() || {};
+  console.log(`AMPD monitoring enabled for chains: ${ampdSupportedChains.join(', ')}`);
+  // Initialize AMPD data
+  metrics.ampdVotes = tendermintClient.getAllAmpdVotes() || {};
+  metrics.ampdSignings = tendermintClient.getAllAmpdSignings() || {};
   metrics.ampdSupportedChains = tendermintClient.getAmpdSupportedChains() || [];
 }
 
-// Calculer les statistiques sur la base de l'historique des blocs
+// Calculate statistics based on block history
 function recalculateStats() {
-  // Réinitialiser les statistiques
+  // Reset statistics
   metrics.totalMissed = 0;
   metrics.totalSigned = 0;
   metrics.totalProposed = 0;
   metrics.prevoteMissed = 0;
   metrics.precommitMissed = 0;
   
-  // Nombre de blocs manqués consécutifs
+  // Number of consecutive missed blocks
   let consecutiveMissed = 0;
   let maxConsecutiveMissed = 0;
   
-  // Parcourir tous les blocs dans l'historique, ignorer les valeurs -1 (pas encore de données)
+  // Go through all blocks in history, ignore -1 values (no data yet)
   metrics.signStatus.forEach((status) => {
-    if (status === -1) return; // Ignorer les blocs sans données
+    if (status === -1) return; // Ignore blocks without data
     
     switch (status) {
       case StatusType.Missed:
@@ -190,27 +191,27 @@ function recalculateStats() {
         break;
     }
     
-    // Mettre à jour le maximum de blocs manqués consécutifs
+    // Update maximum consecutive missed blocks
     maxConsecutiveMissed = Math.max(maxConsecutiveMissed, consecutiveMissed);
   });
   
-  // Mettre à jour le nombre de blocs manqués consécutifs
+  // Update number of consecutive missed blocks
   metrics.consecutiveMissed = maxConsecutiveMissed;
 }
 
-// Calculer les statistiques des heartbeats
+// Calculate heartbeat statistics
 function recalculateHeartbeatStats() {
-  // Réinitialiser les statistiques
+  // Reset statistics
   metrics.heartbeatsMissed = 0;
   metrics.heartbeatsSigned = 0;
   
-  // Nombre de heartbeats manqués consécutifs
+  // Number of consecutive missed heartbeats
   let consecutiveMissed = 0;
   let maxConsecutiveMissed = 0;
   
-  // Parcourir tous les heartbeats dans l'historique, ignorer les valeurs -1 (pas encore de données)
+  // Go through all heartbeats in history, ignore -1 values (no data yet)
   metrics.heartbeatStatus.forEach((status) => {
-    if (status === -1) return; // Ignorer les périodes sans données
+    if (status === -1) return; // Ignore periods without data
     
     switch (status) {
       case HeartbeatStatusType.Missed:
@@ -223,15 +224,15 @@ function recalculateHeartbeatStats() {
         break;
     }
     
-    // Mettre à jour le maximum de heartbeats manqués consécutifs
+    // Update maximum consecutive missed heartbeats
     maxConsecutiveMissed = Math.max(maxConsecutiveMissed, consecutiveMissed);
   });
   
-  // Mettre à jour le nombre de heartbeats manqués consécutifs
+  // Update number of consecutive missed heartbeats
   metrics.heartbeatsConsecutiveMissed = maxConsecutiveMissed;
 }
 
-// Gérer les mises à jour d'état du validateur (blocs et votes uniquement)
+// Handle validator status updates (blocks and votes only)
 tendermintClient.on('status-update', (update: StatusUpdate) => {
   metrics.connected = true;
   
@@ -239,19 +240,19 @@ tendermintClient.on('status-update', (update: StatusUpdate) => {
     metrics.lastBlock = update.height;
     metrics.lastBlockTime = new Date();
     
-    // Mettre à jour l'état de signature (décaler et ajouter le nouvel état)
+    // Update signature status (shift and add new status)
     metrics.signStatus = [update.status, ...metrics.signStatus.slice(0, BLOCKS_HISTORY_SIZE - 1)];
     
-    // Recalculer toutes les statistiques sur la base de l'historique complet
+    // Recalculate all statistics based on complete history
     recalculateStats();
     
-    // Émettre les métriques mises à jour à tous les clients connectés
+    // Emit updated metrics to all connected clients
     io.emit('metrics-update', metrics);
-    console.log(`Bloc ${update.height} : ${StatusType[update.status]}`);
+    console.log(`Block ${update.height}: ${StatusType[update.status]}`);
   }
 });
 
-// Gérer les mises à jour des heartbeats
+// Handle heartbeat updates
 tendermintClient.on('heartbeat-update', (update: HeartbeatUpdate) => {
   metrics.heartbeatConnected = true;
   
@@ -259,91 +260,111 @@ tendermintClient.on('heartbeat-update', (update: HeartbeatUpdate) => {
     metrics.lastHeartbeatPeriod = update.period;
     metrics.lastHeartbeatTime = new Date();
     
-    // Mettre à jour l'état des heartbeats (décaler et ajouter le nouvel état)
+    // Update heartbeat status (shift and add new status)
     metrics.heartbeatStatus = [update.status, ...metrics.heartbeatStatus.slice(0, HEARTBEAT_HISTORY_SIZE - 1)];
     
-    // Recalculer toutes les statistiques des heartbeats
+    // Recalculate all heartbeat statistics
     recalculateHeartbeatStats();
     
-    // Émettre les métriques mises à jour à tous les clients connectés
+    // Emit updated metrics to all connected clients
     io.emit('metrics-update', metrics);
-    console.log(`Période HeartBeat ${update.period} (${update.periodStart}-${update.periodEnd}) : ${HeartbeatStatusType[update.status]}`);
+    console.log(`HeartBeat period ${update.period} (${update.periodStart}-${update.periodEnd}): ${HeartbeatStatusType[update.status]}`);
   }
   
-  // Mettre à jour l'objet metrics avec les hauteurs de bloc des heartbeats
+  // Update metrics object with heartbeat block heights
   metrics.heartbeatBlocks = tendermintClient.getHeartbeatBlocks();
 });
 
-// Gérer les mises à jour des votes EVM
-tendermintClient.on('vote-update', (update: any) => {
+// Interface pour les mises à jour d'événements EVM
+interface EvmVoteUpdate {
+  chain: string;
+  pollIds?: EvmPollStatus[];
+  lastGlobalPollId?: number;
+}
+
+// Handle EVM vote updates
+tendermintClient.on('vote-update', (update: EvmVoteUpdate) => {
   if (metrics.evmVotesEnabled) {
-    // Mettre à jour les votes pour la chaîne spécifique
+    // Update votes for the specific chain
     if (update.chain && update.pollIds) {
-      // Mettre à jour les données des votes EVM
-      metrics.evmVotes = tendermintClient.getAllEvmVotes();
+      // Update EVM vote data
+      metrics.evmVotes = tendermintClient.getAllEvmVotes() || {};
       metrics.evmLastGlobalPollId = update.lastGlobalPollId || metrics.evmLastGlobalPollId;
       
-      // Émettre les métriques mises à jour aux clients connectés
+      // Emit updated metrics to connected clients
       io.emit('metrics-update', metrics);
       io.emit('evm-votes-update', metrics.evmVotes);
       
-      // Log pour debug
-      console.log(`Mis à jour des votes EVM pour ${update.chain}, dernier Poll ID: ${metrics.evmLastGlobalPollId}`);
+      // Debug log
+      console.log(`Updated EVM votes for ${update.chain}, last Poll ID: ${metrics.evmLastGlobalPollId}`);
     }
   }
 });
 
-// Gérer les mises à jour des votes AMPD
-tendermintClient.on('ampd-vote-update', (update: any) => {
+// Define types for AMPD events
+interface AmpdVoteUpdate {
+  chain: string;
+  pollId: string;
+  status: string;
+}
+
+interface AmpdSigningUpdate {
+  chain: string;
+  signingId: string;
+  status: string;
+}
+
+// Handle AMPD vote updates
+tendermintClient.on('ampd-vote-update', (update: AmpdVoteUpdate) => {
   if (metrics.ampdEnabled && update.chain) {
-    // Mise à jour des données complètes
-    metrics.ampdVotes = tendermintClient.getAllAmpdData();
+    // Update complete data
+    metrics.ampdVotes = tendermintClient.getAllAmpdVotes() || {};
     
-    // Émettre les données mises à jour aux clients connectés
+    // Emit updated data to connected clients
     io.emit('ampd-votes-update', { chain: update.chain, votes: tendermintClient.getAmpdChainVotes(update.chain) });
     
-    // Log pour debug
-    console.log(`Mis à jour des votes AMPD pour ${update.chain}, pollId: ${update.pollId}`);
+    // Debug log
+    console.log(`Updated AMPD votes for ${update.chain}, pollId: ${update.pollId}`);
   }
 });
 
-// Gérer les mises à jour des signatures AMPD
-tendermintClient.on('ampd-signing-update', (update: any) => {
+// Handle AMPD signature updates
+tendermintClient.on('ampd-signing-update', (update: AmpdSigningUpdate) => {
   if (metrics.ampdEnabled && update.chain) {
-    // Mise à jour des données complètes
-    metrics.ampdSignings = tendermintClient.getAllAmpdData();
+    // Update complete data
+    metrics.ampdSignings = tendermintClient.getAllAmpdSignings() || {};
     
-    // Émettre les données mises à jour aux clients connectés
+    // Emit updated data to connected clients
     io.emit('ampd-signings-update', { chain: update.chain, signings: tendermintClient.getAmpdChainSignings(update.chain) });
     
-    // Log pour debug
-    console.log(`Mis à jour des signatures AMPD pour ${update.chain}, signingId: ${update.signingId}`);
+    // Debug log
+    console.log(`Updated AMPD signatures for ${update.chain}, signingId: ${update.signingId}`);
   }
 });
 
-// Gérer les déconnexions permanentes
+// Handle permanent disconnections
 tendermintClient.on('permanent-disconnect', () => {
   metrics.connected = false;
   metrics.heartbeatConnected = false;
-  metrics.lastError = "Impossible de se connecter au nœud RPC après plusieurs tentatives.";
-  metrics.heartbeatLastError = "Impossible de se connecter au WebSocket après plusieurs tentatives.";
+  metrics.lastError = "Unable to connect to RPC node after multiple attempts.";
+  metrics.heartbeatLastError = "Unable to connect to WebSocket after multiple attempts.";
   io.emit('metrics-update', metrics);
 });
 
-// Démarrer le client
+// Start the client
 tendermintClient.connect();
 
-// Gérer les connexions socket
+// Handle socket connections
 io.on('connection', (socket) => {
-  console.log('Nouveau client web connecté:', socket.id);
+  console.log('New web client connected:', socket.id);
   
-  // Envoyer les métriques actuelles immédiatement au nouveau client
+  // Send current metrics immediately to the new client
   socket.emit('metrics-update', metrics);
   if (metrics.evmVotesEnabled) {
     socket.emit('evm-votes-update', metrics.evmVotes);
   }
   
-  // Envoyer les données AMPD si activées
+  // Send AMPD data if enabled
   if (metrics.ampdEnabled) {
     socket.emit('ampd-chains', { chains: metrics.ampdSupportedChains });
   }
@@ -359,7 +380,7 @@ io.on('connection', (socket) => {
     ampdAddress: metrics.ampdEnabled ? tendermintClient.getAmpdAddress() : ''
   });
   
-  // Gestion des requêtes pour les données AMPD
+  // Handle requests for AMPD data
   socket.on('get-ampd-chains', () => {
     if (metrics.ampdEnabled) {
       socket.emit('ampd-chains', { chains: metrics.ampdSupportedChains });
@@ -385,16 +406,16 @@ io.on('connection', (socket) => {
   });
   
   socket.on('disconnect', () => {
-    console.log('Client web déconnecté:', socket.id);
+    console.log('Web client disconnected:', socket.id);
   });
 });
 
-// Route pour l'API
+// API route
 app.get('/api/metrics', (req, res) => {
   res.json(metrics);
 });
 
-// Route pour l'API des votes EVM
+// API route for EVM votes
 app.get('/api/evm-votes', (req, res) => {
   if (metrics.evmVotesEnabled) {
     res.json(metrics.evmVotes);
@@ -403,7 +424,7 @@ app.get('/api/evm-votes', (req, res) => {
   }
 });
 
-// Route pour l'API des votes EVM pour une chaîne spécifique
+// API route for EVM votes for a specific chain
 app.get('/api/evm-votes/:chain', (req, res) => {
   if (metrics.evmVotesEnabled) {
     const chain = req.params.chain.toLowerCase();
@@ -418,7 +439,7 @@ app.get('/api/evm-votes/:chain', (req, res) => {
   }
 });
 
-// Routes pour l'API AMPD
+// API routes for AMPD
 app.get('/api/ampd/chains', (req, res) => {
   if (metrics.ampdEnabled) {
     res.json(metrics.ampdSupportedChains);
@@ -455,19 +476,19 @@ app.get('/api/ampd/signings/:chain', (req, res) => {
   }
 });
 
-// Démarrer le serveur
+// Start the server
 const PORT = process.env.PORT || 3001;
 server.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`Serveur en écoute sur l'adresse 0.0.0.0:${PORT}`);
-  console.log(`Surveillance du validateur ${metrics.moniker} (${validatorAddress}) sur ${rpcEndpoint}`);
-  console.log(`Période de signature définie à ${BLOCKS_HISTORY_SIZE} blocs`);
-  console.log(`Surveillance des heartbeats définie sur ${HEARTBEAT_HISTORY_SIZE} périodes (1 période = ${HEARTBEAT_PERIOD} blocs)`);
+  console.log(`Server listening on address 0.0.0.0:${PORT}`);
+  console.log(`Monitoring validator ${metrics.moniker} (${validatorAddress}) on ${rpcEndpoint}`);
+  console.log(`Signature period set to ${BLOCKS_HISTORY_SIZE} blocks`);
+  console.log(`Heartbeat monitoring set to ${HEARTBEAT_HISTORY_SIZE} periods (1 period = ${HEARTBEAT_PERIOD} blocks)`);
   if (metrics.evmVotesEnabled) {
-    console.log(`Surveillance des votes EVM activée avec API endpoint: ${axelarApiEndpoint}`);
+    console.log(`EVM votes monitoring enabled with API endpoint: ${axelarApiEndpoint}`);
   }
   if (metrics.ampdEnabled) {
-    console.log(`Surveillance AMPD activée pour les chaînes: ${metrics.ampdSupportedChains.join(', ')}`);
-    console.log(`Adresse AMPD utilisée: ${tendermintClient.getAmpdAddress()}`);
+    console.log(`AMPD monitoring enabled for chains: ${metrics.ampdSupportedChains.join(', ')}`);
+    console.log(`AMPD address used: ${tendermintClient.getAmpdAddress()}`);
   }
 });
 

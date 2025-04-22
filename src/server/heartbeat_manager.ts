@@ -1,29 +1,29 @@
 import { EventEmitter } from 'events';
 import { HEARTBEAT_PERIOD } from '../constants';
 
-// Constantes de configuration des heartbeats
-export const TRY_CNT = 10; // Nombre de blocs à vérifier par période
+// Heartbeat configuration constants
+export const TRY_CNT = 10; // Number of blocks to check per period
 
-// Les types de statut pour les périodes de heartbeat
+// Status types for heartbeat periods
 export enum HeartbeatStatusType {
-  Unknown = -1,   // Pas encore de données pour cette période
-  Missed = 0,     // Heartbeat manqué
-  Signed = 1      // Heartbeat signé avec succès
+  Unknown = -1,   // No data yet for this period
+  Missed = 0,     // Missed heartbeat
+  Signed = 1      // Successfully signed heartbeat
 }
 
-// Interface pour les mises à jour de heartbeat
+// Interface for heartbeat updates
 export interface HeartbeatUpdate {
-  period: number;      // Identifiant de la période
-  periodStart: number; // Bloc de début de période
-  periodEnd: number;   // Bloc de fin de période
-  status: HeartbeatStatusType; // Statut de la période
-  foundAtBlock?: number; // Bloc où le heartbeat a été trouvé (si signé)
-  final: boolean;      // Indique si le statut est final
+  period: number;      // Period identifier
+  periodStart: number; // Start block of period
+  periodEnd: number;   // End block of period
+  status: HeartbeatStatusType; // Period status
+  foundAtBlock?: number; // Block where heartbeat was found (if signed)
+  final: boolean;      // Indicates if status is final
 }
 
 /**
- * Gestionnaire de la logique des heartbeats
- * Cette classe est responsable de la détection et du suivi des heartbeats
+ * Heartbeat logic manager
+ * This class is responsible for detecting and tracking heartbeats
  */
 export class HeartbeatManager extends EventEmitter {
   private targetAddress: string;
@@ -45,31 +45,31 @@ export class HeartbeatManager extends EventEmitter {
   }
 
   /**
-   * Traite une transaction pour détecter les heartbeats
+   * Process a transaction to detect heartbeats
    */
   public handleTransaction(txResult: any): void {
     const height = parseInt(txResult.height);
     
-    // Initialisation - enregistrer le premier bloc
+    // Initialization - record first block
     if (this.firstBlockSeen === 0) {
       this.firstBlockSeen = height;
       this.currentPeriod = Math.floor(height / HEARTBEAT_PERIOD);
-      console.log(`HeartbeatManager: Premier bloc vu est ${height}, période actuelle: ${this.currentPeriod}`);
+      console.log(`HeartbeatManager: First block seen is ${height}, current period: ${this.currentPeriod}`);
     }
     
-    // Déterminer dans quelle période HeartBeat nous sommes
+    // Determine which HeartBeat period we are in
     const blockPeriod = Math.floor(height / HEARTBEAT_PERIOD);
     const periodStart = blockPeriod * HEARTBEAT_PERIOD;
     const periodStartBlock = periodStart + 1;
     const periodEnd = (blockPeriod + 1) * HEARTBEAT_PERIOD - 1;
     const periodKey = `${periodStart}-${periodEnd}`;
     
-    // Détection de HeartBeat
+    // HeartBeat detection
     let isHeartBeat = false;
     let decodedTx = '';
     let addressFound = false;
     
-    // Recherche dans le TX brut
+    // Search in raw TX
     if (txResult.tx && typeof txResult.tx === 'string') {
       try {
         decodedTx = Buffer.from(txResult.tx, 'base64').toString();
@@ -83,11 +83,11 @@ export class HeartbeatManager extends EventEmitter {
           }
         }
       } catch (e) {
-        // Ignorer les erreurs de décodage
+        // Ignore decoding errors
       }
     }
     
-    // Vérifier aussi dans le raw_log
+    // Also check in raw_log
     if (isHeartBeat && !addressFound && txResult.result && txResult.result.log) {
       try {
         const logData = txResult.result.log;
@@ -97,85 +97,85 @@ export class HeartbeatManager extends EventEmitter {
       } catch (e) {}
     }
     
-    // Si c'est un HeartBeat et notre adresse est trouvée
+    // If it's a HeartBeat and our address is found
     if (isHeartBeat && addressFound) {
       if (!this.periodsFound.has(periodKey)) {
         this.periodsFound.set(periodKey, height);
         
-        // Mettre à jour l'historique des heartbeats
+        // Update heartbeat history
         this.updateHeartbeatStatus(blockPeriod, periodStart, periodEnd, HeartbeatStatusType.Signed, height, true);
         
-        console.log(`HeartbeatManager: ✅ HeartBeat trouvé pour l'adresse ${this.targetAddress} à la hauteur ${height} (période ${periodKey})`);
+        console.log(`HeartbeatManager: ✅ HeartBeat found for address ${this.targetAddress} at height ${height} (period ${periodKey})`);
       }
     }
   }
 
   /**
-   * Traite un nouveau bloc pour détecter les périodes de heartbeat
+   * Process new block to detect heartbeat periods
    */
   public handleNewBlock(blockData: any): void {
     try {
       if (!blockData?.block?.header?.height) {
-        console.error('Structure de bloc invalide:', blockData);
+        console.error('Invalid block structure:', blockData);
         return;
       }
 
       const height = parseInt(blockData.block.header.height);
       const currentPeriod = Math.floor(height / HEARTBEAT_PERIOD);
       
-      // Si c'est le premier bloc qu'on voit
+      // If it's the first block we see
       if (this.lastProcessedBlock === undefined) {
         this.lastProcessedBlock = height;
         this.currentPeriod = currentPeriod;
-        console.log(`Initialisation du HeartbeatManager: bloc ${height}, période ${currentPeriod}`);
+        console.log(`HeartbeatManager initialization: block ${height}, period ${currentPeriod}`);
         return;
       }
       
-      // Logique de période de HeartBeat
+      // HeartBeat period logic
       const blockPeriod = Math.floor(height / HEARTBEAT_PERIOD);
       const periodStart = blockPeriod * HEARTBEAT_PERIOD;
       const periodEnd = (blockPeriod + 1) * HEARTBEAT_PERIOD - 1;
       const periodKey = `${periodStart}-${periodEnd}`;
       
-      // Si nous venons de changer de période et que la précédente n'est pas validée
+      // If we just changed period and the previous one isn't validated
       if (blockPeriod > this.currentPeriod) {
         const prevPeriod = blockPeriod - 1;
         const prevPeriodStart = prevPeriod * HEARTBEAT_PERIOD;
         const prevPeriodEnd = periodStart - 1;
         const prevPeriodKey = `${prevPeriodStart}-${prevPeriodEnd}`;
         
-        // Vérifier si nous avons terminé l'initialisation
+        // Check if we have completed initialization
         if (!this.isInitialized) {
           this.isInitialized = true;
-          console.log(`HeartbeatManager: ✅ INITIALISATION TERMINÉE: Les vérifications vont maintenant commencer à partir de la période ${periodStart}-${periodEnd}`);
+          console.log(`HeartbeatManager: ✅ INITIALIZATION COMPLETE: Checks will now start from period ${periodStart}-${periodEnd}`);
         } 
-        // Si nous avons terminé l'initialisation
+        // If we have completed initialization
         else {
-          // Vérifier si la période précédente a été manquée
+          // Check if the previous period was missed
           if (!this.periodsFound.has(prevPeriodKey)) {
-            // Marquer cette période comme échec
+            // Mark this period as failed
             this.updateHeartbeatStatus(prevPeriod, prevPeriodStart, prevPeriodEnd, HeartbeatStatusType.Missed, undefined, true);
-            console.log(`HeartbeatManager: ❌ ÉCHEC: HeartBeat NON trouvé dans la période ${prevPeriodKey}`);
+            console.log(`HeartbeatManager: ❌ FAILURE: HeartBeat NOT found in period ${prevPeriodKey}`);
           }
         }
         
-        // Mettre à jour la période courante
+        // Update current period
         this.currentPeriod = blockPeriod;
-        console.log(`HeartbeatManager: ⏱️ Nouvelle période de HeartBeat commencée: ${periodKey}`);
+        console.log(`HeartbeatManager: ⏱️ New HeartBeat period started: ${periodKey}`);
       }
       
-      // Vérifier si nous avons dépassé la fenêtre de recherche d'une période sans succès
+      // Check if we have exceeded the search window for a period without success
       const blockStartPlusWindow = periodStart + 1 + TRY_CNT;
       if (height === blockStartPlusWindow && !this.periodsFound.has(periodKey) && this.isInitialized) {
-        console.log(`HeartbeatManager: ⚠️ Fenêtre de HeartBeat (${TRY_CNT} blocs) dépassée pour la période ${periodKey}, chances de détection réduites`);
+        console.log(`HeartbeatManager: ⚠️ HeartBeat window (${TRY_CNT} blocks) exceeded for period ${periodKey}, detection chances reduced`);
       }
     } catch (e) {
-      console.error('Erreur lors de la gestion du nouveau bloc:', e);
+      console.error('Error while handling new block:', e);
     }
   }
 
   /**
-   * Met à jour le statut d'un heartbeat dans l'historique
+   * Update heartbeat status in history
    */
   private updateHeartbeatStatus(
     period: number,
@@ -185,13 +185,13 @@ export class HeartbeatManager extends EventEmitter {
     foundAtBlock?: number,
     final: boolean = false
   ): void {
-    // Mettre à jour l'historique des heartbeats
+    // Update heartbeat history
     this.heartbeatHistory = [status, ...this.heartbeatHistory.slice(0, this.historySize - 1)];
     
-    // Ajouter la hauteur du bloc au début de l'historique des blocs et décaler les autres
+    // Add block height to the beginning of block history and shift others
     this.heartbeatFoundAtBlocks = [foundAtBlock, ...this.heartbeatFoundAtBlocks.slice(0, this.historySize - 1)];
     
-    // Émettre l'événement de mise à jour
+    // Emit update event
     const update: HeartbeatUpdate = {
       period,
       periodStart,
@@ -205,14 +205,14 @@ export class HeartbeatManager extends EventEmitter {
   }
 
   /**
-   * Récupère l'historique des statuts de heartbeat
+   * Get heartbeat status history
    */
   public getHeartbeatHistory(): HeartbeatStatusType[] {
     return [...this.heartbeatHistory];
   }
 
   /**
-   * Récupère l'historique des blocs où les heartbeats ont été trouvés
+   * Get history of blocks where heartbeats were found
    */
   public getHeartbeatBlocks(): (number | undefined)[] {
     return [...this.heartbeatFoundAtBlocks];

@@ -25,11 +25,11 @@ export class ValidatorSignatureManager extends EventEmitter {
 
       let status = StatusType.Missed;
 
-      // Vérifier si ce validateur est le proposeur
+      // Check if this validator is the proposer
       if (proposerAddress === this.validatorAddress) {
         status = StatusType.Proposed;
       }
-      // Vérifier si le validateur a signé ce bloc
+      // Check if the validator signed this block
       else if (this.currentBlockSignatures.includes(this.validatorAddress)) {
         status = StatusType.Signed;
       }
@@ -42,14 +42,14 @@ export class ValidatorSignatureManager extends EventEmitter {
 
       this.emit('status-update', update);
     } catch (error) {
-      console.error('Erreur de traitement du bloc:', error);
+      console.error('Block processing error:', error);
     }
   }
 
   public handleVote(voteData: any): void {
     try {
       if (voteData.Vote.validator_address !== this.validatorAddress) {
-        return; // Ce n'est pas un vote de notre validateur
+        return; // This is not a vote from our validator
       }
 
       const height = parseInt(voteData.Vote.height);
@@ -63,7 +63,7 @@ export class ValidatorSignatureManager extends EventEmitter {
           status = StatusType.Precommit;
           break;
         default:
-          return; // Type de vote inconnu
+          return; // Unknown vote type
       }
 
       const update: StatusUpdate = {
@@ -74,7 +74,7 @@ export class ValidatorSignatureManager extends EventEmitter {
 
       this.emit('status-update', update);
     } catch (error) {
-      console.error('Erreur de traitement du vote:', error);
+      console.error('Vote processing error:', error);
     }
   }
 

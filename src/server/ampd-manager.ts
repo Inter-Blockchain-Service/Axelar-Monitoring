@@ -1,36 +1,45 @@
 import { EventEmitter } from 'events';
 
-// Types pour les statuts de vote
+// Vote status types
 export enum VoteStatusType {
     Unsubmit = 'unsubmit',
     Signed = 'signed'
 }
 
-// Structure pour un poll de vote
+// Structure for a vote poll
 export interface PollStatus {
     pollId: string;
     contractAddress: string;
     result: string;
 }
 
-// Structure pour une session de signature
+// Structure for a signing session
 export interface SigningStatus {
     signingId: string;
     contractAddress: string;
     result: string;
 }
 
-// Structure des données par chaîne
-interface ChainData {
-    pollIds: PollStatus[];
-    signingIds: SigningStatus[];
+// Interfaces for data structures
+export interface AmpdVoteData {
+    [chain: string]: {
+        pollIds: PollStatus[];
+    }
+}
+
+export interface AmpdSigningData {
+    [chain: string]: {
+        signingIds: SigningStatus[];
+    }
 }
 
 export class AmpdManager extends EventEmitter {
     private ampdAddress: string;
     private axelarApiEndpoint: string;
     private supportedChains: string[] = [];
-    private chainData: Record<string, ChainData> = {};
+    // Separate data structures for votes and signings
+    private voteData: AmpdVoteData = {};
+    private signingData: AmpdSigningData = {};
     private maxPollHistory: number = 35;
 
     constructor(axelarApiEndpoint: string, supportedChains: string[] = [], ampdAddress: string) {
@@ -39,18 +48,23 @@ export class AmpdManager extends EventEmitter {
         this.axelarApiEndpoint = axelarApiEndpoint;
         this.supportedChains = supportedChains.map(chain => chain.toLowerCase());
         
-        // Initialiser la structure de données pour chaque chaîne
-        this.initializeChainData();
+        // Initialize data structure for each chain
+        this.initializeData();
     }
 
-    private initializeChainData(): void {
+    private initializeData(): void {
         this.supportedChains.forEach(chain => {
-            this.chainData[chain] = {
+            // Initialize vote data
+            this.voteData[chain] = {
                 pollIds: Array(this.maxPollHistory).fill(null).map(() => ({
                     pollId: "unknown",
                     contractAddress: "unknown",
                     result: "unknown"
-                })),
+                }))
+            };
+            
+            // Initialize signing data
+            this.signingData[chain] = {
                 signingIds: Array(this.maxPollHistory).fill(null).map(() => ({
                     signingId: "unknown",
                     contractAddress: "unknown",
@@ -61,22 +75,22 @@ export class AmpdManager extends EventEmitter {
     }
 
     /**
-     * Traite une transaction pour y rechercher des événements AMPD
+     * Process a transaction to search for AMPD events
      */
     public handleTransaction(txResult: any): void {
         if (!txResult || !txResult.events) return;
 
-        // Traitement des poll_started
+        // Process poll_started events
         if (txResult.events['wasm-messages_poll_started.messages']) {
             this.processPollStarted(txResult);
         }
         
-        // Traitement des sessions de signature
+        // Process signing sessions
         if (txResult.events && txResult.events['wasm-proof_under_construction.multisig_session_id']) {
             this.processSigningSessions(txResult);
         }
         
-        // Traitement des votes et soumissions de signature
+        // Process votes and signature submissions
         if (txResult.events &&
             (txResult.events['wasm-voted.poll_id'] || txResult.events['wasm-signature_submitted.session_id']) &&
             txResult.events['tx.fee_payer'] && 
@@ -86,7 +100,7 @@ export class AmpdManager extends EventEmitter {
     }
 
     /**
-     * Traite les événements poll_started
+     * Process poll_started events
      */
     private processPollStarted(txResult: any): void {
         const pollId = txResult.events['wasm-messages_poll_started.poll_id'] ? 
@@ -96,7 +110,7 @@ export class AmpdManager extends EventEmitter {
         const contractAddress = txResult.events['wasm-messages_poll_started._contract_address'] ? 
             txResult.events['wasm-messages_poll_started._contract_address'][0] : null;
         
-        // Vérifier si notre adresse AMPD est dans la liste des participants
+        // Check if our AMPD address is in the participants list
         if (txResult.events['wasm-messages_poll_started.participants']) {
             const participantsStr = txResult.events['wasm-messages_poll_started.participants'][0];
             try {
@@ -106,17 +120,17 @@ export class AmpdManager extends EventEmitter {
                 if (isParticipant) {
                     this.updateChainDataWithPoll(sourceChain, pollId, contractAddress);
                     
-                    // Émettre un événement de mise à jour
+                    // Emit update event
                     this.emit('vote-update', { chain: sourceChain, pollId, status: 'unsubmit' });
                 }
             } catch (error) {
-                console.error("Erreur lors du parsing des participants:", error);
+                console.error("Error parsing participants:", error);
             }
         }
     }
 
     /**
-     * Traite les événements de session de signature
+     * Process signing session events
      */
     private processSigningSessions(txResult: any): void {
         const sessionId = txResult.events['wasm-proof_under_construction.multisig_session_id'][0];
@@ -128,31 +142,31 @@ export class AmpdManager extends EventEmitter {
         const destinationChain = txResult.events['wasm-proof_under_construction.destination_chain'] ? 
             txResult.events['wasm-proof_under_construction.destination_chain'][0].replace(/"/g, '') : null;
         
-        // Vérifier si notre adresse AMPD est dans les clés publiques
+        // Check if our AMPD address is in the public keys
         if (txResult.events['wasm-signing_started.pub_keys'] && 
             txResult.events['wasm-signing_started.pub_keys'][0].includes(this.ampdAddress)) {
             
             this.updateSigningSession(destinationChain, cleanSessionId, contractAddress);
             
-            // Émettre un événement de mise à jour
+            // Emit update event
             this.emit('signing-update', { chain: destinationChain, signingId: cleanSessionId, status: 'unsubmit' });
         }
     }
 
     /**
-     * Traite les votes et soumissions de signature
+     * Process votes and signature submissions
      */
     private processVotesAndSignatures(txResult: any): void {
-        // Traitement des votes
+        // Process votes
         if (txResult.events['wasm-voted.poll_id']) {
-            // Récupérer le hash de transaction pour obtenir les détails
+            // Get transaction hash to retrieve details
             if (txResult.events['tx.hash'] && txResult.events['tx.hash'].length > 0) {
                 const txHash = txResult.events['tx.hash'][0];
                 this.fetchVoteDetails(txHash);
             }
         }
         
-        // Traitement des signatures
+        // Process signatures
         if (txResult.events['wasm-signature_submitted.session_id']) {
             const sessionIds = txResult.events['wasm-signature_submitted.session_id'];
             const contractAddresses = txResult.events['wasm-signature_submitted._contract_address'] || [];
@@ -169,62 +183,62 @@ export class AmpdManager extends EventEmitter {
     }
 
     /**
-     * Met à jour les données de chaîne avec un nouveau poll
+     * Update chain data with a new poll
      */
     private updateChainDataWithPoll(sourceChain: string | null, pollId: string | null, contractAddress: string | null): void {
         const chainKey = sourceChain ? sourceChain.toLowerCase() : null;
         
-        if (chainKey && this.chainData[chainKey]) {
+        if (chainKey && this.voteData[chainKey]) {
             const cleanPollId = pollId ? pollId.replace(/"/g, '') : 'unknown';
             
-            this.chainData[chainKey].pollIds.unshift({
+            this.voteData[chainKey].pollIds.unshift({
                 pollId: cleanPollId,
                 contractAddress: contractAddress || 'unknown',
                 result: 'unsubmit'
             });
             
-            // Maintenir la taille maximale
-            if (this.chainData[chainKey].pollIds.length > this.maxPollHistory) {
-                this.chainData[chainKey].pollIds.pop();
+            // Maintain maximum size
+            if (this.voteData[chainKey].pollIds.length > this.maxPollHistory) {
+                this.voteData[chainKey].pollIds.pop();
             }
         } else {
-            console.warn(`Chaîne source inconnue ou non supportée: ${sourceChain}`);
+            console.warn(`Unknown or unsupported source chain: ${sourceChain}`);
         }
     }
 
     /**
-     * Met à jour les données de chaîne avec une nouvelle session de signature
+     * Update chain data with a new signing session
      */
     private updateSigningSession(destinationChain: string | null, sessionId: string | null, contractAddress: string | null): void {
         const chainKey = destinationChain ? destinationChain.toLowerCase() : null;
         
-        if (chainKey && this.chainData[chainKey]) {
-            this.chainData[chainKey].signingIds.unshift({
+        if (chainKey && this.signingData[chainKey]) {
+            this.signingData[chainKey].signingIds.unshift({
                 signingId: sessionId || 'unknown',
                 contractAddress: contractAddress || 'unknown',
                 result: 'unsubmit'
             });
             
-            // Maintenir la taille maximale
-            if (this.chainData[chainKey].signingIds.length > this.maxPollHistory) {
-                this.chainData[chainKey].signingIds.pop();
+            // Maintain maximum size
+            if (this.signingData[chainKey].signingIds.length > this.maxPollHistory) {
+                this.signingData[chainKey].signingIds.pop();
             }
         } else {
-            console.warn(`Impossible de déterminer la chaîne pour la session ${sessionId} ou chaîne non supportée: ${chainKey}`);
+            console.warn(`Unable to determine chain for session ${sessionId} or unsupported chain: ${chainKey}`);
         }
     }
 
     /**
-     * Met à jour le statut d'un poll dans les données de chaîne
+     * Update poll status in vote data
      */
     private updatePollStatusInChainData(pollId: string, contractAddress: string, votes: string[]): void {
         let updated = false;
         
-        Object.keys(this.chainData).forEach(chainKey => {
-            const chain = this.chainData[chainKey];
+        Object.keys(this.voteData).forEach(chainKey => {
+            const pollIds = this.voteData[chainKey].pollIds;
             
-            for (let i = 0; i < chain.pollIds.length; i++) {
-                const poll = chain.pollIds[i];
+            for (let i = 0; i < pollIds.length; i++) {
+                const poll = pollIds[i];
                 
                 if (poll.pollId === pollId && poll.contractAddress === contractAddress) {
                     if (poll.result === 'unsubmit') {
@@ -235,7 +249,7 @@ export class AmpdManager extends EventEmitter {
                         }
                         updated = true;
                         
-                        // Émettre un événement de mise à jour
+                        // Emit update event
                         this.emit('vote-update', { chain: chainKey, pollId, status: poll.result });
                     }
                 }
@@ -243,28 +257,28 @@ export class AmpdManager extends EventEmitter {
         });
         
         if (!updated) {
-            console.error(`Erreur: Impossible de trouver le poll ${pollId} pour l'adresse ${contractAddress} pour mettre à jour le statut.`);
+            console.error(`Error: Could not find poll ${pollId} for address ${contractAddress} to update status.`);
         }
     }
 
     /**
-     * Met à jour le statut d'une session de signature dans les données de chaîne
+     * Update signing session status in signing data
      */
     private updateSigningStatusInChainData(sessionId: string, contractAddress: string): void {
         let updated = false;
         
-        Object.keys(this.chainData).forEach(chainKey => {
-            const chain = this.chainData[chainKey];
+        Object.keys(this.signingData).forEach(chainKey => {
+            const signingIds = this.signingData[chainKey].signingIds;
             
-            for (let i = 0; i < chain.signingIds.length; i++) {
-                const signing = chain.signingIds[i];
+            for (let i = 0; i < signingIds.length; i++) {
+                const signing = signingIds[i];
                 
                 if (signing.signingId === sessionId && signing.contractAddress === contractAddress) {
                     if (signing.result === 'unsubmit') {
                         signing.result = 'signed';
                         updated = true;
                         
-                        // Émettre un événement de mise à jour
+                        // Emit update event
                         this.emit('signing-update', { chain: chainKey, signingId: sessionId, status: 'signed' });
                     }
                 }
@@ -272,40 +286,40 @@ export class AmpdManager extends EventEmitter {
         });
 
         if (!updated) {
-            console.error(`Erreur: Impossible de trouver la session de signature ${sessionId} pour l'adresse ${contractAddress}.`);
+            console.error(`Error: Could not find signing session ${sessionId} for address ${contractAddress}.`);
         }
     }
 
     /**
-     * Récupère les détails d'un vote à partir d'un hash de transaction
+     * Fetch vote details from a transaction hash
      */
     private async fetchVoteDetails(txHash: string, attempt: number = 1, maxAttempts: number = 3, delay: number = 2000): Promise<void> {
         try {
             if (attempt > 1) {
-                console.log(`Tentative ${attempt}/${maxAttempts} de récupération des détails du vote...`);
+                console.log(`Attempt ${attempt}/${maxAttempts} to retrieve vote details...`);
             }
             
-            // Construire l'URL de l'API
+            // Build API URL
             const apiUrl = `${this.axelarApiEndpoint}/cosmos/tx/v1beta1/txs/${txHash}`;
             
-            // Utiliser le module global fetch importé dans l'application
+            // Use global fetch module imported in the application
             const response = await fetch(apiUrl);
             
             if (!response.ok) {
-                throw new Error(`Erreur API: ${response.status}`);
+                throw new Error(`API Error: ${response.status}`);
             }
             
-            // Récupérer et parser les données JSON
+            // Retrieve and parse JSON data
             const data = await response.json();
             
-            // Tableau pour stocker tous les votes trouvés
+            // Array to store all found votes
             const votes: Array<{pollId: string, votes: string[], contract: string, sender: string}> = [];
             
-            // Extraire les informations pertinentes
+            // Extract relevant information
             if (data && data.tx && data.tx.body && data.tx.body.messages && data.tx.body.messages.length > 0) {
-                // Parcourir les messages primaires
+                // Go through primary messages
                 for (const message of data.tx.body.messages) {
-                    // Pour les messages en batch
+                    // For batch messages
                     if (message['@type'] === '/axelar.auxiliary.v1beta1.BatchRequest' && message.messages) {
                         for (const subMessage of message.messages) {
                             if (subMessage['@type'] === '/cosmwasm.wasm.v1.MsgExecuteContract' && subMessage.msg && subMessage.msg.vote) {
@@ -318,7 +332,7 @@ export class AmpdManager extends EventEmitter {
                             }
                         }
                     }
-                    // Pour les messages directs
+                    // For direct messages
                     else if (message['@type'] === '/cosmwasm.wasm.v1.MsgExecuteContract' && message.msg && message.msg.vote) {
                         votes.push({
                             pollId: message.msg.vote.poll_id,
@@ -341,56 +355,63 @@ export class AmpdManager extends EventEmitter {
                     }
                 });
             } else if (attempt < maxAttempts) {
-                // Réessayer après un délai si pas de résultat
-                console.log(`Aucun détail trouvé, nouvelle tentative dans ${delay/1000} secondes...`);
+                // Retry after a delay if no result
+                console.log(`No details found, retrying in ${delay/1000} seconds...`);
                 setTimeout(() => this.fetchVoteDetails(txHash, attempt + 1, maxAttempts, delay), delay);
             } else {
-                console.error(`Échec après ${maxAttempts} tentatives. Impossible de récupérer les détails du vote.`);
+                console.error(`Failed after ${maxAttempts} attempts. Unable to retrieve vote details.`);
             }
         } catch (error) {
-            console.error(`Erreur lors de la tentative ${attempt}:`, error);
+            console.error(`Error during attempt ${attempt}:`, error);
             
             if (attempt < maxAttempts) {
-                // Réessayer après un délai en cas d'erreur
-                console.log(`Nouvelle tentative dans ${delay/1000} secondes...`);
+                // Retry after a delay in case of error
+                console.log(`Retrying in ${delay/1000} seconds...`);
                 setTimeout(() => this.fetchVoteDetails(txHash, attempt + 1, maxAttempts, delay), delay);
             } else {
-                console.error(`Échec après ${maxAttempts} tentatives. Abandon.`);
+                console.error(`Failed after ${maxAttempts} attempts. Giving up.`);
             }
         }
     }
 
     /**
-     * Récupère les données de votes pour une chaîne spécifique
+     * Get vote data for a specific chain
      */
     public getChainVotes(chain: string): PollStatus[] | null {
         const chainKey = chain.toLowerCase();
-        if (this.chainData[chainKey]) {
-            return this.chainData[chainKey].pollIds;
+        if (this.voteData[chainKey]) {
+            return this.voteData[chainKey].pollIds;
         }
         return null;
     }
 
     /**
-     * Récupère les données de signatures pour une chaîne spécifique
+     * Get signing data for a specific chain
      */
     public getChainSignings(chain: string): SigningStatus[] | null {
         const chainKey = chain.toLowerCase();
-        if (this.chainData[chainKey]) {
-            return this.chainData[chainKey].signingIds;
+        if (this.signingData[chainKey]) {
+            return this.signingData[chainKey].signingIds;
         }
         return null;
     }
 
     /**
-     * Récupère toutes les données de votes et signatures
+     * Get all vote data
      */
-    public getAllData(): Record<string, ChainData> {
-        return this.chainData;
+    public getAllVotesData(): AmpdVoteData {
+        return this.voteData;
     }
 
     /**
-     * Récupère la liste des chaînes supportées
+     * Get all signing data
+     */
+    public getAllSigningsData(): AmpdSigningData {
+        return this.signingData;
+    }
+
+    /**
+     * Get the list of supported chains
      */
     public getSupportedChains(): string[] {
         return this.supportedChains;

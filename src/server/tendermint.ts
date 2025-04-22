@@ -2,30 +2,36 @@ import WebSocket from 'ws';
 import { EventEmitter } from 'events';
 import { ValidatorSignatureManager } from './validator-signature-manager';
 import { HeartbeatManager, HeartbeatStatusType } from './heartbeat_manager';
-import { EvmVoteManager, PollStatus, VoteStatusType } from './evm-vote-manager';
-import { AmpdManager } from './ampd-manager';
+import { EvmVoteManager, PollStatus as EvmPollStatus, EvmVoteData } from './evm-vote-manager';
+import { 
+  AmpdManager, 
+  PollStatus as AmpdPollStatus, 
+  SigningStatus, 
+  AmpdVoteData, 
+  AmpdSigningData 
+} from './ampd-manager';
 
 const QUERY_NEW_BLOCK = `tm.event='NewBlock'`;
 const QUERY_VOTE = `tm.event='Vote'`;
 const QUERY_TX = `tm.event='Tx'`;
 
-// Type décrivant le statut d'un bloc
+// Type describing block status
 export enum StatusType {
-  Missed,     // Bloc manqué
-  Prevote,    // Prevote vu
-  Precommit,  // Precommit vu
-  Signed,     // Bloc signé
-  Proposed    // Bloc proposé
+  Missed,     // Missed block
+  Prevote,    // Prevote seen
+  Precommit,  // Precommit seen
+  Signed,     // Block signed
+  Proposed    // Block proposed
 }
 
-// Mise à jour du statut d'un bloc
+// Block status update
 export interface StatusUpdate {
   height: number;
   status: StatusType;
   final: boolean;
 }
 
-// Représentation d'une réponse WebSocket de Tendermint
+// Representation of a Tendermint WebSocket response
 interface WsReply {
   id: number;
   result: {
@@ -37,7 +43,7 @@ interface WsReply {
   }
 }
 
-// Client WebSocket pour Tendermint
+// WebSocket client for Tendermint
 export class TendermintClient extends EventEmitter {
   private ws: WebSocket | null = null;
   private connected: boolean = false;
@@ -73,12 +79,12 @@ export class TendermintClient extends EventEmitter {
     if (axelarApiEndpoint) {
       this.evmVoteManager = new EvmVoteManager(this.broadcasterAddress, axelarApiEndpoint);
       
-      // Transmettre les événements du gestionnaire de votes EVM
+      // Forward events from the EVM vote manager
       this.evmVoteManager.on('vote-update', (update) => {
         this.emit('vote-update', update);
       });
       
-      // Initialiser le gestionnaire AMPD si des chaînes sont spécifiées
+      // Initialize the AMPD manager if chains are specified
       if (ampdSupportedChains && ampdSupportedChains.length > 0) {
         this.ampdManager = new AmpdManager(
           axelarApiEndpoint, 
@@ -86,7 +92,7 @@ export class TendermintClient extends EventEmitter {
           this.ampdAddress
         );
         
-        // Transmettre les événements du gestionnaire AMPD
+        // Forward events from the AMPD manager
         this.ampdManager.on('vote-update', (update) => {
           this.emit('ampd-vote-update', update);
         });
@@ -97,25 +103,25 @@ export class TendermintClient extends EventEmitter {
       }
     }
     
-    // Transmettre les événements du gestionnaire de signatures
+    // Forward events from the signature manager
     this.signatureManager.on('status-update', (update: StatusUpdate) => {
       this.emit('status-update', update);
     });
 
-    // Transmettre les événements du gestionnaire de heartbeats
+    // Forward events from the heartbeat manager
     this.heartbeatManager.on('heartbeat-update', (update) => {
       this.emit('heartbeat-update', update);
     });
   }
   
-  // Normalise l'URL du WebSocket
+  // Normalize WebSocket URL
   private normalizeEndpoint(url: string): string {
     url = url.trim().replace(/\/$/, '');
     if (!url.endsWith('/websocket')) {
       url += '/websocket';
     }
     
-    // Si l'URL ne commence pas par ws:// ou wss://, suppose http et convertit en ws
+    // If URL doesn't start with ws:// or wss://, assume http and convert to ws
     if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
       if (url.startsWith('https://')) {
         url = 'wss://' + url.substring(8);
@@ -129,14 +135,14 @@ export class TendermintClient extends EventEmitter {
     return url;
   }
   
-  // Connexion au WebSocket
+  // Connect to WebSocket
   public connect(): void {
     try {
-      console.log(`Connexion à ${this.endpoint}`);
+      console.log(`Connecting to ${this.endpoint}`);
       this.ws = new WebSocket(this.endpoint);
       
       this.ws.on('open', () => {
-        console.log(`WebSocket connecté à ${this.endpoint}`);
+        console.log(`WebSocket connected to ${this.endpoint}`);
         this.connected = true;
         this.reconnectAttempts = 0;
         this.subscribeToEvents();
@@ -147,24 +153,24 @@ export class TendermintClient extends EventEmitter {
           const reply = JSON.parse(data.toString()) as WsReply;
           this.handleMessage(reply);
         } catch (err) {
-          console.error('Erreur de parsing JSON:', err);
+          console.error('JSON parsing error:', err);
         }
       });
       
       this.ws.on('close', () => {
-        console.log('WebSocket déconnecté');
+        console.log('WebSocket disconnected');
         this.connected = false;
         this.attemptReconnect();
       });
       
       this.ws.on('error', (error) => {
-        console.error('Erreur WebSocket:', error);
+        console.error('WebSocket error:', error);
         if (this.ws) {
           this.ws.terminate();
         }
       });
     } catch (error) {
-      console.error('Erreur de connexion:', error);
+      console.error('Connection error:', error);
       this.attemptReconnect();
     }
   }
@@ -172,10 +178,10 @@ export class TendermintClient extends EventEmitter {
   private attemptReconnect(): void {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      console.log(`Tentative de reconnexion ${this.reconnectAttempts}/${this.maxReconnectAttempts} dans ${this.reconnectInterval/1000}s...`);
+      console.log(`Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${this.reconnectInterval/1000}s...`);
       setTimeout(() => this.connect(), this.reconnectInterval);
     } else {
-      console.error(`Échec après ${this.maxReconnectAttempts} tentatives. Arrêt des tentatives de reconnexion.`);
+      console.error(`Failed after ${this.maxReconnectAttempts} attempts. Stopping reconnection attempts.`);
       this.emit('permanent-disconnect');
     }
   }
@@ -183,7 +189,7 @@ export class TendermintClient extends EventEmitter {
   private subscribeToEvents(): void {
     if (!this.ws || !this.connected) return;
     
-    // S'abonner aux nouveaux blocs
+    // Subscribe to new blocks
     const subscribeNewBlock = {
       jsonrpc: "2.0",
       method: "subscribe",
@@ -191,7 +197,7 @@ export class TendermintClient extends EventEmitter {
       params: { query: QUERY_NEW_BLOCK }
     };
     
-    // S'abonner aux votes
+    // Subscribe to votes
     const subscribeVotes = {
       jsonrpc: "2.0",
       method: "subscribe",
@@ -199,7 +205,7 @@ export class TendermintClient extends EventEmitter {
       params: { query: QUERY_VOTE }
     };
 
-    // S'abonner aux transactions (pour les heartbeats)
+    // Subscribe to transactions (for heartbeats)
     const subscribeTx = {
       jsonrpc: "2.0",
       method: "subscribe",
@@ -226,7 +232,7 @@ export class TendermintClient extends EventEmitter {
           this.signatureManager.handleNewBlock(value);
           this.heartbeatManager.handleNewBlock(value);
         } else {
-          console.error('Structure de bloc invalide reçue:', value);
+          console.error('Invalid block structure received:', value);
         }
         break;
       case 'tendermint/event/Vote':
@@ -236,19 +242,19 @@ export class TendermintClient extends EventEmitter {
         if (value.TxResult) {
           this.heartbeatManager.handleTransaction(value.TxResult);
           
-          // Traiter les transactions pour les votes EVM si le gestionnaire est activé
+          // Process transactions for EVM votes if manager is enabled
           if (this.evmVoteManager) {
             this.evmVoteManager.handleTransaction(reply.result);
           }
           
-          // Traiter les transactions pour les votes et signatures AMPD si le gestionnaire est activé
+          // Process transactions for AMPD votes and signatures if manager is enabled
           if (this.ampdManager) {
             this.ampdManager.handleTransaction(reply.result);
           }
         }
         break;
       default:
-        // Ignorer les autres types d'événements
+        // Ignore other event types
         break;
     }
   }
@@ -266,75 +272,83 @@ export class TendermintClient extends EventEmitter {
   }
 
   /**
-   * Récupère l'historique des statuts de heartbeat
+   * Gets the heartbeat status history
    */
   public getHeartbeatHistory(): HeartbeatStatusType[] {
     return this.heartbeatManager.getHeartbeatHistory();
   }
 
   /**
-   * Récupère l'historique des blocs où les heartbeats ont été trouvés
+   * Gets the history of blocks where heartbeats were found
    */
   public getHeartbeatBlocks(): (number | undefined)[] {
     return this.heartbeatManager.getHeartbeatBlocks();
   }
 
   /**
-   * Récupère les données de votes EVM pour une chaîne spécifique
+   * Gets the EVM vote data for a specific chain
    */
-  public getEvmChainVotes(chain: string): PollStatus[] | null {
+  public getEvmChainVotes(chain: string): EvmPollStatus[] | null {
     if (!this.evmVoteManager) return null;
     return this.evmVoteManager.getChainVotes(chain);
   }
 
   /**
-   * Récupère toutes les données de votes EVM
+   * Gets all EVM vote data
    */
-  public getAllEvmVotes(): any {
+  public getAllEvmVotes(): EvmVoteData | null {
     if (!this.evmVoteManager) return null;
     return this.evmVoteManager.getAllVotes();
   }
 
   /**
-   * Vérifie si le gestionnaire de votes EVM est activé
+   * Checks if the EVM vote manager is enabled
    */
   public hasEvmVoteManager(): boolean {
     return !!this.evmVoteManager;
   }
 
   /**
-   * Vérifie si le gestionnaire AMPD est activé
+   * Checks if the AMPD manager is enabled
    */
   public hasAmpdManager(): boolean {
     return !!this.ampdManager;
   }
   
   /**
-   * Récupère les données de votes AMPD pour une chaîne spécifique
+   * Gets the AMPD vote data for a specific chain
    */
-  public getAmpdChainVotes(chain: string): PollStatus[] | null {
+  public getAmpdChainVotes(chain: string): AmpdPollStatus[] | null {
     if (!this.ampdManager) return null;
     return this.ampdManager.getChainVotes(chain);
   }
   
   /**
-   * Récupère les données de signatures AMPD pour une chaîne spécifique
+   * Gets the AMPD signature data for a specific chain
    */
-  public getAmpdChainSignings(chain: string): any {
+  public getAmpdChainSignings(chain: string): SigningStatus[] | null {
     if (!this.ampdManager) return null;
     return this.ampdManager.getChainSignings(chain);
   }
   
   /**
-   * Récupère toutes les données AMPD
+   * Gets all AMPD vote data
    */
-  public getAllAmpdData(): any {
+  public getAllAmpdVotes(): AmpdVoteData | null {
     if (!this.ampdManager) return null;
-    return this.ampdManager.getAllData();
+    return this.ampdManager.getAllVotesData();
   }
   
   /**
-   * Récupère la liste des chaînes AMPD supportées
+   * Gets all AMPD signing data
+   */
+  public getAllAmpdSignings(): AmpdSigningData | null {
+    if (!this.ampdManager) return null;
+    return this.ampdManager.getAllSigningsData();
+  }
+  
+  /**
+   * Gets the list of supported AMPD chains
    */
   public getAmpdSupportedChains(): string[] {
     if (!this.ampdManager) return [];
@@ -342,7 +356,7 @@ export class TendermintClient extends EventEmitter {
   }
 
   /**
-   * Récupère l'adresse AMPD utilisée
+   * Gets the AMPD address used
    */
   public getAmpdAddress(): string {
     return this.ampdAddress;
