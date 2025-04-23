@@ -3,7 +3,7 @@ import { ValidatorMetrics } from './metrics';
 import { EventEmitter } from 'events';
 import dotenv from 'dotenv';
 
-// Types d'alertes
+// Alert types
 export enum AlertType {
   BLOCK_SIGNATURE_MISSED = 'block_signature_missed',
   CONSECUTIVE_BLOCKS_MISSED = 'consecutive_blocks_missed',
@@ -18,7 +18,7 @@ export enum AlertType {
   NODE_SYNC_ISSUE = 'node_sync_issue'
 }
 
-// Interface pour une alerte
+// Interface for an alert
 interface Alert {
   type: AlertType;
   message: string;
@@ -27,7 +27,7 @@ interface Alert {
   severity: 'info' | 'warning' | 'critical';
 }
 
-// Interface pour les seuils d'alertes
+// Interface for alert thresholds
 interface AlertThresholds {
   consecutiveBlocksMissed: number;
   consecutiveHeartbeatsMissed: number;
@@ -38,7 +38,7 @@ interface AlertThresholds {
   consecutiveAmpdSigningsMissed: number;
 }
 
-// Interface pour la configuration de notification
+// Interface for notification configuration
 interface NotificationConfig {
   discord: {
     enabled: boolean;
@@ -57,9 +57,9 @@ export class AlertManager extends EventEmitter {
   private lastAlertTimestamps: Record<AlertType, Date> = {} as Record<AlertType, Date>;
   private thresholds: AlertThresholds;
   private notificationConfig: NotificationConfig;
-  private cooldownPeriod: number = 5 * 60 * 1000; // 5 minutes en millisecondes par défaut
+  private cooldownPeriod: number = 5 * 60 * 1000; // 5 minutes in milliseconds by default
   
-  // Compteurs pour votes et signatures consécutifs manqués
+  // Counters for consecutive missed votes and signatures
   private evmConsecutiveMissedByChain: Record<string, number> = {};
   private ampdVotesConsecutiveMissedByChain: Record<string, number> = {};
   private ampdSigningsConsecutiveMissedByChain: Record<string, number> = {};
@@ -68,7 +68,7 @@ export class AlertManager extends EventEmitter {
     super();
     this.metrics = metrics;
     
-    // Charger la configuration depuis les variables d'environnement
+    // Load configuration from environment variables
     this.thresholds = {
       consecutiveBlocksMissed: parseInt(process.env.ALERT_CONSECUTIVE_BLOCKS_THRESHOLD || '3', 10),
       consecutiveHeartbeatsMissed: parseInt(process.env.ALERT_CONSECUTIVE_HEARTBEATS_THRESHOLD || '2', 10),
@@ -91,12 +91,12 @@ export class AlertManager extends EventEmitter {
       }
     };
     
-    // Initialiser les timestamps des dernières alertes
+    // Initialize timestamps for the last alerts
     Object.values(AlertType).forEach(type => {
-      this.lastAlertTimestamps[type] = new Date(0); // Date 0 = jamais envoyé
+      this.lastAlertTimestamps[type] = new Date(0); // Date 0 = never sent
     });
     
-    // Initialiser les compteurs de votes manqués pour chaque chaîne
+    // Initialize missed vote counters for each chain
     if (metrics.evmVotesEnabled && metrics.evmVotes) {
       Object.keys(metrics.evmVotes).forEach(chain => {
         this.evmConsecutiveMissedByChain[chain] = 0;
@@ -114,68 +114,68 @@ export class AlertManager extends EventEmitter {
   }
   
   /**
-   * Vérifie les métriques actuelles pour détecter les alertes
+   * Check current metrics to detect alerts
    */
   public checkMetrics(): void {
-    // Sauvegarder l'état précédent des métriques pour comparaison
+    // Save previous state of metrics for comparison
     const prevMetrics = { ...this.previousMetrics };
     this.previousMetrics = { ...this.metrics };
     
-    // Calculer les taux actuels
+    // Calculate current rates
     const signRate = this.calculateSignRate();
     const heartbeatRate = this.calculateHeartbeatRate();
     
-    // Vérifier les blocs consécutifs manqués
+    // Check consecutive missed blocks
     if (this.metrics.consecutiveMissed >= this.thresholds.consecutiveBlocksMissed) {
       this.createAlert(
         AlertType.CONSECUTIVE_BLOCKS_MISSED,
-        `⚠️ ALERTE: ${this.metrics.consecutiveMissed} blocs consécutifs manqués`,
+        `⚠️ ALERT: ${this.metrics.consecutiveMissed} consecutive blocks missed`,
         'critical'
       );
     }
     
-    // Vérifier les heartbeats consécutifs manqués
+    // Check consecutive missed heartbeats
     if (this.metrics.heartbeatsConsecutiveMissed >= this.thresholds.consecutiveHeartbeatsMissed) {
       this.createAlert(
         AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
-        `⚠️ ALERTE: ${this.metrics.heartbeatsConsecutiveMissed} heartbeats consécutifs manqués`,
+        `⚠️ ALERT: ${this.metrics.heartbeatsConsecutiveMissed} consecutive heartbeats missed`,
         'critical'
       );
     }
     
-    // Vérifier le taux de signature
+    // Check signing rate
     if (signRate < this.thresholds.signRateThreshold) {
       this.createAlert(
         AlertType.SIGN_RATE_LOW,
-        `⚠️ ALERTE: Taux de signature bas (${signRate.toFixed(2)}%)`,
+        `⚠️ ALERT: Low signing rate (${signRate.toFixed(2)}%)`,
         'warning'
       );
     }
     
-    // Vérifier le taux de heartbeat
+    // Check heartbeat rate
     if (heartbeatRate < this.thresholds.heartbeatRateThreshold) {
       this.createAlert(
         AlertType.HEARTBEAT_RATE_LOW,
-        `⚠️ ALERTE: Taux de heartbeat bas (${heartbeatRate.toFixed(2)}%)`,
+        `⚠️ ALERT: Low heartbeat rate (${heartbeatRate.toFixed(2)}%)`,
         'warning'
       );
     }
     
-    // Vérifier si le nœud est déconnecté
+    // Check if node is disconnected
     if (prevMetrics.connected === true && this.metrics.connected === false) {
       this.createAlert(
         AlertType.NODE_DISCONNECTED,
-        `🔴 ALERTE CRITIQUE: Nœud déconnecté! Dernière erreur: ${this.metrics.lastError}`,
+        `🔴 CRITICAL ALERT: Node disconnected! Last error: ${this.metrics.lastError}`,
         'critical'
       );
     }
     
-    // Analyser les votes EVM
+    // Analyze EVM votes
     if (this.metrics.evmVotesEnabled) {
       this.checkEvmVotes();
     }
     
-    // Analyser les votes AMPD
+    // Analyze AMPD votes
     if (this.metrics.ampdEnabled) {
       this.checkAmpdVotes();
       this.checkAmpdSignings();
@@ -183,253 +183,276 @@ export class AlertManager extends EventEmitter {
   }
   
   /**
-   * Vérifie les votes EVM manqués
+   * Check missed EVM votes
    */
   private checkEvmVotes(): void {
-    // Parcourir toutes les chaînes EVM
+    // Loop through all EVM chains
     Object.entries(this.metrics.evmVotes).forEach(([chain, chainData]) => {
-      // Si pas de votes ou pas de pollIds, ignorer
-      if (!chainData || !chainData.pollIds || !chainData.pollIds.length) return;
+      // If no votes or no pollIds, ignore
+      if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0) return;
       
-      const latestPoll = chainData.pollIds[0]; // Le premier est le plus récent
+      const latestPoll = chainData.pollIds[0]; // The first one is the most recent
       
-      // Vérifier si le vote est manqué
+      // Check if the vote is missed
       if (latestPoll.result === 'Missed' || latestPoll.result === 'missed' || latestPoll.result === 'invalid' || latestPoll.result === 'Invalid') {
-        // Incrémenter le compteur de votes consécutifs manqués
+        // Increment the counter of consecutive missed votes
         this.evmConsecutiveMissedByChain[chain] = (this.evmConsecutiveMissedByChain[chain] || 0) + 1;
         
-        // Vérifier si seuil dépassé
+        // If we reached the threshold, send an alert
         if (this.evmConsecutiveMissedByChain[chain] >= this.thresholds.consecutiveEvmVotesMissed) {
-          // Déclencher alerte
           this.createAlert(
             AlertType.EVM_VOTE_MISSED,
-            `⚠️ ALERTE: ${this.evmConsecutiveMissedByChain[chain]} votes EVM consécutifs manqués pour la chaîne ${chain.toUpperCase()}`,
-            'critical'
+            `⚠️ ALERT: ${this.evmConsecutiveMissedByChain[chain]} consecutive EVM votes missed on chain ${chain}`,
+            'warning'
           );
         }
-      } else {
-        // Réinitialiser le compteur s'il y a eu un vote réussi
+      } else if (latestPoll.result === 'Validated' || latestPoll.result === 'validated') {
+        // Reset the counter if we have a validated vote
         this.evmConsecutiveMissedByChain[chain] = 0;
       }
     });
   }
   
   /**
-   * Vérifie les votes AMPD manqués
+   * Check missed AMPD votes
    */
   private checkAmpdVotes(): void {
-    // Parcourir toutes les chaînes AMPD supportées
-    this.metrics.ampdSupportedChains.forEach(chain => {
-      // Récupérer les données de votes pour cette chaîne
-      const chainVotes = this.metrics.ampdVotes[chain];
+    if (!this.metrics.ampdVotes) return;
+    
+    // Loop through all AMPD chains
+    Object.entries(this.metrics.ampdVotes).forEach(([chain, chainData]) => {
+      if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0) return;
       
-      // Si pas de votes, ignorer
-      if (!chainVotes || !chainVotes.pollIds || !chainVotes.pollIds.length) return;
+      const latestVote = chainData.pollIds[0]; // The first one is the most recent
       
-      const latestVote = chainVotes.pollIds[0]; // Le premier est le plus récent
-      
-      // Vérifier si le vote est manqué ou non soumis
-      if (latestVote.result === 'Missed' || latestVote.result === 'missed' || latestVote.result === 'unsubmit') {
-        // Incrémenter le compteur de votes consécutifs manqués
+      // Check if the vote is missed - assuming the result property holds the status
+      if (latestVote.result === 'missed' || latestVote.result === 'invalid') {
+        // Increment the counter
         this.ampdVotesConsecutiveMissedByChain[chain] = (this.ampdVotesConsecutiveMissedByChain[chain] || 0) + 1;
         
-        // Vérifier si seuil dépassé
+        // If we reached the threshold, send an alert
         if (this.ampdVotesConsecutiveMissedByChain[chain] >= this.thresholds.consecutiveAmpdVotesMissed) {
-          // Déclencher alerte
           this.createAlert(
             AlertType.AMPD_VOTE_MISSED,
-            `⚠️ ALERTE: ${this.ampdVotesConsecutiveMissedByChain[chain]} votes AMPD consécutifs manqués pour la chaîne ${chain.toUpperCase()}`,
-            'critical'
+            `⚠️ ALERT: ${this.ampdVotesConsecutiveMissedByChain[chain]} consecutive AMPD votes missed on chain ${chain}`,
+            'warning'
           );
         }
-      } else {
-        // Réinitialiser le compteur s'il y a eu un vote réussi
+      } else if (latestVote.result === 'validated') {
+        // Reset the counter
         this.ampdVotesConsecutiveMissedByChain[chain] = 0;
       }
     });
   }
   
   /**
-   * Vérifie les signatures AMPD manquées
+   * Check missed AMPD signings
    */
   private checkAmpdSignings(): void {
-    // Parcourir toutes les chaînes AMPD supportées
-    this.metrics.ampdSupportedChains.forEach(chain => {
-      // Récupérer les données de signatures pour cette chaîne
-      const chainSignings = this.metrics.ampdSignings[chain];
+    if (!this.metrics.ampdSignings) return;
+    
+    // Loop through all AMPD chains
+    Object.entries(this.metrics.ampdSignings).forEach(([chain, chainData]) => {
+      if (!chainData || !chainData.signingIds || chainData.signingIds.length === 0) return;
       
-      // Si pas de signatures, ignorer
-      if (!chainSignings || !chainSignings.signingIds || !chainSignings.signingIds.length) return;
+      const latestSigning = chainData.signingIds[0]; // The first one is the most recent
       
-      const latestSigning = chainSignings.signingIds[0]; // Le premier est le plus récent
-      
-      // Vérifier si la signature est manquée ou non soumise
-      if (latestSigning.result === 'Missed' || latestSigning.result === 'missed' || latestSigning.result === 'unsubmit') {
-        // Incrémenter le compteur de signatures consécutives manquées
+      // Check if the signing is missed - assuming the result property holds the status
+      if (latestSigning.result === 'missed' || latestSigning.result === 'invalid') {
+        // Increment the counter
         this.ampdSigningsConsecutiveMissedByChain[chain] = (this.ampdSigningsConsecutiveMissedByChain[chain] || 0) + 1;
         
-        // Vérifier si seuil dépassé
+        // If we reached the threshold, send an alert
         if (this.ampdSigningsConsecutiveMissedByChain[chain] >= this.thresholds.consecutiveAmpdSigningsMissed) {
-          // Déclencher alerte
           this.createAlert(
             AlertType.AMPD_SIGNING_MISSED,
-            `⚠️ ALERTE: ${this.ampdSigningsConsecutiveMissedByChain[chain]} signatures AMPD consécutives manquées pour la chaîne ${chain.toUpperCase()}`,
-            'critical'
+            `⚠️ ALERT: ${this.ampdSigningsConsecutiveMissedByChain[chain]} consecutive AMPD signings missed on chain ${chain}`,
+            'warning'
           );
         }
-      } else {
-        // Réinitialiser le compteur s'il y a eu une signature réussie
+      } else if (latestSigning.result === 'validated') {
+        // Reset the counter
         this.ampdSigningsConsecutiveMissedByChain[chain] = 0;
       }
     });
   }
   
   /**
-   * Calcule le taux de signature actuel
+   * Calculate the signing rate
    */
   private calculateSignRate(): number {
-    const totalBlocks = this.metrics.totalSigned + this.metrics.totalMissed;
+    const totalSigned = this.metrics.totalSigned || 0;
+    const totalMissed = this.metrics.totalMissed || 0;
+    const totalBlocks = totalSigned + totalMissed;
     if (totalBlocks === 0) return 100;
-    return (this.metrics.totalSigned / totalBlocks) * 100;
+    return (totalSigned / totalBlocks) * 100;
   }
   
   /**
-   * Calcule le taux de heartbeat actuel
+   * Calculate the heartbeat rate
    */
   private calculateHeartbeatRate(): number {
-    const totalHeartbeats = this.metrics.heartbeatsSigned + this.metrics.heartbeatsMissed;
+    const heartbeatsSigned = this.metrics.heartbeatsSigned || 0;
+    const heartbeatsMissed = this.metrics.heartbeatsMissed || 0;
+    const totalHeartbeats = heartbeatsSigned + heartbeatsMissed;
     if (totalHeartbeats === 0) return 100;
-    return (this.metrics.heartbeatsSigned / totalHeartbeats) * 100;
+    return (heartbeatsSigned / totalHeartbeats) * 100;
   }
   
   /**
-   * Vérifie si une alerte peut être envoyée (respecte le cooldown)
+   * Check if we can send an alert (cooldown period elapsed)
    */
   private canSendAlert(type: AlertType): boolean {
     const now = new Date();
-    const lastSent = this.lastAlertTimestamps[type];
-    return (now.getTime() - lastSent.getTime()) > this.cooldownPeriod;
+    const lastAlert = this.lastAlertTimestamps[type];
+    return (now.getTime() - lastAlert.getTime()) > this.cooldownPeriod;
   }
   
   /**
-   * Crée et envoie une alerte
+   * Create and send an alert
    */
   private createAlert(type: AlertType, message: string, severity: 'info' | 'warning' | 'critical'): void {
-    // Vérifier le cooldown
+    // Check if we can send this alert type (cooldown)
     if (!this.canSendAlert(type)) {
-      console.log(`Alert ${type} suppressed due to cooldown period`);
       return;
     }
     
-    // Créer l'objet alerte
+    // Update last alert timestamp
+    this.lastAlertTimestamps[type] = new Date();
+    
+    // Create alert object
     const alert: Alert = {
       type,
       message,
       timestamp: new Date(),
       metrics: {
-        lastBlock: this.metrics.lastBlock,
-        consecutiveMissed: this.metrics.consecutiveMissed,
-        totalMissed: this.metrics.totalMissed,
-        totalSigned: this.metrics.totalSigned,
-        heartbeatsConsecutiveMissed: this.metrics.heartbeatsConsecutiveMissed,
-        heartbeatsMissed: this.metrics.heartbeatsMissed,
-        heartbeatsSigned: this.metrics.heartbeatsSigned
+        ...this.metrics,
+        // We intentionally exclude large arrays to keep alerts small
       },
       severity
     };
     
-    // Mettre à jour le timestamp de la dernière alerte
-    this.lastAlertTimestamps[type] = new Date();
+    // Send notifications (async)
+    this.sendNotifications(alert).catch(err => {
+      console.error('Failed to send alert notifications:', err);
+    });
     
-    // Émettre l'événement d'alerte
+    // Emit event for clients
     this.emit('alert', alert);
     
-    // Envoyer les notifications
-    this.sendNotifications(alert);
-    
-    // Log l'alerte
-    console.log(`🚨 Alert triggered: ${message}`);
+    console.log(`Alert created: ${message}`);
   }
   
   /**
-   * Envoie les notifications sur les différentes plateformes configurées
+   * Send notifications through configured channels
    */
   private async sendNotifications(alert: Alert): Promise<void> {
-    // Formater le message pour l'affichage
     const formattedMessage = this.formatAlertMessage(alert);
     
-    // Envoyer sur Discord si activé
-    if (this.notificationConfig.discord.enabled && this.notificationConfig.discord.webhookUrl) {
-      await this.sendDiscordNotification(formattedMessage, alert);
-    }
-    
-    // Envoyer sur Telegram si activé
-    if (this.notificationConfig.telegram.enabled && 
-        this.notificationConfig.telegram.botToken && 
-        this.notificationConfig.telegram.chatId) {
-      await this.sendTelegramNotification(formattedMessage, alert);
+    try {
+      const promises: Promise<any>[] = [];
+      
+      // Send to Discord if enabled
+      if (this.notificationConfig.discord.enabled && this.notificationConfig.discord.webhookUrl) {
+        promises.push(this.sendDiscordNotification(formattedMessage, alert));
+      }
+      
+      // Send to Telegram if enabled
+      if (this.notificationConfig.telegram.enabled && 
+          this.notificationConfig.telegram.botToken && 
+          this.notificationConfig.telegram.chatId) {
+        promises.push(this.sendTelegramNotification(formattedMessage, alert));
+      }
+      
+      await Promise.all(promises);
+    } catch (error) {
+      console.error('Failed to send notifications:', error);
     }
   }
   
   /**
-   * Formate le message d'alerte pour l'affichage
+   * Format alert message for notifications
    */
   private formatAlertMessage(alert: Alert): string {
     const timestamp = alert.timestamp.toISOString();
     const metrics = alert.metrics;
     
-    let message = `${alert.message}\n`;
-    message += `🕒 ${timestamp}\n`;
-    message += `🔍 Validateur: ${this.metrics.moniker}\n`;
-    message += `📊 Derniers stats:\n`;
+    // Base message
+    let message = `${alert.message}\n\nTimestamp: ${timestamp}\n`;
     
+    // Add validator info if available
+    if (metrics.moniker) {
+      message += `Validator: ${metrics.moniker}\n`;
+    }
+    
+    // Add detailed metrics based on alert type
     switch (alert.type) {
       case AlertType.CONSECUTIVE_BLOCKS_MISSED:
-      case AlertType.BLOCK_SIGNATURE_MISSED:
       case AlertType.SIGN_RATE_LOW:
-        message += `- Bloc actuel: ${metrics.lastBlock}\n`;
-        message += `- Blocs consécutifs manqués: ${metrics.consecutiveMissed}\n`;
-        message += `- Total manqués: ${metrics.totalMissed}\n`;
-        message += `- Total signés: ${metrics.totalSigned}\n`;
-        message += `- Taux: ${this.calculateSignRate().toFixed(2)}%\n`;
+        message += `\nBlock Metrics:\n`;
+        message += `- Height: ${metrics.lastBlock || 0}\n`;
+        const totalSigned = metrics.totalSigned || 0;
+        const totalMissed = metrics.totalMissed || 0;
+        message += `- Signed: ${totalSigned}/${totalSigned + totalMissed} (${this.calculateSignRate().toFixed(2)}%)\n`;
+        message += `- Consecutive missed: ${metrics.consecutiveMissed || 0}\n`;
         break;
         
       case AlertType.CONSECUTIVE_HEARTBEATS_MISSED:
-      case AlertType.HEARTBEAT_MISSED:
       case AlertType.HEARTBEAT_RATE_LOW:
-        message += `- Heartbeats consécutifs manqués: ${metrics.heartbeatsConsecutiveMissed}\n`;
-        message += `- Total heartbeats manqués: ${metrics.heartbeatsMissed}\n`;
-        message += `- Total heartbeats signés: ${metrics.heartbeatsSigned}\n`;
-        message += `- Taux: ${this.calculateHeartbeatRate().toFixed(2)}%\n`;
+        message += `\nHeartbeat Metrics:\n`;
+        message += `- Current period: ${metrics.lastHeartbeatPeriod || 0}\n`;
+        const heartbeatsSigned = metrics.heartbeatsSigned || 0;
+        const heartbeatsMissed = metrics.heartbeatsMissed || 0;
+        message += `- Signed: ${heartbeatsSigned}/${heartbeatsSigned + heartbeatsMissed} (${this.calculateHeartbeatRate().toFixed(2)}%)\n`;
+        message += `- Consecutive missed: ${metrics.heartbeatsConsecutiveMissed || 0}\n`;
         break;
         
       case AlertType.NODE_DISCONNECTED:
-        message += `- Dernière erreur: ${this.metrics.lastError}\n`;
-        message += `- Dernier bloc vu: ${metrics.lastBlock}\n`;
+        message += `\nConnection Error:\n${metrics.lastError || 'Unknown error'}\n`;
+        message += `Last seen: ${metrics.lastBlockTime ? new Date(metrics.lastBlockTime).toISOString() : 'unknown'}\n`;
         break;
         
       case AlertType.EVM_VOTE_MISSED:
-        // Extraire le nom de la chaîne du message
-        const evmChain = alert.message.match(/chaîne ([A-Z]+)/)?.[1].toLowerCase() || '';
-        message += `- Chaîne: ${evmChain.toUpperCase()}\n`;
-        message += `- Votes consécutifs manqués: ${this.evmConsecutiveMissedByChain[evmChain] || 0}\n`;
-        if (this.metrics.evmVotes[evmChain] && this.metrics.evmVotes[evmChain].pollIds?.[0]) {
-          message += `- Dernier poll ID: ${this.metrics.evmVotes[evmChain].pollIds[0].pollId}\n`;
+        // Extract chain from message
+        const evmChainMatch = alert.message.match(/on chain (\w+)/);
+        const evmChain = evmChainMatch ? evmChainMatch[1] : null;
+        
+        if (evmChain && metrics.evmVotes && metrics.evmVotes[evmChain]) {
+          message += `\nEVM Vote Details (${evmChain}):\n`;
+          const polls = metrics.evmVotes[evmChain].pollIds.slice(0, 5); // Last 5 polls
+          
+          polls.forEach((poll) => {
+            message += `- Poll ${poll.pollId}: ${poll.result}\n`;
+          });
         }
         break;
         
       case AlertType.AMPD_VOTE_MISSED:
-        // Extraire le nom de la chaîne du message
-        const ampdVoteChain = alert.message.match(/chaîne ([A-Z]+)/)?.[1].toLowerCase() || '';
-        message += `- Chaîne: ${ampdVoteChain.toUpperCase()}\n`;
-        message += `- Votes consécutifs manqués: ${this.ampdVotesConsecutiveMissedByChain[ampdVoteChain] || 0}\n`;
-        break;
-        
       case AlertType.AMPD_SIGNING_MISSED:
-        // Extraire le nom de la chaîne du message
-        const ampdSigningChain = alert.message.match(/chaîne ([A-Z]+)/)?.[1].toLowerCase() || '';
-        message += `- Chaîne: ${ampdSigningChain.toUpperCase()}\n`;
-        message += `- Signatures consécutives manquées: ${this.ampdSigningsConsecutiveMissedByChain[ampdSigningChain] || 0}\n`;
+        // Extract chain from message
+        const ampdChainMatch = alert.message.match(/on chain (\w+)/);
+        const ampdChain = ampdChainMatch ? ampdChainMatch[1] : null;
+        
+        if (ampdChain && metrics.ampdVotes && metrics.ampdVotes[ampdChain]) {
+          if (alert.type === AlertType.AMPD_VOTE_MISSED) {
+            message += `\nAMPD Vote Details (${ampdChain}):\n`;
+            const votes = metrics.ampdVotes[ampdChain].pollIds.slice(0, 5); // Last 5 votes
+            
+            votes.forEach((vote) => {
+              message += `- ${vote.pollId}: ${vote.result}\n`;
+            });
+          } else if (alert.type === AlertType.AMPD_SIGNING_MISSED && 
+                     metrics.ampdSignings && metrics.ampdSignings[ampdChain]) {
+            message += `\nAMPD Signing Details (${ampdChain}):\n`;
+            const signings = metrics.ampdSignings[ampdChain].signingIds.slice(0, 5); // Last 5 signings
+            
+            signings.forEach((signing) => {
+              // Cast to any to access properties without type errors
+              const signingAny = signing as any;
+              message += `- ${signingAny.pollId || 'Unknown'}: ${signingAny.result}\n`;
+            });
+          }
+        }
         break;
     }
     
@@ -437,19 +460,22 @@ export class AlertManager extends EventEmitter {
   }
   
   /**
-   * Envoie une notification à Discord
+   * Send notification to Discord
    */
   private async sendDiscordNotification(message: string, alert: Alert): Promise<void> {
     try {
-      // Couleur en fonction de la sévérité
-      const color = alert.severity === 'critical' ? 0xFF0000 : 
-                   alert.severity === 'warning' ? 0xFFAA00 : 0x00AA00;
+      // Discord color based on severity
+      const colorMap = {
+        'info': 0x3498db,    // Blue
+        'warning': 0xf39c12,  // Orange
+        'critical': 0xe74c3c  // Red
+      };
       
       const payload = {
         embeds: [{
-          title: `Alerte Validateur ${this.metrics.moniker}`,
+          title: `Axelar Validator Alert: ${alert.type}`,
           description: message,
-          color: color,
+          color: colorMap[alert.severity],
           timestamp: new Date().toISOString()
         }]
       };
@@ -462,21 +488,23 @@ export class AlertManager extends EventEmitter {
   }
   
   /**
-   * Envoie une notification à Telegram
+   * Send notification to Telegram
    */
   private async sendTelegramNotification(message: string, alert: Alert): Promise<void> {
     try {
-      const botToken = this.notificationConfig.telegram.botToken;
-      const chatId = this.notificationConfig.telegram.chatId;
-      const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+      // Format message for Telegram with emoji based on severity
+      const severityEmoji = {
+        'info': 'ℹ️',
+        'warning': '⚠️',
+        'critical': '🚨'
+      };
       
-      // Ajouter des émojis selon la sévérité
-      const severityEmoji = alert.severity === 'critical' ? '🚨' : 
-                           alert.severity === 'warning' ? '⚠️' : 'ℹ️';
+      const telegramMessage = `${severityEmoji[alert.severity]} *Axelar Validator Alert*\n\n${message}`;
       
+      const url = `https://api.telegram.org/bot${this.notificationConfig.telegram.botToken}/sendMessage`;
       const payload = {
-        chat_id: chatId,
-        text: `${severityEmoji} ${message}`,
+        chat_id: this.notificationConfig.telegram.chatId,
+        text: telegramMessage,
         parse_mode: 'Markdown'
       };
       
@@ -488,13 +516,13 @@ export class AlertManager extends EventEmitter {
   }
   
   /**
-   * Vérifie les métriques périodiquement
+   * Start periodic checks of metrics
    */
   public startPeriodicChecks(intervalMs: number = 60000): void {
     setInterval(() => {
       this.checkMetrics();
     }, intervalMs);
     
-    console.log(`Alert Manager started periodic checks (every ${intervalMs/1000}s)`);
+    console.log(`Alert Manager started periodic checks with interval ${intervalMs}ms`);
   }
 } 

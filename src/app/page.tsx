@@ -8,7 +8,7 @@ export default function Home() {
         <div className="flex flex-col items-center gap-4">
           <h1 className="text-3xl font-bold text-center">Axelar Monitoring</h1>
           <p className="text-gray-600 dark:text-gray-300 text-center">
-            Surveillance en temps réel des événements via WebSocket
+            Real-time monitoring of events via WebSocket
           </p>
         </div>
 
@@ -17,7 +17,7 @@ export default function Home() {
             className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
             href="/dashboard"
           >
-            Accéder au tableau de bord
+            Access dashboard
           </Link>
           <a
             className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto"
@@ -31,7 +31,7 @@ export default function Home() {
       </main>
       <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
         <p className="text-gray-500 dark:text-gray-400 text-sm">
-          © 2023 Axelar Monitoring - Tous droits réservés
+          © 2023 Axelar Monitoring - All rights reserved
         </p>
       </footer>
     </div>

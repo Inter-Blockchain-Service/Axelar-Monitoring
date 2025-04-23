@@ -14,15 +14,15 @@ export default function HeartBeatStatus({ statusList, className = '', lastPeriod
   const [hasNewHeartbeat, setHasNewHeartbeat] = useState<boolean>(false);
   const animationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Nombre de heartbeats à afficher
+  // Number of heartbeats to display
   const DISPLAY_LIMIT = 200;
   
-  // Détecter l'arrivée d'un nouveau heartbeat
+  // Detect arrival of a new heartbeat
   useEffect(() => {
     if (lastPeriod > prevLastPeriod && prevLastPeriod > 0) {
       setHasNewHeartbeat(true);
       
-      // Réinitialiser l'animation après 1 seconde
+      // Reset animation after 1 second
       if (animationTimeoutRef.current) {
         clearTimeout(animationTimeoutRef.current);
       }
@@ -41,7 +41,7 @@ export default function HeartBeatStatus({ statusList, className = '', lastPeriod
     };
   }, [lastPeriod, prevLastPeriod]);
   
-  // Fonction pour obtenir la couleur en fonction du statut
+  // Function to get color based on status
   const getStatusColor = (status: number) => {
     switch (status) {
       case HeartbeatStatusType.Signed:
@@ -54,39 +54,39 @@ export default function HeartBeatStatus({ statusList, className = '', lastPeriod
     }
   };
 
-  // Fonction pour obtenir le texte du statut
+  // Function to get status text
   const getStatusText = (status: number) => {
     switch (status) {
       case HeartbeatStatusType.Signed:
-        return 'Signé';
+        return 'Signed';
       case HeartbeatStatusType.Missed:
-        return 'Manqué';
+        return 'Missed';
       case HeartbeatStatusType.Unknown:
       default:
-        return 'Inconnu';
+        return 'Unknown';
     }
   };
   
-  // Calculer la période réelle pour un index donné
+  // Calculate actual period for a given index
   const getPeriodNumber = (index: number) => {
     if (lastPeriod <= 0) return '?';
     return (lastPeriod - index).toString();
   };
   
-  // Générer le texte du tooltip en fonction du statut et de la hauteur du bloc
+  // Generate tooltip text based on status and block height
   const getTooltipText = (index: number, status: number, blockHeight?: number) => {
     const period = getPeriodNumber(index);
     
     if (status === HeartbeatStatusType.Signed && blockHeight) {
-      return `HeartBeat au bloc ${blockHeight}`;
+      return `HeartBeat at block ${blockHeight}`;
     } else if (status === HeartbeatStatusType.Missed) {
-      return `HeartBeat manqué (période ${period})`;
+      return `Missed HeartBeat (period ${period})`;
     } else {
-      return `Pas de données (période ${period})`;
+      return `No data (period ${period})`;
     }
   };
   
-  // Préparer les données pour l'affichage
+  // Prepare data for display
   const visibleHeartbeats = statusList.slice(0, DISPLAY_LIMIT).map((status, index) => {
     const blockHeight = blocksList && blocksList.length > index ? blocksList[index] : undefined;
     return { status, index, blockHeight };
@@ -97,10 +97,10 @@ export default function HeartBeatStatus({ statusList, className = '', lastPeriod
       <div className="flex flex-col gap-2 mb-3">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold text-gray-200">
-            Statut des HeartBeats récents
+            Recent HeartBeats Status
           </h3>
           <div className="text-sm text-gray-500">
-            Affichage des {DISPLAY_LIMIT} dernières périodes
+            Displaying the last {DISPLAY_LIMIT} periods
           </div>
         </div>
 
@@ -120,15 +120,15 @@ export default function HeartBeatStatus({ statusList, className = '', lastPeriod
         <div className="grid grid-cols-3 gap-4">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-green-500 rounded-sm"></div>
-            <span className="text-xs">Signé</span>
+            <span className="text-xs">Signed</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
-            <span className="text-xs">Manqué</span>
+            <span className="text-xs">Missed</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-[#9e9e9e4d] rounded-sm"></div>
-            <span className="text-xs">Pas de données</span>
+            <span className="text-xs">No data</span>
           </div>
         </div>
       </div>

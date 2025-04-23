@@ -11,20 +11,20 @@ interface AmpdSigningProps {
 const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = '' }) => {
   const [signingData, setSigningData] = useState<Record<string, SigningStatus[]>>({});
   const [supportedChains, setSupportedChains] = useState<string[]>([]);
-  const [displayLimit, setDisplayLimit] = useState(35); // Afficher un maximum de signatures
+  const [displayLimit, setDisplayLimit] = useState(35); // Display a maximum number of signatures
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Configuration des écouteurs d'événements Socket.io
+    // Set up Socket.io event listeners
     if (socket) {
-      // Écouteur pour les chaînes supportées
+      // Listener for supported chains
       socket.on('ampd-chains', (data) => {
         console.log("AMPD Chains received (signing):", data);
         setSupportedChains(data.chains || []);
         setIsLoading(false);
       });
       
-      // Écouteur pour les données de signature
+      // Listener for signing data
       socket.on('ampd-signings', (data) => {
         if (data.chain && data.signings) {
           setSigningData(prevData => ({
@@ -35,7 +35,7 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
       });
     }
 
-    // Nettoyage lors du démontage du composant
+    // Cleanup when component unmounts
     return () => {
       if (socket) {
         socket.off('ampd-chains');
@@ -44,69 +44,69 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
     };
   }, [socket]);
 
-  // Fonction pour obtenir la couleur du statut
+  // Function to get status color
   const getStatusColor = (status: string) => {
-    if (status === 'signed') return 'bg-green-500'; // vert - signature valide
-    if (status === 'unsubmit') return 'bg-orange-500'; // orange - non soumis
-    if (status === 'unknown') return 'bg-[#9e9e9e4d]'; // gris transparent - pas de donnée
-    return 'bg-[#9e9e9e4d]'; // gris transparent par défaut
+    if (status === 'signed') return 'bg-green-500'; // green - valid signature
+    if (status === 'unsubmit') return 'bg-orange-500'; // orange - unsubmitted
+    if (status === 'unknown') return 'bg-[#9e9e9e4d]'; // transparent gray - no data
+    return 'bg-[#9e9e9e4d]'; // default transparent gray
   };
 
-  // Fonction pour obtenir le texte du tooltip
+  // Function to get tooltip text
   const getStatusTooltip = (status: string) => {
-    if (status === 'signed') return 'Signature valide';
-    if (status === 'unsubmit') return 'Non soumis';
-    if (status === 'unknown') return 'Pas de donnée';
-    return 'Inconnu';
+    if (status === 'signed') return 'Valid signature';
+    if (status === 'unsubmit') return 'Unsubmitted';
+    if (status === 'unknown') return 'No data';
+    return 'Unknown';
   };
 
-  // Fonction pour formater l'ID de signature
+  // Function to format signing ID
   const formatSigningId = (signingId: string): string => {
-    if (signingId === 'unknown') return 'Inconnu';
+    if (signingId === 'unknown') return 'Unknown';
     return signingId.length > 20 ? `${signingId.substring(0, 8)}...${signingId.substring(signingId.length - 8)}` : signingId;
   };
 
-  // Si les données sont en cours de chargement, afficher un indicateur
+  // If data is loading, show indicator
   if (isLoading) {
     return (
       <div className={`bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
         <div className="flex flex-col gap-2 mb-3">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold text-gray-200">
-              Signatures AMPD
+              AMPD Signatures
             </h3>
           </div>
         </div>
         <div className="flex justify-center items-center h-[200px]">
           <p className="text-gray-400">
-            Chargement des données AMPD...
+            Loading AMPD data...
           </p>
         </div>
       </div>
     );
   }
 
-  // Si aucune chaîne n'est supportée après le chargement
+  // If no chains are supported after loading
   if (supportedChains.length === 0) {
     return (
       <div className={`bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
         <div className="flex flex-col gap-2 mb-3">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold text-gray-200">
-              Signatures AMPD
+              AMPD Signatures
             </h3>
           </div>
         </div>
         <div className="flex justify-center items-center h-[200px]">
           <p className="text-gray-400">
-            La surveillance AMPD n'est pas activée
+            AMPD monitoring is not enabled
           </p>
         </div>
       </div>
     );
   }
 
-  // Filtrer les chaînes si une chaîne spécifique est passée en prop
+  // Filter chains if a specific chain is passed as prop
   const chainsToDisplay = chain ? supportedChains.filter(c => c === chain) : supportedChains;
 
   return (
@@ -114,7 +114,7 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
       <div className="mb-3">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold text-gray-200">
-            Signatures AMPD
+            AMPD Signatures
           </h3>
         </div>
       </div>
@@ -122,7 +122,7 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
       <div className="overflow-y-auto flex-grow">
         {chainsToDisplay.map((chainName) => {
           const chainSignings = signingData[chainName] || [];
-          // On prend toutes les signatures, y compris celles marquées "unknown"
+          // Take all signatures, including those marked "unknown"
           const signingsToDisplay = chainSignings.slice(0, displayLimit);
 
           return (
@@ -142,7 +142,7 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
                     ))
                   ) : (
                     <p className="text-gray-400 text-sm">
-                      Aucune signature disponible
+                      No signatures available
                     </p>
                   )}
                 </div>
@@ -156,15 +156,15 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
         <div className="flex flex-wrap gap-4">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-[#9e9e9e4d] rounded-sm"></div>
-            <span className="text-xs">Pas de donnée</span>
+            <span className="text-xs">No data</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-orange-500 rounded-sm"></div>
-            <span className="text-xs">Non soumis</span>
+            <span className="text-xs">Unsubmitted</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-green-500 rounded-sm"></div>
-            <span className="text-xs">Signature valide</span>
+            <span className="text-xs">Valid signature</span>
           </div>
         </div>
       </div>

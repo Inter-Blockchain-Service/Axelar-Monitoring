@@ -1,100 +1,68 @@
 # Axelar Validator Monitoring Dashboard
 
-Application de surveillance en temps réel des validateurs Tendermint/Cosmos avec Next.js et Socket.io, spécialement conçue pour monitorer les validateurs Axelar ou d'autres réseaux basés sur Tendermint.
+Real-time monitoring application for Axelar validators built with Next.js and Socket.io.
 
-## Fonctionnalités
+## Features
 
-- Connexion WebSocket en temps réel à un nœud Tendermint
-- Surveillance des blocs signés, manqués et proposés par votre validateur
-- Visualisation du statut des blocs récents (signé, proposé, manqué)
-- Statistiques détaillées sur les performances de signature
-- Interface responsive et moderne avec TailwindCSS
-- Actualisations automatiques en temps réel
+- Real-time WebSocket connection to a Tendermint node
+- Monitoring of signed, missed, and proposed blocks 
+- Monitoring of heartbeat
+- Detailed statistics on signing performance for vald and ampd
+- Alerting on discord and/or telegram
 
-## Structure du projet
+## Project Structure
 
 ```
 axelar-monitoring/
 ├── src/
-│   ├── app/             # Pages Next.js (App Router)
-│   ├── components/      # Composants React réutilisables
-│   ├── hooks/           # Hooks personnalisés
-│   └── server/          # Client WebSocket Tendermint et serveur Socket.io
-├── public/              # Fichiers statiques
+│   ├── app/             # Next.js pages (App Router)
+│   ├── components/      # Reusable React components
+│   ├── hooks/           # Custom hooks
+│   └── server/          # Tendermint WebSocket client and Socket.io server
+├── public/              # Static files
 └── ...
 ```
 
-## Prérequis
+## Prerequisites
 
 - Node.js 18+
-- Un nœud Tendermint/Cosmos avec l'API RPC activée
-- L'adresse de votre validateur (format hexadécimal)
+- A Axelar node with RPC API enabled
 
 ## Installation
 
-1. Clonez le dépôt
-2. Installez les dépendances :
+1. Clone the repository
+2. Install dependencies:
 
 ```bash
 npm install
 ```
 
-3. Configurez votre validateur dans le fichier `.env` :
-
-```
-# Configuration du validateur
-VALIDATOR_ADDRESS=AABBCCDDEEFF0011223344556677889900ABCDEF # Remplacer par votre adresse de validateur
-VALIDATOR_MONIKER="Mon Validateur Axelar"
-CHAIN_ID="axelar"
-
-# Configuration du nœud RPC
-RPC_ENDPOINT=http://localhost:26657
-
-# Configuration du serveur
-PORT=3001
+3. Configure your validator in the `.env` file:
+```bash
+cp .env.example .env
+nano .env
 ```
 
-## Développement
+## Development
 
-Pour lancer l'application en mode développement :
+To start the application in development mode:
 
 ```bash
 npm run dev
 ```
 
-Cela démarrera :
-- Le serveur Next.js sur http://localhost:3000
-- Le serveur Socket.io qui se connecte à votre nœud Tendermint
-
 ## Production
 
-Pour construire l'application pour la production :
+To build the application for production:
 
 ```bash
 npm run build
 npm start
 ```
 
-## Comment trouver l'adresse de votre validateur
+## Security
 
-L'adresse du validateur est une chaîne hexadécimale disponible via plusieurs moyens :
-1. Dans la sortie du RPC `localhost:26657/status` sous `validator_info.address`
-2. Via la commande CLI de votre chaîne (exemple pour Axelar) :
-   ```
-   axelard tendermint show-validator
-   ```
-
-## Technologies utilisées
-
-- **Frontend** : Next.js, React, TailwindCSS
-- **Backend** : Node.js, Express, WebSocket
-- **Temps réel** : Socket.io
-- **Blockchain** : API RPC Tendermint
-- **Langage** : TypeScript
-
-## Sécurité
-
-Cette application est conçue pour une utilisation interne/privée. Si vous l'exposez sur Internet, veuillez implémenter des mesures de sécurité supplémentaires (authentification, HTTPS, etc.).
+This application is designed for internal/private use. If you expose it on the Internet, please implement additional security measures (authentication, HTTPS, etc.).
 
 ## Learn More
 
@@ -105,8 +73,3 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

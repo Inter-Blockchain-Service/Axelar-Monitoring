@@ -18,7 +18,7 @@ export default function ValidatorInfo({ connectionInfo, moniker, chainId, classN
   return (
     <div className={`bg-[#333333] p-6 rounded-lg shadow-md ${className}`}>
       <h3 className="text-lg font-semibold text-gray-200 mb-4">
-        Informations du Validateur
+        Validator Information
       </h3>
       
       <div className="space-y-3">
@@ -28,35 +28,35 @@ export default function ValidatorInfo({ connectionInfo, moniker, chainId, classN
         </div>
         
         <div>
-          <div className="text-sm text-gray-400">Chaîne</div>
+          <div className="text-sm text-gray-400">Chain</div>
           <div className="font-medium">{chainId}</div>
         </div>
         
         <div>
-          <div className="text-sm text-gray-400">Adresse du Validateur</div>
+          <div className="text-sm text-gray-400">Validator Address</div>
           <div className="font-mono text-xs break-all">
-            {connectionInfo.validatorAddress || '(Non connecté)'}
+            {connectionInfo.validatorAddress || '(Not connected)'}
           </div>
         </div>
         
         <div>
-          <div className="text-sm text-gray-400">Adresse du Broadcaster (HeartBeats)</div>
+          <div className="text-sm text-gray-400">Broadcaster Address (HeartBeats)</div>
           <div className="font-mono text-xs break-all">
-            {connectionInfo.broadcasterAddress || '(Non configuré)'}
+            {connectionInfo.broadcasterAddress || '(Not configured)'}
           </div>
         </div>
         
         {connectionInfo.ampdEnabled && connectionInfo.ampdAddress && (
           <div>
-            <div className="text-sm text-gray-400">Adresse AMPD</div>
+            <div className="text-sm text-gray-400">AMPD Address</div>
             <div className="font-mono text-xs break-all">
-              {connectionInfo.ampdAddress || '(Non configuré)'}
+              {connectionInfo.ampdAddress || '(Not configured)'}
             </div>
           </div>
         )}
         
         <div>
-          <div className="text-sm text-gray-400">Endpoint RPC</div>
+          <div className="text-sm text-gray-400">RPC Endpoint</div>
           <div className="font-mono text-xs break-all">
             {connectionInfo.endpoint || '-'}
           </div>

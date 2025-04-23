@@ -1,23 +1,23 @@
 import { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-// Statut d'un bloc
+// Block status
 export enum StatusType {
-  Missed = 0,     // Bloc manqué
-  Prevote = 1,    // Prevote vu
-  Precommit = 2,  // Precommit vu
-  Signed = 3,     // Bloc signé
-  Proposed = 4    // Bloc proposé
+  Missed = 0,     // Missed block
+  Prevote = 1,    // Prevote seen
+  Precommit = 2,  // Precommit seen
+  Signed = 3,     // Block signed
+  Proposed = 4    // Block proposed
 }
 
-// Statut d'un heartbeat
+// Heartbeat status
 export enum HeartbeatStatusType {
-  Unknown = -1,   // Pas encore de données pour cette période
-  Missed = 0,     // Heartbeat manqué
-  Signed = 1      // Heartbeat signé avec succès
+  Unknown = -1,   // No data yet for this period
+  Missed = 0,     // Missed heartbeat
+  Signed = 1      // Successfully signed heartbeat
 }
 
-// Statut d'un vote EVM
+// EVM vote status
 export enum VoteStatusType {
   Unknown = 'unknown',
   Unsubmitted = 'unsubmitted',
@@ -25,20 +25,20 @@ export enum VoteStatusType {
   Invalid = 'invalid'
 }
 
-// Interface pour un poll EVM
+// Interface for an EVM poll
 export interface PollStatus {
   pollId: string;
   result: string;
 }
 
-// Interface pour les données de votes par chaîne
+// Interface for votes data by chain
 export interface ChainData {
   [chain: string]: {
     pollIds: PollStatus[];
   }
 }
 
-// Interface pour les métriques du validateur
+// Interface for validator metrics
 export interface ValidatorMetrics {
   chainId: string;
   moniker: string;
@@ -53,7 +53,7 @@ export interface ValidatorMetrics {
   precommitMissed: number;
   connected: boolean;
   lastError: string;
-  // Métriques de Heartbeat
+  // Heartbeat metrics
   heartbeatStatus: number[];
   heartbeatBlocks: (number | undefined)[];
   heartbeatsMissed: number;
@@ -63,18 +63,18 @@ export interface ValidatorMetrics {
   lastHeartbeatTime: Date | null;
   heartbeatConnected: boolean;
   heartbeatLastError: string;
-  // Métriques de votes EVM
+  // EVM votes metrics
   evmVotesEnabled: boolean;
   evmVotes: ChainData;
   evmLastGlobalPollId: number;
-  // Métriques AMPD
+  // AMPD metrics
   ampdEnabled: boolean;
   ampdVotes: any;
   ampdSignings: any;
   ampdSupportedChains: string[];
 }
 
-// Informations de connexion
+// Connection information
 export interface ConnectionInfo {
   connected: boolean;
   heartbeatConnected: boolean;
@@ -103,7 +103,7 @@ export function useMetrics() {
     precommitMissed: 0,
     connected: false,
     lastError: '',
-    // Initialisation des métriques de heartbeat
+    // Initialize heartbeat metrics
     heartbeatStatus: [],
     heartbeatBlocks: [],
     heartbeatsMissed: 0,
@@ -113,11 +113,11 @@ export function useMetrics() {
     lastHeartbeatTime: null,
     heartbeatConnected: false,
     heartbeatLastError: '',
-    // Initialisation des métriques de votes EVM
+    // Initialize EVM votes metrics
     evmVotesEnabled: false,
     evmVotes: {},
     evmLastGlobalPollId: 0,
-    // Initialisation des métriques AMPD
+    // Initialize AMPD metrics
     ampdEnabled: false,
     ampdVotes: {},
     ampdSignings: {},
@@ -137,34 +137,34 @@ export function useMetrics() {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // Création de la connexion socket
+    // Create socket connection
     const socketInstance = io(process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001');
 
-    // Gestion des événements de connexion
+    // Handle connection events
     socketInstance.on('connect', () => {
       setIsConnected(true);
-      console.log('Connecté au serveur WebSocket');
+      console.log('Connected to WebSocket server');
     });
 
     socketInstance.on('disconnect', () => {
       setIsConnected(false);
-      console.log('Déconnecté du serveur WebSocket');
+      console.log('Disconnected from WebSocket server');
     });
 
-    // Écoute des mises à jour de métriques
+    // Listen for metrics updates
     socketInstance.on('metrics-update', (data: ValidatorMetrics) => {
-      // Convertir lastBlockTime de string à Date si nécessaire
+      // Convert lastBlockTime from string to Date if needed
       if (typeof data.lastBlockTime === 'string') {
         data.lastBlockTime = new Date(data.lastBlockTime);
       }
-      // Convertir lastHeartbeatTime de string à Date si nécessaire
+      // Convert lastHeartbeatTime from string to Date if needed
       if (data.lastHeartbeatTime && typeof data.lastHeartbeatTime === 'string') {
         data.lastHeartbeatTime = new Date(data.lastHeartbeatTime);
       }
       setMetrics(data);
     });
 
-    // Écoute des mises à jour des votes EVM
+    // Listen for EVM votes updates
     socketInstance.on('evm-votes-update', (data: ChainData) => {
       setMetrics(prevMetrics => ({
         ...prevMetrics,
@@ -172,14 +172,14 @@ export function useMetrics() {
       }));
     });
 
-    // Écoute des informations de connexion
+    // Listen for connection information
     socketInstance.on('connection-status', (data: ConnectionInfo) => {
       setConnectionInfo(data);
     });
 
     setSocket(socketInstance);
 
-    // Nettoyage à la déconnexion
+    // Cleanup on disconnect
     return () => {
       socketInstance.disconnect();
     };

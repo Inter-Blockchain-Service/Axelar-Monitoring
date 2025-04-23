@@ -24,7 +24,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
   useEffect(() => {
     if (evmVotes && Object.keys(evmVotes).length > 0) {
       const chains = Object.keys(evmVotes);
-      // Trier les chaînes pour mettre ethereum en premier, puis par ordre alphabétique
+      // Sort chains to put ethereum first, then alphabetically
       const sortedChains = chains.sort((a, b) => {
         if (a === 'ethereum') return -1;
         if (b === 'ethereum') return 1;
@@ -40,13 +40,13 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
         <div className="flex flex-col gap-2 mb-3">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold text-gray-200">
-              Statut des Votes EVM
+              EVM Votes Status
             </h3>
           </div>
         </div>
         <div className="flex justify-center items-center h-[200px]">
           <p className="text-gray-400">
-            La surveillance des votes EVM n'est pas activée
+            EVM votes monitoring is not enabled
           </p>
         </div>
       </div>
@@ -56,28 +56,28 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'validated':
-        return 'bg-green-500'; // vert pour validé
+        return 'bg-green-500'; // green for validated
       case 'unsubmitted':
-        return 'bg-orange-500'; // orange pour non soumis
+        return 'bg-orange-500'; // orange for unsubmitted
       case 'invalid':
-        return 'bg-red-500'; // rouge pour invalide
+        return 'bg-red-500'; // red for invalid
       case 'unknown':
       default:
-        return 'bg-[#9e9e9e4d]'; // gris transparent pour pas de donnée
+        return 'bg-[#9e9e9e4d]'; // transparent gray for no data
     }
   };
 
   const getStatusTooltip = (status: string) => {
     switch (status) {
       case 'validated':
-        return 'Validé';
+        return 'Validated';
       case 'unsubmitted':
-        return 'Non soumis';
+        return 'Unsubmitted';
       case 'invalid':
-        return 'Invalide';
+        return 'Invalid';
       case 'unknown':
       default:
-        return 'Pas de donnée';
+        return 'No data';
     }
   };
 
@@ -86,10 +86,10 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
       <div className="mb-3">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold text-gray-200">
-            Statut des Votes EVM
+            EVM Votes Status
           </h3>
           <div className="text-sm text-gray-500">
-            Dernier Poll ID Global: {lastGlobalPollId}
+            Last Global Poll ID: {lastGlobalPollId}
           </div>
         </div>
       </div>
@@ -115,7 +115,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
                     ))
                   ) : (
                     <p className="text-gray-400 text-sm">
-                      Aucun vote disponible
+                      No votes available
                     </p>
                   )}
                 </div>
@@ -129,19 +129,19 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
         <div className="flex flex-wrap gap-4">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-[#9e9e9e4d] rounded-sm"></div>
-            <span className="text-xs">Pas de donnée</span>
+            <span className="text-xs">No data</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-orange-500 rounded-sm"></div>
-            <span className="text-xs">Non soumis</span>
+            <span className="text-xs">Unsubmitted</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-green-500 rounded-sm"></div>
-            <span className="text-xs">Validé</span>
+            <span className="text-xs">Validated</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
-            <span className="text-xs">Invalide</span>
+            <span className="text-xs">Invalid</span>
           </div>
         </div>
       </div>

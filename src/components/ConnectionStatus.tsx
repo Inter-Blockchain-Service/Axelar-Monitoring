@@ -12,7 +12,7 @@ export default function ConnectionStatus({ isConnected }: ConnectionStatusProps)
                    ${isConnected ? 'animate-pulse' : ''}`}
       />
       <span className="text-sm font-medium">
-        {isConnected ? 'Connecté' : 'Déconnecté'}
+        {isConnected ? 'Connected' : 'Disconnected'}
       </span>
     </div>
   );

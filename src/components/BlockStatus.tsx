@@ -12,12 +12,12 @@ export default function BlockStatus({ statusList, className = '', lastBlockHeigh
   const [hasNewBlock, setHasNewBlock] = useState<boolean>(false);
   const animationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Détecter l'arrivée d'un nouveau bloc
+  // Detect new block arrival
   useEffect(() => {
     if (lastBlockHeight > prevLastBlock && prevLastBlock > 0) {
       setHasNewBlock(true);
       
-      // Réinitialiser l'animation après 1 seconde
+      // Reset animation after 1 second
       if (animationTimeoutRef.current) {
         clearTimeout(animationTimeoutRef.current);
       }
@@ -36,7 +36,7 @@ export default function BlockStatus({ statusList, className = '', lastBlockHeigh
     };
   }, [lastBlockHeight, prevLastBlock]);
   
-  // Fonction pour obtenir la couleur en fonction du statut
+  // Function to get color based on status
   const getStatusColor = (status: number) => {
     switch (status) {
       case StatusType.Proposed:
@@ -54,31 +54,31 @@ export default function BlockStatus({ statusList, className = '', lastBlockHeigh
     }
   };
 
-  // Fonction pour obtenir le texte du statut
+  // Function to get status text
   const getStatusText = (status: number) => {
     switch (status) {
       case StatusType.Proposed:
-        return 'Proposé';
+        return 'Proposed';
       case StatusType.Signed:
-        return 'Signé';
+        return 'Signed';
       case StatusType.Precommit:
         return 'Precommit';
       case StatusType.Prevote:
         return 'Prevote';
       case StatusType.Missed:
-        return 'Manqué';
+        return 'Missed';
       default:
-        return 'Inconnu';
+        return 'Unknown';
     }
   };
   
-  // Calculer la hauteur réelle du bloc pour un index donné
+  // Calculate actual block height for a given index
   const getBlockHeight = (index: number) => {
     if (lastBlockHeight <= 0) return '?';
     return (lastBlockHeight - index).toString();
   };
   
-  // Limiter à 200 derniers blocs seulement
+  // Limit to last 200 blocks only
   const visibleBlocks = statusList.slice(0, 200).map((status, index) => ({ status, index }));
   
   return (
@@ -86,10 +86,10 @@ export default function BlockStatus({ statusList, className = '', lastBlockHeigh
       <div className="flex flex-col gap-2 mb-3">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold text-gray-200">
-            Statut des blocs récents
+            Recent Blocks Status
           </h3>
           <div className="text-sm text-gray-500">
-            Affichage des 200 derniers blocs
+            Displaying the last 200 blocks
           </div>
         </div>
       </div>
@@ -108,11 +108,11 @@ export default function BlockStatus({ statusList, className = '', lastBlockHeigh
         <div className="grid grid-cols-5 gap-2">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-purple-500 rounded-sm"></div>
-            <span className="text-xs">Proposé</span>
+            <span className="text-xs">Proposed</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-green-500 rounded-sm"></div>
-            <span className="text-xs">Signé</span>
+            <span className="text-xs">Signed</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-yellow-500 rounded-sm"></div>
@@ -124,7 +124,7 @@ export default function BlockStatus({ statusList, className = '', lastBlockHeigh
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
-            <span className="text-xs">Manqué</span>
+            <span className="text-xs">Missed</span>
           </div>
         </div>
       </div>

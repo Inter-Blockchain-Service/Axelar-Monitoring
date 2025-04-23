@@ -4,13 +4,13 @@ import { ValidatorMetrics } from './metrics';
 import { broadcastMetricsUpdate } from './websockets';
 
 /**
- * Vérifie si le nœud RPC est disponible et synchronisé
- * @param rpcEndpoint URL du nœud RPC
- * @returns Promesse avec un objet indiquant si le nœud est disponible et synchronisé
+ * Checks if the RPC node is available and synchronized
+ * @param rpcEndpoint RPC node URL
+ * @returns Promise with an object indicating if the node is available and synced
  */
 export async function checkNodeStatus(rpcEndpoint: string): Promise<{ available: boolean; synced: boolean; blockHeight?: number; error?: string }> {
   try {
-    // Nettoyer l'URL pour la requête HTTP
+    // Clean URL for HTTP request
     const endpoint = rpcEndpoint.replace(/\/websocket$/, '');
     const statusUrl = `${endpoint}/status`;
     
@@ -38,10 +38,10 @@ export async function checkNodeStatus(rpcEndpoint: string): Promise<{ available:
 }
 
 /**
- * Attend que le nœud soit disponible et synchronisé
- * @param rpcEndpoint URL du nœud RPC
- * @param interval Intervalle entre les tentatives (en ms)
- * @returns Promesse qui se résout quand le nœud est prêt
+ * Waits for the node to be available and synchronized
+ * @param rpcEndpoint RPC node URL
+ * @param interval Interval between attempts (in ms)
+ * @returns Promise that resolves when the node is ready
  */
 export async function waitForNodeToBeSynced(
   rpcEndpoint: string,
@@ -50,7 +50,7 @@ export async function waitForNodeToBeSynced(
   let attempts = 0;
   const startTime = Date.now();
   
-  // Boucle infinie jusqu'à ce que le nœud soit synchronisé
+  // Infinite loop until the node is synchronized
   while (true) {
     attempts++;
     const elapsedMinutes = Math.floor((Date.now() - startTime) / 60000);
@@ -70,17 +70,17 @@ export async function waitForNodeToBeSynced(
       console.log(`Node is not available (attempt ${attempts}, waiting for ${elapsedMinutes} min). Waiting ${interval/1000}s before retrying...`);
     }
     
-    // Attendre l'intervalle spécifié
+    // Wait for the specified interval
     await new Promise(resolve => setTimeout(resolve, interval));
   }
 }
 
 /**
- * Crée une fonction de reconnexion au nœud RPC
- * @param tendermintClient Client Tendermint
- * @param metrics Métriques du validateur
- * @param rpcEndpoint URL du nœud RPC
- * @returns Fonction de reconnexion
+ * Creates a function to reconnect to the RPC node
+ * @param tendermintClient Tendermint client
+ * @param metrics Validator metrics
+ * @param rpcEndpoint RPC node URL
+ * @returns Reconnection function
  */
 export function createReconnectionHandler(
   tendermintClient: TendermintClient,
@@ -90,22 +90,22 @@ export function createReconnectionHandler(
   return async function reconnectToNode(): Promise<void> {
     console.log("Attempting to reconnect to node...");
     
-    // D'abord, déconnecter le client existant
+    // First, disconnect the existing client
     tendermintClient.disconnect();
     
-    // Mettre à jour les métriques pour refléter l'état déconnecté
+    // Update metrics to reflect disconnected state
     metrics.connected = false;
     metrics.heartbeatConnected = false;
     metrics.lastError = "Node disconnected. Attempting to reconnect...";
     broadcastMetricsUpdate(metrics);
     
     try {
-      // Attendre que le nœud soit à nouveau disponible et synchronisé
+      // Wait for the node to be available and synced again
       console.log(`Checking if node ${rpcEndpoint} is available and synced...`);
       const isNodeReady = await waitForNodeToBeSynced(rpcEndpoint);
       
       if (isNodeReady) {
-        // Connecter le client Tendermint si le nœud est prêt
+        // Connect the Tendermint client if the node is ready
         console.log('Node is ready again. Reconnecting Tendermint client...');
         tendermintClient.connect();
       }
@@ -117,35 +117,35 @@ export function createReconnectionHandler(
 }
 
 /**
- * Connecte au nœud RPC après avoir vérifié son statut
- * @param tendermintClient Client Tendermint
- * @param metrics Métriques du validateur
- * @param rpcEndpoint URL du nœud RPC
+ * Connects to the RPC node after checking its status
+ * @param tendermintClient Tendermint client
+ * @param metrics Validator metrics
+ * @param rpcEndpoint RPC node URL
  */
 export async function connectToNode(
   tendermintClient: TendermintClient,
   metrics: ValidatorMetrics,
   rpcEndpoint: string
 ): Promise<void> {
-  // Vérifier le statut du nœud RPC avant de se connecter
+  // Check RPC node status before connecting
   console.log(`Checking if node ${rpcEndpoint} is available and synced...`);
   
   try {
     const isNodeReady = await waitForNodeToBeSynced(rpcEndpoint);
     
     if (isNodeReady) {
-      // Connecter le client Tendermint si le nœud est prêt
+      // Connect the Tendermint client if the node is ready
       console.log('Node is ready. Connecting Tendermint client...');
       tendermintClient.connect();
     } else {
-      // Ce code ne devrait jamais être atteint puisque la fonction attend indéfiniment
+      // This code should never be reached since the function waits indefinitely
       console.warn('WARNING: Node is not ready or synced. Starting anyway, but expect issues.');
       
-      // Mettre à jour les métriques avec le message d'erreur
+      // Update metrics with error message
       metrics.connected = false;
       metrics.lastError = "Node is not available or not synced.";
       
-      // Connecter quand même pour permettre les tentatives futures
+      // Connect anyway to allow future attempts
       tendermintClient.connect();
     }
   } catch (error: any) {

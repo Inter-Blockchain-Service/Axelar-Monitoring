@@ -3,19 +3,19 @@ import { ValidatorMetrics } from './metrics';
 import { TendermintClient } from './tendermint';
 
 /**
- * Configure les routes API pour l'application Express
+ * Set up API routes for the Express application
  */
 export const setupApiRoutes = (
   app: express.Application,
   metrics: ValidatorMetrics,
   tendermintClient: TendermintClient
 ): void => {
-  // Route API pour les métriques générales
+  // API route for general metrics
   app.get('/api/metrics', (req: Request, res: Response) => {
     res.json(metrics);
   });
   
-  // Route API pour les votes EVM
+  // API route for EVM votes
   app.get('/api/evm-votes', (req: Request, res: Response) => {
     if (metrics.evmVotesEnabled) {
       res.json(metrics.evmVotes);
@@ -24,7 +24,7 @@ export const setupApiRoutes = (
     }
   });
   
-  // Route API pour les votes EVM d'une chaîne spécifique
+  // API route for EVM votes of a specific chain
   app.get('/api/evm-votes/:chain', (req: Request, res: Response) => {
     if (metrics.evmVotesEnabled) {
       const chain = req.params.chain.toLowerCase();
@@ -39,7 +39,7 @@ export const setupApiRoutes = (
     }
   });
   
-  // Route API pour les chaînes AMPD supportées
+  // API route for supported AMPD chains
   app.get('/api/ampd/chains', (req: Request, res: Response) => {
     if (metrics.ampdEnabled) {
       res.json(metrics.ampdSupportedChains);
@@ -48,7 +48,7 @@ export const setupApiRoutes = (
     }
   });
   
-  // Route API pour les votes AMPD d'une chaîne spécifique
+  // API route for AMPD votes of a specific chain
   app.get('/api/ampd/votes/:chain', (req: Request, res: Response) => {
     if (metrics.ampdEnabled) {
       const chain = req.params.chain.toLowerCase();
@@ -63,7 +63,7 @@ export const setupApiRoutes = (
     }
   });
   
-  // Route API pour les signatures AMPD d'une chaîne spécifique
+  // API route for AMPD signatures of a specific chain
   app.get('/api/ampd/signings/:chain', (req: Request, res: Response) => {
     if (metrics.ampdEnabled) {
       const chain = req.params.chain.toLowerCase();

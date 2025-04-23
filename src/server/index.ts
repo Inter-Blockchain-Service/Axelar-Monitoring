@@ -10,24 +10,24 @@ import { connectToNode, createReconnectionHandler } from './node-manager';
 import { AlertManager } from './alert-manager';
 import { BLOCKS_HISTORY_SIZE, HEARTBEAT_HISTORY_SIZE, HEARTBEAT_PERIOD } from '../constants';
 
-// Charger les variables d'environnement
+// Load environment variables
 dotenv.config();
 
-// Configuration par défaut
+// Default configuration
 const DEFAULT_RPC_ENDPOINT = 'http://localhost:26657';
 const DEFAULT_VALIDATOR_ADDRESS = '';
 
-// Créer l'application Express
+// Create Express application
 const app = express();
 const server = http.createServer(app);
 
-// Initialiser les métriques
+// Initialize metrics
 const metrics = createInitialMetrics(
   process.env.CHAIN_ID || 'axelar',
   process.env.VALIDATOR_MONIKER || 'My Validator'
 );
 
-// Configurer le client Tendermint
+// Configure Tendermint client
 const rpcEndpoint = process.env.RPC_ENDPOINT || DEFAULT_RPC_ENDPOINT;
 const validatorAddress = process.env.VALIDATOR_ADDRESS || DEFAULT_VALIDATOR_ADDRESS;
 const broadcasterAddress = process.env.BROADCASTER_ADDRESS || validatorAddress;
@@ -39,11 +39,11 @@ if (!validatorAddress) {
   process.exit(1);
 }
 
-// Obtenir les chaînes AMPD supportées depuis les variables d'environnement
+// Get supported AMPD chains from environment variables
 const ampdSupportedChainsEnv = process.env.AMPD_SUPPORTED_CHAINS || '';
 const ampdSupportedChains = ampdSupportedChainsEnv.split(',').filter(chain => chain.trim() !== '');
 
-// Créer le client Tendermint
+// Create Tendermint client
 const tendermintClient = new TendermintClient(
   rpcEndpoint,
   validatorAddress,
@@ -54,44 +54,44 @@ const tendermintClient = new TendermintClient(
   ampdAddress
 );
 
-// Vérifier si le gestionnaire de votes EVM est activé
+// Check if EVM votes manager is enabled
 metrics.evmVotesEnabled = tendermintClient.hasEvmVoteManager();
 
-// Si le gestionnaire de votes EVM est activé, obtenir les votes initiaux
+// If EVM votes manager is enabled, get initial votes
 if (metrics.evmVotesEnabled) {
   console.log(`EVM votes monitoring enabled with API endpoint: ${axelarApiEndpoint}`);
-  // Initialiser les votes EVM
+  // Initialize EVM votes
   metrics.evmVotes = tendermintClient.getAllEvmVotes() || {};
 }
 
-// Vérifier si le gestionnaire AMPD est activé
+// Check if AMPD manager is enabled
 metrics.ampdEnabled = tendermintClient.hasAmpdManager();
 
-// Si le gestionnaire AMPD est activé, obtenir les données initiales
+// If AMPD manager is enabled, get initial data
 if (metrics.ampdEnabled) {
   console.log(`AMPD monitoring enabled for chains: ${ampdSupportedChains.join(', ')}`);
-  // Initialiser les données AMPD
+  // Initialize AMPD data
   metrics.ampdVotes = tendermintClient.getAllAmpdVotes() || {};
   metrics.ampdSignings = tendermintClient.getAllAmpdSignings() || {};
   metrics.ampdSupportedChains = tendermintClient.getAmpdSupportedChains() || [];
 }
 
-// Initialiser le gestionnaire d'alertes
+// Initialize alert manager
 const alertManager = new AlertManager(metrics);
 
-// Créer la fonction de reconnexion
+// Create reconnection function
 const reconnectToNode = createReconnectionHandler(tendermintClient, metrics, rpcEndpoint);
 
-// Configurer les WebSockets
+// Configure WebSockets
 setupWebSockets(server, metrics, tendermintClient, rpcEndpoint, validatorAddress, broadcasterAddress);
 
-// Configurer les gestionnaires d'événements avec la fonction de reconnexion
+// Configure event handlers with reconnection function
 setupEventHandlers(tendermintClient, metrics, reconnectToNode);
 
-// Configurer les routes API
+// Configure API routes
 setupApiRoutes(app, metrics, tendermintClient);
 
-// Ajouter des routes API pour les alertes
+// Add API routes for alerts
 app.get('/api/alerts/status', (req, res) => {
   const status = {
     enabled: true,
@@ -109,7 +109,7 @@ app.get('/api/alerts/status', (req, res) => {
   res.json(status);
 });
 
-// Démarrer le serveur et connecter au nœud RPC
+// Start server and connect to RPC node
 const PORT = process.env.PORT || 3001;
 server.listen(Number(PORT), '0.0.0.0', async () => {
   console.log(`Server listening on address 0.0.0.0:${PORT}`);
@@ -126,11 +126,11 @@ server.listen(Number(PORT), '0.0.0.0', async () => {
     console.log(`AMPD address used: ${tendermintClient.getAmpdAddress()}`);
   }
   
-  // Démarrer la vérification périodique des alertes (chaque minute)
+  // Start periodic alert checks (every minute)
   alertManager.startPeriodicChecks(60000);
   console.log('Alert system started with periodic checks every minute');
   
-  // Connecter au nœud RPC après vérification de son statut
+  // Connect to RPC node after checking its status
   await connectToNode(tendermintClient, metrics, rpcEndpoint);
 });
 

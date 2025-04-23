@@ -3,11 +3,11 @@ import http from 'http';
 import { ValidatorMetrics } from './metrics';
 import { TendermintClient } from './tendermint';
 
-// Exporter l'instance io pour pouvoir l'utiliser dans d'autres modules
+// Export the io instance to be used in other modules
 export let io: Server;
 
 /**
- * Configure le serveur WebSocket et les gestionnaires de connexion
+ * Configure the WebSocket server and connection handlers
  */
 export const setupWebSockets = (
   server: http.Server,
@@ -17,7 +17,7 @@ export const setupWebSockets = (
   validatorAddress: string,
   broadcasterAddress: string
 ): Server => {
-  // Configurer Socket.io avec CORS
+  // Configure Socket.io with CORS
   io = new Server(server, {
     cors: {
       origin: '*',
@@ -25,22 +25,22 @@ export const setupWebSockets = (
     }
   });
 
-  // Gestionnaire de connexion client
+  // Client connection handler
   io.on('connection', (socket: Socket) => {
     console.log('New web client connected:', socket.id);
     
-    // Envoyer les métriques actuelles immédiatement au nouveau client
+    // Send current metrics immediately to the new client
     socket.emit('metrics-update', metrics);
     if (metrics.evmVotesEnabled) {
       socket.emit('evm-votes-update', metrics.evmVotes);
     }
     
-    // Envoyer les données AMPD si activées
+    // Send AMPD data if enabled
     if (metrics.ampdEnabled) {
-      // Envoyer la liste des chaînes supportées
+      // Send the list of supported chains
       io.emit('ampd-chains', { chains: metrics.ampdSupportedChains });
       
-      // Envoyer les données initiales pour chaque chaîne
+      // Send initial data for each chain
       metrics.ampdSupportedChains.forEach(chainName => {
         const votes = tendermintClient.getAmpdChainVotes(chainName);
         const signings = tendermintClient.getAmpdChainSignings(chainName);
@@ -55,7 +55,7 @@ export const setupWebSockets = (
       });
     }
     
-    // Envoyer les informations de connexion
+    // Send connection information
     socket.emit('connection-status', {
       connected: tendermintClient.isConnected(),
       heartbeatConnected: tendermintClient.isConnected(),
@@ -67,7 +67,7 @@ export const setupWebSockets = (
       ampdAddress: metrics.ampdEnabled ? tendermintClient.getAmpdAddress() : ''
     });
     
-    // Gestionnaire de déconnexion
+    // Disconnect handler
     socket.on('disconnect', () => {
       console.log('Web client disconnected:', socket.id);
     });
@@ -77,7 +77,7 @@ export const setupWebSockets = (
 };
 
 /**
- * Émet une mise à jour des métriques à tous les clients
+ * Broadcast metrics update to all clients
  */
 export const broadcastMetricsUpdate = (metrics: ValidatorMetrics): void => {
   if (io) {
