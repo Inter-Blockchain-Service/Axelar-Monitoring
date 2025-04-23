@@ -38,8 +38,9 @@ npm install
 ```
 
 3. Configure your validator in the `.env` file:
+
 ```bash
-cp .env.example .env
+cp env.example .env
 nano .env
 ```
 
