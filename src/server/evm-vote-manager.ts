@@ -4,8 +4,6 @@ import dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config();
-// Log pour débugger la variable d'environnement
-console.log('🔍 Valeur brute de EVM_SUPPORTED_CHAINS dans .env:', process.env.EVM_SUPPORTED_CHAINS);
 
 // List of supported chains from the .env file
 const SUPPORTED_CHAINS = process.env.EVM_SUPPORTED_CHAINS 
@@ -23,8 +21,6 @@ const SUPPORTED_CHAINS = process.env.EVM_SUPPORTED_CHAINS
     'blast'
   ]; // Default values if not defined in .env
 
-// Log pour voir les chaînes effectivement utilisées
-console.log('🔍 Liste finale des chaînes EVM surveillées:', SUPPORTED_CHAINS);
 
 // Maximum number of poll_ids to store per chain
 const MAX_POLL_HISTORY = 35;
