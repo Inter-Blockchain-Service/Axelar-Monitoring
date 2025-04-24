@@ -124,9 +124,41 @@ export class AlertManager extends EventEmitter {
   }
   
   /**
+   * Pour le diagnostic : affiche le contenu complet d'un objet
+   */
+  private logObjectContent(object: any, name: string): void {
+    try {
+      console.log(`[DEBUG] ${name} content: ${JSON.stringify(object, null, 2)}`);
+    } catch (error) {
+      console.log(`[DEBUG] Error stringifying ${name}: ${error}`);
+    }
+  }
+
+  /**
    * Check current metrics to detect alerts
    */
   public checkMetrics(): void {
+    // Diagnostic: afficher la structure des métriques
+    this.logObjectContent(this.metrics, 'Metrics');
+    
+    if (this.metrics.ampdVotes) {
+      Object.keys(this.metrics.ampdVotes).forEach(chain => {
+        this.logObjectContent(this.metrics.ampdVotes[chain], `AMPD Votes for chain ${chain}`);
+      });
+    }
+    
+    if (this.metrics.ampdSignings) {
+      Object.keys(this.metrics.ampdSignings).forEach(chain => {
+        this.logObjectContent(this.metrics.ampdSignings[chain], `AMPD Signings for chain ${chain}`);
+      });
+    }
+    
+    if (this.metrics.evmVotes) {
+      Object.keys(this.metrics.evmVotes).forEach(chain => {
+        this.logObjectContent(this.metrics.evmVotes[chain], `EVM Votes for chain ${chain}`);
+      });
+    }
+    
     // Save previous state of metrics for comparison
     const prevMetrics = { ...this.previousMetrics };
     this.previousMetrics = { ...this.metrics };
@@ -205,57 +237,39 @@ export class AlertManager extends EventEmitter {
    * Check missed EVM votes
    */
   private checkEvmVotes(): void {
+    if (!this.metrics.evmVotes) return;
+    
     // Loop through all EVM chains
     Object.entries(this.metrics.evmVotes).forEach(([chain, chainData]) => {
       // If no votes or no pollIds, ignore
       if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0) return;
       
-      // Parcourir tous les votes, pas seulement le plus récent
-      let currentConsecutiveInvalid = 0;
-      let maxConsecutiveInvalid = 0;
+      console.log(`[DEBUG] Chain ${chain} has ${chainData.pollIds.length} polls`);
       
-      // Parcourir tous les votes pour trouver la séquence la plus longue de votes invalides consécutifs
+      // On regarde tous les votes, pas seulement le plus récent
+      let invalidCount = 0;
+      
+      // Comptons combien de votes sont invalides
       for (const poll of chainData.pollIds) {
+        console.log(`[DEBUG] Poll ${poll.pollId || 'unknown'}: result = "${poll.result || 'unknown'}"`);
+        
         if (poll.result === 'Invalid') {
-          currentConsecutiveInvalid++;
-          // Mettre à jour le maximum si nécessaire
-          maxConsecutiveInvalid = Math.max(maxConsecutiveInvalid, currentConsecutiveInvalid);
-        } else {
-          // Réinitialiser le compteur courant si on trouve un vote valide
-          currentConsecutiveInvalid = 0;
+          invalidCount++;
         }
       }
       
-      // Vérifier si on était en état d'alerte et qu'on est revenu à la normale
-      const wasInAlertState = this.evmConsecutiveMissedByChain[chain] >= this.thresholds.consecutiveEvmVotesMissed;
-      const isNowNormal = maxConsecutiveInvalid < this.thresholds.consecutiveEvmVotesMissed;
+      console.log(`[DEBUG] Chain ${chain}: ${invalidCount} invalid votes detected`);
       
-      // Si nous avons atteint le seuil, envoyer une alerte
-      if (maxConsecutiveInvalid >= this.thresholds.consecutiveEvmVotesMissed) {
-        // Si c'est la première fois qu'on dépasse le seuil ou si assez de temps s'est écoulé depuis la dernière alerte
-        if (!wasInAlertState || this.canSendAlert(AlertType.EVM_VOTE_MISSED)) {
-          this.createAlert(
-            AlertType.EVM_VOTE_MISSED,
-            `⚠️ ALERT: ${maxConsecutiveInvalid} consecutive EVM votes missed on chain ${chain}`,
-            'warning'
-          );
-        }
-        // Mettre à jour le compteur global pour cette chaîne
-        this.evmConsecutiveMissedByChain[chain] = maxConsecutiveInvalid;
-      } 
-      // Si on était en alerte et qu'on est revenu à la normale, envoyer une notification de rétablissement
-      else if (wasInAlertState && isNowNormal) {
+      // Si le nombre de votes invalides dépasse le seuil, envoyer une alerte
+      if (invalidCount >= this.thresholds.consecutiveEvmVotesMissed) {
+        console.log(`[DEBUG] Chain ${chain}: Threshold exceeded, sending alert`);
         this.createAlert(
-          AlertType.EVM_VOTES_RECOVERED,
-          `🟢 INFO: EVM votes recovered on chain ${chain}. Now operating normally.`,
-          'info'
+          AlertType.EVM_VOTE_MISSED,
+          `⚠️ ALERT: ${invalidCount} EVM votes missed on chain ${chain}`,
+          'warning'
         );
-        // Mettre à jour le compteur global pour cette chaîne
-        this.evmConsecutiveMissedByChain[chain] = maxConsecutiveInvalid;
-      }
-      // Sinon, mettre simplement à jour le compteur
-      else {
-        this.evmConsecutiveMissedByChain[chain] = maxConsecutiveInvalid;
+      } else {
+        console.log(`[DEBUG] Chain ${chain}: Below threshold, no alert needed`);
       }
     });
   }
@@ -270,52 +284,32 @@ export class AlertManager extends EventEmitter {
     Object.entries(this.metrics.ampdVotes).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0) return;
       
-      // Parcourir tous les votes, pas seulement le plus récent
-      let currentConsecutiveInvalid = 0;
-      let maxConsecutiveInvalid = 0;
+      console.log(`[DEBUG] Chain ${chain} has ${chainData.pollIds.length} polls`);
       
-      // Parcourir tous les votes pour trouver la séquence la plus longue de votes invalides consécutifs
+      // On regarde tous les votes, pas seulement le plus récent
+      let invalidCount = 0;
+      
+      // Comptons combien de votes sont invalides
       for (const vote of chainData.pollIds) {
+        console.log(`[DEBUG] Vote ${vote.pollId || 'unknown'}: result = "${vote.result || 'unknown'}"`);
+        
         if (vote.result === 'invalid') {
-          currentConsecutiveInvalid++;
-          // Mettre à jour le maximum si nécessaire
-          maxConsecutiveInvalid = Math.max(maxConsecutiveInvalid, currentConsecutiveInvalid);
-        } else {
-          // Réinitialiser le compteur courant si on trouve un vote valide
-          currentConsecutiveInvalid = 0;
+          invalidCount++;
         }
       }
       
-      // Vérifier si on était en état d'alerte et qu'on est revenu à la normale
-      const wasInAlertState = this.ampdVotesConsecutiveMissedByChain[chain] >= this.thresholds.consecutiveAmpdVotesMissed;
-      const isNowNormal = maxConsecutiveInvalid < this.thresholds.consecutiveAmpdVotesMissed;
+      console.log(`[DEBUG] Chain ${chain}: ${invalidCount} invalid votes detected`);
       
-      // Si nous avons atteint le seuil, envoyer une alerte
-      if (maxConsecutiveInvalid >= this.thresholds.consecutiveAmpdVotesMissed) {
-        // Si c'est la première fois qu'on dépasse le seuil ou si assez de temps s'est écoulé depuis la dernière alerte
-        if (!wasInAlertState || this.canSendAlert(AlertType.AMPD_VOTE_MISSED)) {
-          this.createAlert(
-            AlertType.AMPD_VOTE_MISSED,
-            `⚠️ ALERT: ${maxConsecutiveInvalid} consecutive AMPD votes missed on chain ${chain}`,
-            'warning'
-          );
-        }
-        // Mettre à jour le compteur global pour cette chaîne
-        this.ampdVotesConsecutiveMissedByChain[chain] = maxConsecutiveInvalid;
-      }
-      // Si on était en alerte et qu'on est revenu à la normale, envoyer une notification de rétablissement
-      else if (wasInAlertState && isNowNormal) {
+      // Si le nombre de votes invalides dépasse le seuil, envoyer une alerte
+      if (invalidCount >= this.thresholds.consecutiveAmpdVotesMissed) {
+        console.log(`[DEBUG] Chain ${chain}: Threshold exceeded, sending alert`);
         this.createAlert(
-          AlertType.AMPD_VOTES_RECOVERED,
-          `🟢 INFO: AMPD votes recovered on chain ${chain}. Now operating normally.`,
-          'info'
+          AlertType.AMPD_VOTE_MISSED,
+          `⚠️ ALERT: ${invalidCount} AMPD votes missed on chain ${chain}`,
+          'warning'
         );
-        // Mettre à jour le compteur global pour cette chaîne
-        this.ampdVotesConsecutiveMissedByChain[chain] = maxConsecutiveInvalid;
-      }
-      // Sinon, mettre simplement à jour le compteur
-      else {
-        this.ampdVotesConsecutiveMissedByChain[chain] = maxConsecutiveInvalid;
+      } else {
+        console.log(`[DEBUG] Chain ${chain}: Below threshold, no alert needed`);
       }
     });
   }
@@ -330,52 +324,32 @@ export class AlertManager extends EventEmitter {
     Object.entries(this.metrics.ampdSignings).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.signingIds || chainData.signingIds.length === 0) return;
       
-      // Parcourir tous les signings, pas seulement le plus récent
-      let currentConsecutiveUnsubmit = 0;
-      let maxConsecutiveUnsubmit = 0;
+      console.log(`[DEBUG] Chain ${chain} has ${chainData.signingIds.length} signings`);
       
-      // Parcourir tous les signings pour trouver la séquence la plus longue de signings manqués consécutifs
+      // On regarde tous les signings, pas seulement le plus récent
+      let unsubmitCount = 0;
+      
+      // Comptons combien de signings sont manqués
       for (const signing of chainData.signingIds) {
+        console.log(`[DEBUG] Signing ${signing.signingId || 'unknown'}: result = "${signing.result || 'unknown'}"`);
+        
         if (signing.result === 'unsubmit') {
-          currentConsecutiveUnsubmit++;
-          // Mettre à jour le maximum si nécessaire
-          maxConsecutiveUnsubmit = Math.max(maxConsecutiveUnsubmit, currentConsecutiveUnsubmit);
-        } else {
-          // Réinitialiser le compteur courant si on trouve un signing valide ou autre statut
-          currentConsecutiveUnsubmit = 0;
+          unsubmitCount++;
         }
       }
       
-      // Vérifier si on était en état d'alerte et qu'on est revenu à la normale
-      const wasInAlertState = this.ampdSigningsConsecutiveMissedByChain[chain] >= this.thresholds.consecutiveAmpdSigningsMissed;
-      const isNowNormal = maxConsecutiveUnsubmit < this.thresholds.consecutiveAmpdSigningsMissed;
+      console.log(`[DEBUG] Chain ${chain}: ${unsubmitCount} unsubmit signings detected`);
       
-      // Si nous avons atteint le seuil, envoyer une alerte
-      if (maxConsecutiveUnsubmit >= this.thresholds.consecutiveAmpdSigningsMissed) {
-        // Si c'est la première fois qu'on dépasse le seuil ou si assez de temps s'est écoulé depuis la dernière alerte
-        if (!wasInAlertState || this.canSendAlert(AlertType.AMPD_SIGNING_MISSED)) {
-          this.createAlert(
-            AlertType.AMPD_SIGNING_MISSED,
-            `⚠️ ALERT: ${maxConsecutiveUnsubmit} consecutive AMPD signings missed on chain ${chain}`,
-            'warning'
-          );
-        }
-        // Mettre à jour le compteur global pour cette chaîne
-        this.ampdSigningsConsecutiveMissedByChain[chain] = maxConsecutiveUnsubmit;
-      } 
-      // Si on était en alerte et qu'on est revenu à la normale, envoyer une notification de rétablissement
-      else if (wasInAlertState && isNowNormal) {
+      // Si le nombre de signings manqués dépasse le seuil, envoyer une alerte
+      if (unsubmitCount >= this.thresholds.consecutiveAmpdSigningsMissed) {
+        console.log(`[DEBUG] Chain ${chain}: Threshold exceeded, sending alert`);
         this.createAlert(
-          AlertType.AMPD_SIGNINGS_RECOVERED,
-          `🟢 INFO: AMPD signings recovered on chain ${chain}. Now operating normally.`,
-          'info'
+          AlertType.AMPD_SIGNING_MISSED,
+          `⚠️ ALERT: ${unsubmitCount} AMPD signings missed on chain ${chain}`,
+          'warning'
         );
-        // Mettre à jour le compteur global pour cette chaîne
-        this.ampdSigningsConsecutiveMissedByChain[chain] = maxConsecutiveUnsubmit;
-      }
-      // Sinon, mettre simplement à jour le compteur
-      else {
-        this.ampdSigningsConsecutiveMissedByChain[chain] = maxConsecutiveUnsubmit;
+      } else {
+        console.log(`[DEBUG] Chain ${chain}: Below threshold, no alert needed`);
       }
     });
   }
@@ -529,24 +503,30 @@ export class AlertManager extends EventEmitter {
         if (evmChain && metrics.evmVotes && metrics.evmVotes[evmChain]) {
           message += `\nEVM Vote Details (${evmChain}):\n`;
           
-          // Récupérer tous les polls
-          const allPolls = metrics.evmVotes[evmChain].pollIds;
+          const polls = metrics.evmVotes[evmChain].pollIds;
           
-          // Filtrer pour n'afficher que les polls invalides
-          const invalidPolls = allPolls.filter(poll => poll.result === 'Invalid');
-          
-          if (invalidPolls.length > 0) {
-            message += `\nInvalid Polls:\n`;
-            invalidPolls.forEach((poll) => {
-              message += `- Poll ${poll.pollId}: ${poll.result}\n`;
-            });
-          }
-          
-          // Afficher également quelques polls récents pour contexte
-          message += `\nRecent Polls:\n`;
-          allPolls.slice(0, 5).forEach((poll) => {
-            message += `- Poll ${poll.pollId}: ${poll.result}\n`;
+          // Afficher les polls récents pour contexte
+          message += `\nRecent Polls (5):\n`;
+          polls.slice(0, 5).forEach((poll) => {
+            message += `- ${poll.pollId || 'Unknown'}: ${poll.result || 'Unknown'}\n`;
           });
+          
+          // Afficher un résumé des statuts
+          let validCount = 0;
+          let invalidCount = 0;
+          
+          polls.forEach(poll => {
+            if (poll.result === 'Invalid') {
+              invalidCount++;
+            } else if (poll.result === 'Validated') {
+              validCount++;
+            }
+          });
+          
+          message += `\nSummary:\n`;
+          message += `- Total polls: ${polls.length}\n`;
+          message += `- Valid polls: ${validCount}\n`;
+          message += `- Invalid polls: ${invalidCount}\n`;
         }
         break;
         
@@ -574,24 +554,30 @@ export class AlertManager extends EventEmitter {
         if (ampdVoteChain && metrics.ampdVotes && metrics.ampdVotes[ampdVoteChain]) {
           message += `\nAMPD Vote Details (${ampdVoteChain}):\n`;
           
-          // Récupérer tous les votes
-          const allVotes = metrics.ampdVotes[ampdVoteChain].pollIds;
+          const votes = metrics.ampdVotes[ampdVoteChain].pollIds;
           
-          // Filtrer pour n'afficher que les votes invalides
-          const invalidVotes = allVotes.filter(vote => vote.result === 'invalid');
-          
-          if (invalidVotes.length > 0) {
-            message += `\nInvalid Votes:\n`;
-            invalidVotes.forEach((vote) => {
-              message += `- ${vote.pollId}: ${vote.result}\n`;
-            });
-          }
-          
-          // Afficher également quelques votes récents pour contexte
-          message += `\nRecent Votes:\n`;
-          allVotes.slice(0, 5).forEach((vote) => {
-            message += `- ${vote.pollId}: ${vote.result}\n`;
+          // Afficher les votes récents pour contexte
+          message += `\nRecent Votes (5):\n`;
+          votes.slice(0, 5).forEach((vote) => {
+            message += `- ${vote.pollId || 'Unknown'}: ${vote.result || 'Unknown'}\n`;
           });
+          
+          // Afficher un résumé des statuts
+          let validCount = 0;
+          let invalidCount = 0;
+          
+          votes.forEach(vote => {
+            if (vote.result === 'invalid') {
+              invalidCount++;
+            } else if (vote.result === 'validated') {
+              validCount++;
+            }
+          });
+          
+          message += `\nSummary:\n`;
+          message += `- Total votes: ${votes.length}\n`;
+          message += `- Valid votes: ${validCount}\n`;
+          message += `- Invalid votes: ${invalidCount}\n`;
         }
         break;
         
@@ -616,42 +602,33 @@ export class AlertManager extends EventEmitter {
         const ampdSigningChainMatch = alert.message.match(/on chain ([^\s]+)/);
         const ampdSigningChain = ampdSigningChainMatch ? ampdSigningChainMatch[1] : null;
         
-        if (ampdSigningChain) {
+        if (ampdSigningChain && metrics.ampdSignings && metrics.ampdSignings[ampdSigningChain]) {
           message += `\nAMPD Signing Details (${ampdSigningChain}):\n`;
           
-          // Rechercher la chaîne dans ampdSignings, en essayant d'abord le nom exact extrait
-          const chainData = metrics.ampdSignings && (
-            metrics.ampdSignings[ampdSigningChain] || 
-            // Si on ne trouve pas la chaîne exacte, on essaie les alternatives possibles
-            Object.entries(metrics.ampdSignings).find(([key]) => 
-              key === ampdSigningChain || 
-              ampdSigningChain.includes(key) || 
-              key.includes(ampdSigningChain)
-            )?.[1]
-          );
+          const signings = metrics.ampdSignings[ampdSigningChain].signingIds;
           
-          if (chainData && chainData.signingIds) {
-            // Récupérer tous les signings
-            const allSignings = chainData.signingIds;
-            
-            // Filtrer pour n'afficher que les signings manqués
-            const missedSignings = allSignings.filter(signing => signing.result === 'unsubmit');
-            
-            if (missedSignings.length > 0) {
-              message += `\nMissed Signings:\n`;
-              missedSignings.forEach((signing: AmpdSigning) => {
-                message += `- Signing ID: ${signing.signingId || 'Unknown'}, Status: ${signing.result || 'Unknown'}\n`;
-              });
+          // Afficher les signings récents pour contexte
+          message += `\nRecent Signings (5):\n`;
+          signings.slice(0, 5).forEach((signing) => {
+            message += `- ${signing.signingId || 'Unknown'}: ${signing.result || 'Unknown'}\n`;
+          });
+          
+          // Afficher un résumé des statuts
+          let validCount = 0;
+          let unsubmitCount = 0;
+          
+          signings.forEach(signing => {
+            if (signing.result === 'unsubmit') {
+              unsubmitCount++;
+            } else if (signing.result === 'validated') {
+              validCount++;
             }
-            
-            // Afficher également quelques signings récents pour contexte
-            message += `\nRecent Signings:\n`;
-            allSignings.slice(0, 5).forEach((signing: AmpdSigning) => {
-              message += `- Signing ID: ${signing.signingId || 'Unknown'}, Status: ${signing.result || 'Unknown'}\n`;
-            });
-          } else {
-            message += `No signing data found for this chain.\n`;
-          }
+          });
+          
+          message += `\nSummary:\n`;
+          message += `- Total signings: ${signings.length}\n`;
+          message += `- Valid signings: ${validCount}\n`;
+          message += `- Unsubmit signings: ${unsubmitCount}\n`;
         }
         break;
         
