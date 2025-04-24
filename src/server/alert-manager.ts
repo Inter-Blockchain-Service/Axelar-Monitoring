@@ -231,7 +231,7 @@ export class AlertManager extends EventEmitter {
       const latestVote = chainData.pollIds[0]; // The first one is the most recent
       
       // Check if the vote is missed - assuming the result property holds the status
-      if (latestVote.result === 'not_found') {
+      if (latestVote.result === 'unsubmit' || latestVote.result === 'not_found') {
         // Increment the counter
         this.ampdVotesConsecutiveMissedByChain[chain] = (this.ampdVotesConsecutiveMissedByChain[chain] || 0) + 1;
         
@@ -263,7 +263,7 @@ export class AlertManager extends EventEmitter {
       const latestSigning = chainData.signingIds[0]; // The first one is the most recent
       
       // Check if the signing is missed - assuming the result property holds the status
-      if (latestSigning.result === 'invalid') {
+      if (latestSigning.result === 'unsubmit' || latestSigning.result === 'invalid') {
         // Increment the counter
         this.ampdSigningsConsecutiveMissedByChain[chain] = (this.ampdSigningsConsecutiveMissedByChain[chain] || 0) + 1;
         
@@ -433,32 +433,28 @@ export class AlertManager extends EventEmitter {
         break;
         
       case AlertType.AMPD_VOTE_MISSED:
-        // Extract chain from message
-        const ampdVoteChainMatch = alert.message.match(/on chain (\w+)/);
-        const ampdVoteChain = ampdVoteChainMatch ? ampdVoteChainMatch[1] : null;
-        
-        if (ampdVoteChain && metrics.ampdVotes && metrics.ampdVotes[ampdVoteChain]) {
-          message += `\nAMPD Vote Details (${ampdVoteChain}):\n`;
-          const votes = metrics.ampdVotes[ampdVoteChain].pollIds.slice(0, 5); // Last 5 votes
-          
-          votes.forEach((vote) => {
-            message += `- ${vote.pollId}: ${vote.result}\n`;
-          });
-        }
-        break;
-        
       case AlertType.AMPD_SIGNING_MISSED:
         // Extract chain from message
-        const ampdSigningChainMatch = alert.message.match(/on chain (\w+)/);
-        const ampdSigningChain = ampdSigningChainMatch ? ampdSigningChainMatch[1] : null;
+        const ampdChainMatch = alert.message.match(/on chain (\w+)/);
+        const ampdChain = ampdChainMatch ? ampdChainMatch[1] : null;
         
-        if (ampdSigningChain && metrics.ampdSignings && metrics.ampdSignings[ampdSigningChain]) {
-          message += `\nAMPD Signing Details (${ampdSigningChain}):\n`;
-          const signings = metrics.ampdSignings[ampdSigningChain].signingIds.slice(0, 5); // Last 5 signings
-          
-          signings.forEach((signing: AmpdSigning) => {
-            message += `- ${signing.signingId || 'Unknown'}: ${signing.result}\n`;
-          });
+        if (ampdChain && metrics.ampdVotes && metrics.ampdVotes[ampdChain]) {
+          if (alert.type === AlertType.AMPD_VOTE_MISSED) {
+            message += `\nAMPD Vote Details (${ampdChain}):\n`;
+            const votes = metrics.ampdVotes[ampdChain].pollIds.slice(0, 5); // Last 5 votes
+            
+            votes.forEach((vote) => {
+              message += `- ${vote.pollId}: ${vote.result}\n`;
+            });
+          } else if (alert.type === AlertType.AMPD_SIGNING_MISSED && 
+                     metrics.ampdSignings && metrics.ampdSignings[ampdChain]) {
+            message += `\nAMPD Signing Details (${ampdChain}):\n`;
+            const signings = metrics.ampdSignings[ampdChain].signingIds.slice(0, 5); // Last 5 signings
+            
+            signings.forEach((signing: AmpdSigning) => {
+              message += `- ${signing.signingId || 'Unknown'}: ${signing.result}\n`;
+            });
+          }
         }
         break;
     }
