@@ -230,16 +230,18 @@ export class AlertManager extends EventEmitter {
       const wasInAlertState = this.evmConsecutiveMissedByChain[chain] >= this.thresholds.consecutiveEvmVotesMissed;
       const isNowNormal = maxConsecutiveInvalid < this.thresholds.consecutiveEvmVotesMissed;
       
-      // Mettre à jour le compteur global pour cette chaîne
-      this.evmConsecutiveMissedByChain[chain] = maxConsecutiveInvalid;
-      
       // Si nous avons atteint le seuil, envoyer une alerte
       if (maxConsecutiveInvalid >= this.thresholds.consecutiveEvmVotesMissed) {
-        this.createAlert(
-          AlertType.EVM_VOTE_MISSED,
-          `⚠️ ALERT: ${maxConsecutiveInvalid} consecutive EVM votes missed on chain ${chain}`,
-          'warning'
-        );
+        // Si c'est la première fois qu'on dépasse le seuil ou si assez de temps s'est écoulé depuis la dernière alerte
+        if (!wasInAlertState || this.canSendAlert(AlertType.EVM_VOTE_MISSED)) {
+          this.createAlert(
+            AlertType.EVM_VOTE_MISSED,
+            `⚠️ ALERT: ${maxConsecutiveInvalid} consecutive EVM votes missed on chain ${chain}`,
+            'warning'
+          );
+        }
+        // Mettre à jour le compteur global pour cette chaîne
+        this.evmConsecutiveMissedByChain[chain] = maxConsecutiveInvalid;
       } 
       // Si on était en alerte et qu'on est revenu à la normale, envoyer une notification de rétablissement
       else if (wasInAlertState && isNowNormal) {
@@ -248,6 +250,12 @@ export class AlertManager extends EventEmitter {
           `🟢 INFO: EVM votes recovered on chain ${chain}. Now operating normally.`,
           'info'
         );
+        // Mettre à jour le compteur global pour cette chaîne
+        this.evmConsecutiveMissedByChain[chain] = maxConsecutiveInvalid;
+      }
+      // Sinon, mettre simplement à jour le compteur
+      else {
+        this.evmConsecutiveMissedByChain[chain] = maxConsecutiveInvalid;
       }
     });
   }
@@ -282,17 +290,19 @@ export class AlertManager extends EventEmitter {
       const wasInAlertState = this.ampdVotesConsecutiveMissedByChain[chain] >= this.thresholds.consecutiveAmpdVotesMissed;
       const isNowNormal = maxConsecutiveInvalid < this.thresholds.consecutiveAmpdVotesMissed;
       
-      // Mettre à jour le compteur global pour cette chaîne
-      this.ampdVotesConsecutiveMissedByChain[chain] = maxConsecutiveInvalid;
-      
       // Si nous avons atteint le seuil, envoyer une alerte
       if (maxConsecutiveInvalid >= this.thresholds.consecutiveAmpdVotesMissed) {
-        this.createAlert(
-          AlertType.AMPD_VOTE_MISSED,
-          `⚠️ ALERT: ${maxConsecutiveInvalid} consecutive AMPD votes missed on chain ${chain}`,
-          'warning'
-        );
-      } 
+        // Si c'est la première fois qu'on dépasse le seuil ou si assez de temps s'est écoulé depuis la dernière alerte
+        if (!wasInAlertState || this.canSendAlert(AlertType.AMPD_VOTE_MISSED)) {
+          this.createAlert(
+            AlertType.AMPD_VOTE_MISSED,
+            `⚠️ ALERT: ${maxConsecutiveInvalid} consecutive AMPD votes missed on chain ${chain}`,
+            'warning'
+          );
+        }
+        // Mettre à jour le compteur global pour cette chaîne
+        this.ampdVotesConsecutiveMissedByChain[chain] = maxConsecutiveInvalid;
+      }
       // Si on était en alerte et qu'on est revenu à la normale, envoyer une notification de rétablissement
       else if (wasInAlertState && isNowNormal) {
         this.createAlert(
@@ -300,6 +310,12 @@ export class AlertManager extends EventEmitter {
           `🟢 INFO: AMPD votes recovered on chain ${chain}. Now operating normally.`,
           'info'
         );
+        // Mettre à jour le compteur global pour cette chaîne
+        this.ampdVotesConsecutiveMissedByChain[chain] = maxConsecutiveInvalid;
+      }
+      // Sinon, mettre simplement à jour le compteur
+      else {
+        this.ampdVotesConsecutiveMissedByChain[chain] = maxConsecutiveInvalid;
       }
     });
   }
@@ -334,16 +350,18 @@ export class AlertManager extends EventEmitter {
       const wasInAlertState = this.ampdSigningsConsecutiveMissedByChain[chain] >= this.thresholds.consecutiveAmpdSigningsMissed;
       const isNowNormal = maxConsecutiveUnsubmit < this.thresholds.consecutiveAmpdSigningsMissed;
       
-      // Mettre à jour le compteur global pour cette chaîne
-      this.ampdSigningsConsecutiveMissedByChain[chain] = maxConsecutiveUnsubmit;
-      
       // Si nous avons atteint le seuil, envoyer une alerte
       if (maxConsecutiveUnsubmit >= this.thresholds.consecutiveAmpdSigningsMissed) {
-        this.createAlert(
-          AlertType.AMPD_SIGNING_MISSED,
-          `⚠️ ALERT: ${maxConsecutiveUnsubmit} consecutive AMPD signings missed on chain ${chain}`,
-          'warning'
-        );
+        // Si c'est la première fois qu'on dépasse le seuil ou si assez de temps s'est écoulé depuis la dernière alerte
+        if (!wasInAlertState || this.canSendAlert(AlertType.AMPD_SIGNING_MISSED)) {
+          this.createAlert(
+            AlertType.AMPD_SIGNING_MISSED,
+            `⚠️ ALERT: ${maxConsecutiveUnsubmit} consecutive AMPD signings missed on chain ${chain}`,
+            'warning'
+          );
+        }
+        // Mettre à jour le compteur global pour cette chaîne
+        this.ampdSigningsConsecutiveMissedByChain[chain] = maxConsecutiveUnsubmit;
       } 
       // Si on était en alerte et qu'on est revenu à la normale, envoyer une notification de rétablissement
       else if (wasInAlertState && isNowNormal) {
@@ -352,6 +370,12 @@ export class AlertManager extends EventEmitter {
           `🟢 INFO: AMPD signings recovered on chain ${chain}. Now operating normally.`,
           'info'
         );
+        // Mettre à jour le compteur global pour cette chaîne
+        this.ampdSigningsConsecutiveMissedByChain[chain] = maxConsecutiveUnsubmit;
+      }
+      // Sinon, mettre simplement à jour le compteur
+      else {
+        this.ampdSigningsConsecutiveMissedByChain[chain] = maxConsecutiveUnsubmit;
       }
     });
   }
@@ -592,27 +616,42 @@ export class AlertManager extends EventEmitter {
         const ampdSigningChainMatch = alert.message.match(/on chain ([^\s]+)/);
         const ampdSigningChain = ampdSigningChainMatch ? ampdSigningChainMatch[1] : null;
         
-        if (ampdSigningChain && metrics.ampdSignings && metrics.ampdSignings[ampdSigningChain]) {
+        if (ampdSigningChain) {
           message += `\nAMPD Signing Details (${ampdSigningChain}):\n`;
           
-          // Récupérer tous les signings
-          const allSignings = metrics.ampdSignings[ampdSigningChain].signingIds;
+          // Rechercher la chaîne dans ampdSignings, en essayant d'abord le nom exact extrait
+          const chainData = metrics.ampdSignings && (
+            metrics.ampdSignings[ampdSigningChain] || 
+            // Si on ne trouve pas la chaîne exacte, on essaie les alternatives possibles
+            Object.entries(metrics.ampdSignings).find(([key]) => 
+              key === ampdSigningChain || 
+              ampdSigningChain.includes(key) || 
+              key.includes(ampdSigningChain)
+            )?.[1]
+          );
           
-          // Filtrer pour n'afficher que les signings manqués
-          const missedSignings = allSignings.filter(signing => signing.result === 'unsubmit');
-          
-          if (missedSignings.length > 0) {
-            message += `\nMissed Signings:\n`;
-            missedSignings.forEach((signing: AmpdSigning) => {
+          if (chainData && chainData.signingIds) {
+            // Récupérer tous les signings
+            const allSignings = chainData.signingIds;
+            
+            // Filtrer pour n'afficher que les signings manqués
+            const missedSignings = allSignings.filter(signing => signing.result === 'unsubmit');
+            
+            if (missedSignings.length > 0) {
+              message += `\nMissed Signings:\n`;
+              missedSignings.forEach((signing: AmpdSigning) => {
+                message += `- Signing ID: ${signing.signingId || 'Unknown'}, Status: ${signing.result || 'Unknown'}\n`;
+              });
+            }
+            
+            // Afficher également quelques signings récents pour contexte
+            message += `\nRecent Signings:\n`;
+            allSignings.slice(0, 5).forEach((signing: AmpdSigning) => {
               message += `- Signing ID: ${signing.signingId || 'Unknown'}, Status: ${signing.result || 'Unknown'}\n`;
             });
+          } else {
+            message += `No signing data found for this chain.\n`;
           }
-          
-          // Afficher également quelques signings récents pour contexte
-          message += `\nRecent Signings:\n`;
-          allSignings.slice(0, 5).forEach((signing: AmpdSigning) => {
-            message += `- Signing ID: ${signing.signingId || 'Unknown'}, Status: ${signing.result || 'Unknown'}\n`;
-          });
         }
         break;
         
@@ -620,15 +659,30 @@ export class AlertManager extends EventEmitter {
         const ampdSigningsRecoveredChainMatch = alert.message.match(/on chain ([^\s]+)/);
         const ampdSigningsRecoveredChain = ampdSigningsRecoveredChainMatch ? ampdSigningsRecoveredChainMatch[1] : null;
         
-        if (ampdSigningsRecoveredChain && metrics.ampdSignings && metrics.ampdSignings[ampdSigningsRecoveredChain]) {
+        if (ampdSigningsRecoveredChain) {
           message += `\nAMPD Signings have recovered on chain ${ampdSigningsRecoveredChain}\n`;
           
-          // Afficher les 5 signings les plus récents pour contexte
-          message += `\nRecent Signings:\n`;
-          const recentSignings = metrics.ampdSignings[ampdSigningsRecoveredChain].signingIds.slice(0, 5);
-          recentSignings.forEach((signing: AmpdSigning) => {
-            message += `- ${signing.signingId || 'Unknown'}: ${signing.result}\n`;
-          });
+          // Rechercher la chaîne dans ampdSignings, en essayant d'abord le nom exact extrait
+          const chainData = metrics.ampdSignings && (
+            metrics.ampdSignings[ampdSigningsRecoveredChain] || 
+            // Si on ne trouve pas la chaîne exacte, on essaie les alternatives possibles
+            Object.entries(metrics.ampdSignings).find(([key]) => 
+              key === ampdSigningsRecoveredChain || 
+              ampdSigningsRecoveredChain.includes(key) || 
+              key.includes(ampdSigningsRecoveredChain)
+            )?.[1]
+          );
+          
+          if (chainData && chainData.signingIds) {
+            // Afficher les 5 signings les plus récents pour contexte
+            message += `\nRecent Signings:\n`;
+            const recentSignings = chainData.signingIds.slice(0, 5);
+            recentSignings.forEach((signing: AmpdSigning) => {
+              message += `- Signing ID: ${signing.signingId || 'Unknown'}, Status: ${signing.result || 'Unknown'}\n`;
+            });
+          } else {
+            message += `No signing data found for this chain.\n`;
+          }
         }
         break;
     }
