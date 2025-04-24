@@ -124,41 +124,9 @@ export class AlertManager extends EventEmitter {
   }
   
   /**
-   * Pour le diagnostic : affiche le contenu complet d'un objet
-   */
-  private logObjectContent(object: any, name: string): void {
-    try {
-      console.log(`[DEBUG] ${name} content: ${JSON.stringify(object, null, 2)}`);
-    } catch (error) {
-      console.log(`[DEBUG] Error stringifying ${name}: ${error}`);
-    }
-  }
-
-  /**
    * Check current metrics to detect alerts
    */
   public checkMetrics(): void {
-    // Diagnostic: afficher la structure des métriques
-    this.logObjectContent(this.metrics, 'Metrics');
-    
-    if (this.metrics.ampdVotes) {
-      Object.keys(this.metrics.ampdVotes).forEach(chain => {
-        this.logObjectContent(this.metrics.ampdVotes[chain], `AMPD Votes for chain ${chain}`);
-      });
-    }
-    
-    if (this.metrics.ampdSignings) {
-      Object.keys(this.metrics.ampdSignings).forEach(chain => {
-        this.logObjectContent(this.metrics.ampdSignings[chain], `AMPD Signings for chain ${chain}`);
-      });
-    }
-    
-    if (this.metrics.evmVotes) {
-      Object.keys(this.metrics.evmVotes).forEach(chain => {
-        this.logObjectContent(this.metrics.evmVotes[chain], `EVM Votes for chain ${chain}`);
-      });
-    }
-    
     // Save previous state of metrics for comparison
     const prevMetrics = { ...this.previousMetrics };
     this.previousMetrics = { ...this.metrics };
@@ -239,37 +207,39 @@ export class AlertManager extends EventEmitter {
   private checkEvmVotes(): void {
     if (!this.metrics.evmVotes) return;
     
+    console.log(`EVM votes check: chains=${Object.keys(this.metrics.evmVotes).join(',')}`);
+    
     // Loop through all EVM chains
     Object.entries(this.metrics.evmVotes).forEach(([chain, chainData]) => {
       // If no votes or no pollIds, ignore
       if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0) return;
       
-      console.log(`[DEBUG] Chain ${chain} has ${chainData.pollIds.length} polls`);
-      
       // On regarde tous les votes, pas seulement le plus récent
       let invalidCount = 0;
+      let invalidPollIds = [];
       
       // Comptons combien de votes sont invalides
       for (const poll of chainData.pollIds) {
-        console.log(`[DEBUG] Poll ${poll.pollId || 'unknown'}: result = "${poll.result || 'unknown'}"`);
-        
         if (poll.result === 'Invalid') {
           invalidCount++;
+          invalidPollIds.push(poll.pollId || 'unknown');
         }
       }
       
-      console.log(`[DEBUG] Chain ${chain}: ${invalidCount} invalid votes detected`);
+      console.log(`Chain ${chain}: ${invalidCount}/${chainData.pollIds.length} invalid votes`);
+      
+      if (invalidCount > 0) {
+        console.log(`  Invalid poll IDs: ${invalidPollIds.slice(0, 5).join(', ')}${invalidPollIds.length > 5 ? '...' : ''}`);
+      }
       
       // Si le nombre de votes invalides dépasse le seuil, envoyer une alerte
       if (invalidCount >= this.thresholds.consecutiveEvmVotesMissed) {
-        console.log(`[DEBUG] Chain ${chain}: Threshold exceeded, sending alert`);
+        console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveEvmVotesMissed}) exceeded, sending alert`);
         this.createAlert(
           AlertType.EVM_VOTE_MISSED,
           `⚠️ ALERT: ${invalidCount} EVM votes missed on chain ${chain}`,
           'warning'
         );
-      } else {
-        console.log(`[DEBUG] Chain ${chain}: Below threshold, no alert needed`);
       }
     });
   }
@@ -280,36 +250,38 @@ export class AlertManager extends EventEmitter {
   private checkAmpdVotes(): void {
     if (!this.metrics.ampdVotes) return;
     
+    console.log(`AMPD votes check: chains=${Object.keys(this.metrics.ampdVotes).join(',')}`);
+    
     // Loop through all AMPD chains
     Object.entries(this.metrics.ampdVotes).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0) return;
       
-      console.log(`[DEBUG] Chain ${chain} has ${chainData.pollIds.length} polls`);
-      
       // On regarde tous les votes, pas seulement le plus récent
       let invalidCount = 0;
+      let invalidVoteIds = [];
       
       // Comptons combien de votes sont invalides
       for (const vote of chainData.pollIds) {
-        console.log(`[DEBUG] Vote ${vote.pollId || 'unknown'}: result = "${vote.result || 'unknown'}"`);
-        
         if (vote.result === 'invalid') {
           invalidCount++;
+          invalidVoteIds.push(vote.pollId || 'unknown');
         }
       }
       
-      console.log(`[DEBUG] Chain ${chain}: ${invalidCount} invalid votes detected`);
+      console.log(`Chain ${chain}: ${invalidCount}/${chainData.pollIds.length} invalid votes`);
+      
+      if (invalidCount > 0) {
+        console.log(`  Invalid vote IDs: ${invalidVoteIds.slice(0, 5).join(', ')}${invalidVoteIds.length > 5 ? '...' : ''}`);
+      }
       
       // Si le nombre de votes invalides dépasse le seuil, envoyer une alerte
       if (invalidCount >= this.thresholds.consecutiveAmpdVotesMissed) {
-        console.log(`[DEBUG] Chain ${chain}: Threshold exceeded, sending alert`);
+        console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdVotesMissed}) exceeded, sending alert`);
         this.createAlert(
           AlertType.AMPD_VOTE_MISSED,
           `⚠️ ALERT: ${invalidCount} AMPD votes missed on chain ${chain}`,
           'warning'
         );
-      } else {
-        console.log(`[DEBUG] Chain ${chain}: Below threshold, no alert needed`);
       }
     });
   }
@@ -320,36 +292,38 @@ export class AlertManager extends EventEmitter {
   private checkAmpdSignings(): void {
     if (!this.metrics.ampdSignings) return;
     
+    console.log(`AMPD signings check: chains=${Object.keys(this.metrics.ampdSignings).join(',')}`);
+    
     // Loop through all AMPD chains
     Object.entries(this.metrics.ampdSignings).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.signingIds || chainData.signingIds.length === 0) return;
       
-      console.log(`[DEBUG] Chain ${chain} has ${chainData.signingIds.length} signings`);
-      
       // On regarde tous les signings, pas seulement le plus récent
       let unsubmitCount = 0;
+      let unsubmitIds = [];
       
       // Comptons combien de signings sont manqués
       for (const signing of chainData.signingIds) {
-        console.log(`[DEBUG] Signing ${signing.signingId || 'unknown'}: result = "${signing.result || 'unknown'}"`);
-        
         if (signing.result === 'unsubmit') {
           unsubmitCount++;
+          unsubmitIds.push(signing.signingId || 'unknown');
         }
       }
       
-      console.log(`[DEBUG] Chain ${chain}: ${unsubmitCount} unsubmit signings detected`);
+      console.log(`Chain ${chain}: ${unsubmitCount}/${chainData.signingIds.length} unsubmit signings`);
+      
+      if (unsubmitCount > 0) {
+        console.log(`  Unsubmit signing IDs: ${unsubmitIds.slice(0, 5).join(', ')}${unsubmitIds.length > 5 ? '...' : ''}`);
+      }
       
       // Si le nombre de signings manqués dépasse le seuil, envoyer une alerte
       if (unsubmitCount >= this.thresholds.consecutiveAmpdSigningsMissed) {
-        console.log(`[DEBUG] Chain ${chain}: Threshold exceeded, sending alert`);
+        console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdSigningsMissed}) exceeded, sending alert`);
         this.createAlert(
           AlertType.AMPD_SIGNING_MISSED,
           `⚠️ ALERT: ${unsubmitCount} AMPD signings missed on chain ${chain}`,
           'warning'
         );
-      } else {
-        console.log(`[DEBUG] Chain ${chain}: Below threshold, no alert needed`);
       }
     });
   }
