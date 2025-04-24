@@ -231,7 +231,7 @@ export class AlertManager extends EventEmitter {
       const latestVote = chainData.pollIds[0]; // The first one is the most recent
       
       // Check if the vote is missed - assuming the result property holds the status
-      if (latestVote.result === 'unsubmit' || latestVote.result === 'not_found') {
+      if (latestVote.result === 'missed' || latestVote.result === 'not_found') {
         // Increment the counter
         this.ampdVotesConsecutiveMissedByChain[chain] = (this.ampdVotesConsecutiveMissedByChain[chain] || 0) + 1;
         
@@ -263,7 +263,7 @@ export class AlertManager extends EventEmitter {
       const latestSigning = chainData.signingIds[0]; // The first one is the most recent
       
       // Check if the signing is missed - assuming the result property holds the status
-      if (latestSigning.result === 'unsubmit' || latestSigning.result === 'invalid') {
+      if (latestSigning.result === 'missed' || latestSigning.result === 'invalid') {
         // Increment the counter
         this.ampdSigningsConsecutiveMissedByChain[chain] = (this.ampdSigningsConsecutiveMissedByChain[chain] || 0) + 1;
         
