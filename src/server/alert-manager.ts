@@ -1,7 +1,6 @@
 import axios from 'axios';
 import { ValidatorMetrics } from './metrics';
 import { EventEmitter } from 'events';
-import dotenv from 'dotenv';
 
 // Alert types
 export enum AlertType {
@@ -16,6 +15,12 @@ export enum AlertType {
   AMPD_VOTE_MISSED = 'ampd_vote_missed',
   AMPD_SIGNING_MISSED = 'ampd_signing_missed',
   NODE_SYNC_ISSUE = 'node_sync_issue'
+}
+
+// Interface for AMPD signings
+interface AmpdSigning {
+  signingId: string;
+  result: string;
 }
 
 // Interface for an alert
@@ -350,7 +355,7 @@ export class AlertManager extends EventEmitter {
     const formattedMessage = this.formatAlertMessage(alert);
     
     try {
-      const promises: Promise<any>[] = [];
+      const promises: Promise<void>[] = [];
       
       // Send to Discord if enabled
       if (this.notificationConfig.discord.enabled && this.notificationConfig.discord.webhookUrl) {
@@ -446,10 +451,8 @@ export class AlertManager extends EventEmitter {
             message += `\nAMPD Signing Details (${ampdChain}):\n`;
             const signings = metrics.ampdSignings[ampdChain].signingIds.slice(0, 5); // Last 5 signings
             
-            signings.forEach((signing) => {
-              // Cast to any to access properties without type errors
-              const signingAny = signing as any;
-              message += `- ${signingAny.pollId || 'Unknown'}: ${signingAny.result}\n`;
+            signings.forEach((signing: AmpdSigning) => {
+              message += `- ${signing.signingId || 'Unknown'}: ${signing.result}\n`;
             });
           }
         }
@@ -525,4 +528,13 @@ export class AlertManager extends EventEmitter {
     
     console.log(`Alert Manager started periodic checks with interval ${intervalMs}ms`);
   }
+
+  // /**
+  //  * Fetch vote details from a transaction hash
+  //  */
+  // private async fetchVoteDetails(txHash: string): Promise<void> {
+  //   console.log(`Stub method: fetchVoteDetails for hash ${txHash} - Not implemented in AlertManager`);
+  //   // Cette méthode est un stub et n'a pas d'implémentation dans AlertManager
+  //   // L'implémentation réelle est dans ampd-manager.ts
+  // }
 } 

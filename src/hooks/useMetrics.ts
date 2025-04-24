@@ -31,6 +31,11 @@ export interface PollStatus {
   result: string;
 }
 
+// Interface for AMPD data
+export interface AmpdData {
+  [chain: string]: PollStatus[];
+}
+
 // Interface for votes data by chain
 export interface ChainData {
   [chain: string]: {
@@ -69,8 +74,8 @@ export interface ValidatorMetrics {
   evmLastGlobalPollId: number;
   // AMPD metrics
   ampdEnabled: boolean;
-  ampdVotes: any;
-  ampdSignings: any;
+  ampdVotes: AmpdData;
+  ampdSignings: AmpdData;
   ampdSupportedChains: string[];
 }
 

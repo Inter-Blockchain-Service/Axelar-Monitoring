@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { HeartbeatStatusType } from '@/hooks/useMetrics';
-import { HEARTBEAT_PERIOD } from '@/constants';
 
 interface HeartBeatStatusProps {
   statusList: number[];
@@ -54,19 +53,6 @@ export default function HeartBeatStatus({ statusList, className = '', lastPeriod
     }
   };
 
-  // Function to get status text
-  const getStatusText = (status: number) => {
-    switch (status) {
-      case HeartbeatStatusType.Signed:
-        return 'Signed';
-      case HeartbeatStatusType.Missed:
-        return 'Missed';
-      case HeartbeatStatusType.Unknown:
-      default:
-        return 'Unknown';
-    }
-  };
-  
   // Calculate actual period for a given index
   const getPeriodNumber = (index: number) => {
     if (lastPeriod <= 0) return '?';

@@ -11,7 +11,7 @@ interface AmpdSigningProps {
 const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = '' }) => {
   const [signingData, setSigningData] = useState<Record<string, SigningStatus[]>>({});
   const [supportedChains, setSupportedChains] = useState<string[]>([]);
-  const [displayLimit, setDisplayLimit] = useState(35); // Display a maximum number of signatures
+  const [displayLimit] = useState(35); // Display a maximum number of signatures
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

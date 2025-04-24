@@ -31,9 +31,10 @@ export async function checkNodeStatus(rpcEndpoint: string): Promise<{ available:
     }
     
     return { available: true, synced: false, error: 'Unexpected response format' };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error checking node status:', error);
-    return { available: false, synced: false, error: error.message || 'Unknown error' };
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { available: false, synced: false, error: errorMessage };
   }
 }
 
@@ -109,7 +110,7 @@ export function createReconnectionHandler(
         console.log('Node is ready again. Reconnecting Tendermint client...');
         tendermintClient.connect();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error during node reconnection:', error);
       console.warn('Failed to reconnect. Will retry on next permanent disconnect event.');
     }
@@ -148,7 +149,7 @@ export async function connectToNode(
       // Connect anyway to allow future attempts
       tendermintClient.connect();
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error during node status check:', error);
     console.warn('Starting Tendermint client anyway...');
     tendermintClient.connect();

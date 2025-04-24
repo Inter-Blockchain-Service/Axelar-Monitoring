@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Tooltip } from '@mui/material';
 import { PollStatus } from '../server/ampd-manager';
 import { Socket } from 'socket.io-client';
 
@@ -12,7 +11,7 @@ interface AmpdVotingProps {
 const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '' }) => {
   const [voteData, setVoteData] = useState<Record<string, PollStatus[]>>({});
   const [supportedChains, setSupportedChains] = useState<string[]>([]);
-  const [displayLimit, setDisplayLimit] = useState(35); // Display maximum number of votes
+  const [displayLimit] = useState(35); // Display maximum number of votes
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

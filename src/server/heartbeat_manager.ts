@@ -21,6 +21,23 @@ export interface HeartbeatUpdate {
   final: boolean;      // Indicates if status is final
 }
 
+// Interfaces pour les transactions et blocs
+interface TxResult {
+  height: string;
+  tx?: string;
+  result?: {
+    log?: string;
+  };
+}
+
+interface BlockData {
+  block: {
+    header: {
+      height: string;
+    };
+  };
+}
+
 /**
  * Heartbeat logic manager
  * This class is responsible for detecting and tracking heartbeats
@@ -47,7 +64,7 @@ export class HeartbeatManager extends EventEmitter {
   /**
    * Process a transaction to detect heartbeats
    */
-  public handleTransaction(txResult: any): void {
+  public handleTransaction(txResult: TxResult): void {
     const height = parseInt(txResult.height);
     
     // Initialization - record first block
@@ -60,7 +77,6 @@ export class HeartbeatManager extends EventEmitter {
     // Determine which HeartBeat period we are in
     const blockPeriod = Math.floor(height / HEARTBEAT_PERIOD);
     const periodStart = blockPeriod * HEARTBEAT_PERIOD;
-    const periodStartBlock = periodStart + 1;
     const periodEnd = (blockPeriod + 1) * HEARTBEAT_PERIOD - 1;
     const periodKey = `${periodStart}-${periodEnd}`;
     
@@ -82,8 +98,8 @@ export class HeartbeatManager extends EventEmitter {
             addressFound = true;
           }
         }
-      } catch (e) {
-        // Ignore decoding errors
+      } catch (error) {
+        console.error("Error decoding transaction:", error);
       }
     }
     
@@ -94,7 +110,9 @@ export class HeartbeatManager extends EventEmitter {
         if (logData.includes(this.targetAddress)) {
           addressFound = true;
         }
-      } catch (e) {}
+      } catch (error) {
+        console.error("Error checking log data:", error);
+      }
     }
     
     // If it's a HeartBeat and our address is found
@@ -113,7 +131,7 @@ export class HeartbeatManager extends EventEmitter {
   /**
    * Process new block to detect heartbeat periods
    */
-  public handleNewBlock(blockData: any): void {
+  public handleNewBlock(blockData: BlockData): void {
     try {
       if (!blockData?.block?.header?.height) {
         console.error('Invalid block structure:', blockData);
@@ -169,8 +187,8 @@ export class HeartbeatManager extends EventEmitter {
       if (height === blockStartPlusWindow && !this.periodsFound.has(periodKey) && this.isInitialized) {
         console.log(`HeartbeatManager: ⚠️ HeartBeat window (${TRY_CNT} blocks) exceeded for period ${periodKey}, detection chances reduced`);
       }
-    } catch (e) {
-      console.error('Error while handling new block:', e);
+    } catch (error) {
+      console.error('Error while handling new block:', error);
     }
   }
 

@@ -1,6 +1,7 @@
 import express from 'express';
 import http from 'http';
 import dotenv from 'dotenv';
+// import cors from 'cors';
 import { TendermintClient } from './tendermint';
 import { createInitialMetrics } from './metrics';
 import { setupApiRoutes } from './api';
@@ -20,6 +21,13 @@ const DEFAULT_VALIDATOR_ADDRESS = '';
 // Create Express application
 const app = express();
 const server = http.createServer(app);
+
+// // Enable CORS
+// app.use(cors({
+//   origin: '*',
+//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+//   allowedHeaders: ['Content-Type', 'Authorization']
+// }));
 
 // Initialize metrics
 const metrics = createInitialMetrics(

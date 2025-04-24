@@ -34,13 +34,55 @@ export interface StatusUpdate {
 // Representation of a Tendermint WebSocket response
 interface WsReply {
   id: number;
-  result: {
-    query: string;
-    data: {
-      type: string;
-      value: any;
-    }
-  }
+  result: TxResult;
+}
+
+// Updated TxResult interface to match what the handlers expect
+interface TxResult {
+  query: string;
+  data: {
+    type: string;
+    value: Record<string, unknown>;
+  };
+  events?: Record<string, string[]>;
+}
+
+// Types pour les structures de données de Tendermint
+interface BlockHeader {
+  height: string;
+  proposer_address: string;
+}
+
+interface BlockLastCommit {
+  signatures: Array<{validator_address: string}>;
+}
+
+interface Block {
+  header: BlockHeader;
+  last_commit: BlockLastCommit;
+}
+
+interface BlockData {
+  block: Block;
+}
+
+interface VoteData {
+  Vote: {
+    height: string;
+    validator_address: string;
+    type: number;
+  };
+}
+
+interface TxData {
+  TxResult: {
+    height: string;
+    tx?: string;
+    result?: {
+      log?: string;
+    };
+  };
+  [key: string]: unknown;
 }
 
 // WebSocket client for Tendermint
@@ -228,28 +270,50 @@ export class TendermintClient extends EventEmitter {
     
     switch (eventType) {
       case 'tendermint/event/NewBlock':
-        if (value && value.block && value.block.header) {
-          this.signatureManager.handleNewBlock(value);
-          this.heartbeatManager.handleNewBlock(value);
+        // Type assertion pour indiquer que value est de type BlockData
+        if (value && typeof value === 'object' && 'block' in value && 
+            value.block && typeof value.block === 'object' && 'header' in value.block) {
+          const blockData = value as unknown as BlockData;
+          this.signatureManager.handleNewBlock(blockData);
+          this.heartbeatManager.handleNewBlock(blockData);
         } else {
           console.error('Invalid block structure received:', value);
         }
         break;
       case 'tendermint/event/Vote':
-        this.signatureManager.handleVote(value);
+        // Type assertion pour indiquer que value est de type VoteData
+        if (value && typeof value === 'object' && 'Vote' in value) {
+          const voteData = value as unknown as VoteData;
+          this.signatureManager.handleVote(voteData);
+        }
         break;
       case 'tendermint/event/Tx':
-        if (value.TxResult) {
-          this.heartbeatManager.handleTransaction(value.TxResult);
+        // Type assertion pour indiquer que value est de type TxData
+        if (value && typeof value === 'object' && 'TxResult' in value) {
+          const txData = value as unknown as TxData;
+          this.heartbeatManager.handleTransaction(txData.TxResult);
           
           // Process transactions for EVM votes if manager is enabled
           if (this.evmVoteManager) {
-            this.evmVoteManager.handleTransaction(reply.result);
+            // Adapter le format du résultat pour correspondre à ce que EvmVoteManager attend
+            const evmTxResult = {
+              events: reply.result.events || {},
+              data: {
+                value: {
+                  TxResult: txData.TxResult
+                }
+              }
+            };
+            this.evmVoteManager.handleTransaction(evmTxResult);
           }
           
           // Process transactions for AMPD votes and signatures if manager is enabled
           if (this.ampdManager) {
-            this.ampdManager.handleTransaction(reply.result);
+            // Adapter le format du résultat pour correspondre à ce que AmpdManager attend
+            const ampdTxResult = {
+              events: reply.result.events || {}
+            };
+            this.ampdManager.handleTransaction(ampdTxResult);
           }
         }
         break;

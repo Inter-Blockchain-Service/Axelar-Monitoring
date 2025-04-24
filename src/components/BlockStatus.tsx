@@ -54,24 +54,6 @@ export default function BlockStatus({ statusList, className = '', lastBlockHeigh
     }
   };
 
-  // Function to get status text
-  const getStatusText = (status: number) => {
-    switch (status) {
-      case StatusType.Proposed:
-        return 'Proposed';
-      case StatusType.Signed:
-        return 'Signed';
-      case StatusType.Precommit:
-        return 'Precommit';
-      case StatusType.Prevote:
-        return 'Prevote';
-      case StatusType.Missed:
-        return 'Missed';
-      default:
-        return 'Unknown';
-    }
-  };
-  
   // Calculate actual block height for a given index
   const getBlockHeight = (index: number) => {
     if (lastBlockHeight <= 0) return '?';

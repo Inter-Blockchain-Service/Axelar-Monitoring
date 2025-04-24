@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev --turbopack\" \"npm run server\"",
-    "build": "next build",
-    "start": "next start",
+    "dev": "concurrently \"next dev --turbopack\" \"npm run server:dev\"",
+    "build": "next build && npm run build:server",
+    "build:server": "tsc --project tsconfig.server.json",
+    "start": "concurrently \"next start\" \"npm run server\"",
     "lint": "next lint",
-    "server": "tsx src/server/index.ts"
+    "server": "node dist/server/index.js",
+    "server:dev": "tsx src/server/index.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -15,6 +17,7 @@
     "@mui/icons-material": "^7.0.2",
     "@mui/material": "^7.0.2",
     "axios": "^1.8.4",
+    "cors": "^2.8.5",
     "express": "^5.1.0",
     "next": "15.3.0",
     "node-telegram-bot-api": "^0.64.0",
@@ -27,6 +30,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.1",
     "@types/node": "^20.17.30",
     "@types/node-telegram-bot-api": "^0.64.0",

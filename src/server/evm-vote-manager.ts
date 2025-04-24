@@ -46,6 +46,41 @@ export interface EvmVoteData {
   }
 }
 
+// Définir des interfaces pour les types complexes
+interface TxResult {
+  events: Record<string, string[]>;
+  height?: string;
+  data?: {
+    value?: {
+      TxResult?: {
+        result?: {
+          log?: string;
+        }
+      }
+    }
+  }
+}
+
+interface TxMessage {
+  "@type": string;
+  messages?: TxMessage[];
+  [key: string]: unknown;
+}
+
+interface EventAttribute {
+  key: string;
+  value: string;
+}
+
+interface LogEvent {
+  type: string;
+  attributes: EventAttribute[];
+}
+
+interface LogItem {
+  events?: LogEvent[];
+}
+
 export class EvmVoteManager extends EventEmitter {
   private chainData: EvmVoteData = {};
   private lastGlobalPollId: number = 0;
@@ -71,10 +106,9 @@ export class EvmVoteManager extends EventEmitter {
   }
 
   // Function to process transactions
-  public handleTransaction(txResult: any): void {
-    const height = parseInt(txResult.height);
+  public handleTransaction(txResult: TxResult): void {
+    // Suppression de la variable height non utilisée
 
-    
     // Check if txResult.events contains vote information for our validator
     if (txResult.events && 
         txResult.events['axelar.vote.v1beta1.Voted.voter'] &&
@@ -107,7 +141,7 @@ export class EvmVoteManager extends EventEmitter {
                 if (batchMessages && batchMessages.length > 0) {
                   console.log(`📝 Processing ${batchMessages.length} messages in batch`);
                   // Process each message in the batch
-                  batchMessages.forEach((batchMsg: any, index: number) => {
+                  batchMessages.forEach((batchMsg: TxMessage, index: number) => {
                     console.log(`📝 Processing message ${index + 1}/${batchMessages.length} from batch`);
                     this.processVoteMessage(batchMsg);
                   });
@@ -119,12 +153,12 @@ export class EvmVoteManager extends EventEmitter {
                 console.log(`📝 Processing direct message of type ${messages[0]["@type"]}`);
                 this.processVoteMessage(messages[0]);
               }
-            } catch (e) {
-              console.error("❌ Error processing vote:", e);
+            } catch (error) {
+              console.error("❌ Error processing vote:", error);
             }
           })
           .catch(error => {
-            console.error("❌ Error requesting transaction details:", error);
+            console.error("❌ Error requesting transaction details:", error instanceof Error ? error.message : 'Unknown error');
           });
       }
     }
@@ -137,7 +171,7 @@ export class EvmVoteManager extends EventEmitter {
         if (logData.includes('"poll_id"') || logData.includes('poll_id')) {
           
           try {
-            const logs = JSON.parse(logData);
+            const logs = JSON.parse(logData) as LogItem[];
             
             // Look for events that contain poll_id in attributes
             for (const log of logs) {
@@ -168,8 +202,8 @@ export class EvmVoteManager extends EventEmitter {
                             pollId = participantsObj.poll_id;
                             break;
                           }
-                        } catch (e) {
-                          console.error("Error parsing participants attribute:", e);
+                        } catch (error) {
+                          console.error("Error parsing participants attribute:", error);
                         }
                       }
                       // Case 2: In poll_mappings (as in ConfirmGatewayTxsStarted)
@@ -183,16 +217,17 @@ export class EvmVoteManager extends EventEmitter {
                               pollId = mappings[0].poll_id;
                               break;
                             }
-                          } catch (e) {
-                            // If parsing fails, look for poll_id by regex
+                          } catch (error) {
+                            // If parsing fails, log the error and look for poll_id by regex
+                            console.debug("Failed to parse poll_mappings JSON, trying regex:", error);
                             const pollIdMatch = pollMappings.match(/"poll_id"\s*:\s*"(\d+)"/);
                             if (pollIdMatch && pollIdMatch[1]) {
                               pollId = pollIdMatch[1];
                               break;
                             }
                           }
-                        } catch (e) {
-                          console.error("Error extracting poll_id:", e);
+                        } catch (error) {
+                          console.error("Error extracting poll_id:", error);
                         }
                       }
                     }
@@ -206,12 +241,13 @@ export class EvmVoteManager extends EventEmitter {
                 }
               }
             }
-          } catch (e) {
-            console.error("Error parsing logs:", e);
+          } catch (error) {
+            console.error("Error parsing logs:", error);
           }
         }
-      } catch (e) {
-        // Ignore errors
+      } catch (error) {
+        // Log error but continue
+        console.error("Error processing log data:", error);
       }
     }
   }
@@ -277,7 +313,7 @@ export class EvmVoteManager extends EventEmitter {
   }
 
   // Get transaction details by hash
-  private async getTxByHash(txHash: string) {
+  private async getTxByHash(txHash: string): Promise<{tx: {body: {messages: TxMessage[]}}} | null> {
     const maxRetries = 3;
     const retryDelay = 2000; // 2 seconds delay between attempts
     
@@ -292,19 +328,23 @@ export class EvmVoteManager extends EventEmitter {
         } else {
           return null;
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         // If transaction is not yet indexed (404), retry after delay
-        if (error.response && error.response.status === 404) {
-          console.log(`💬 Tx ${txHash} not yet indexed, attempt ${attempt}/${maxRetries}...`);
-          
-          // If not the last attempt, wait and retry
-          if (attempt < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
-            continue;
+        if (typeof error === 'object' && error !== null && 'response' in error &&
+            typeof error.response === 'object' && error.response !== null && 'status' in error.response) {
+          const axiosError = error as {response: {status: number}};
+          if (axiosError.response.status === 404) {
+            console.log(`💬 Tx ${txHash} not yet indexed, attempt ${attempt}/${maxRetries}...`);
+            
+            // If not the last attempt, wait and retry
+            if (attempt < maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, retryDelay));
+              continue;
+            }
           }
         }
         
-        console.error(`❌ Error requesting transaction ${txHash}:`, error.message);
+        console.error(`❌ Error requesting transaction ${txHash}:`, error instanceof Error ? error.message : 'Unknown error');
         return null;
       }
     }
@@ -313,25 +353,31 @@ export class EvmVoteManager extends EventEmitter {
   }
 
   // Function to process an individual vote message
-  private processVoteMessage(message: any) {
+  private processVoteMessage(message: unknown) {
     try {
       // Check if it's a RefundMsgRequest containing a VoteRequest
-      if (message["@type"] === "/axelar.reward.v1beta1.RefundMsgRequest" && message.inner_message) {
-        const innerMessage = message.inner_message;
+      if (typeof message === 'object' && message !== null && '@type' in message && 
+          message['@type'] === "/axelar.reward.v1beta1.RefundMsgRequest" && 
+          'inner_message' in message && message.inner_message) {
         
-        if (innerMessage.poll_id) {
-          const pollId = innerMessage.poll_id;
-          const vote = innerMessage.vote;
+        const innerMessage = message.inner_message as Record<string, unknown>;
+        
+        if ('poll_id' in innerMessage) {
+          const pollId = innerMessage.poll_id as string;
+          const vote = 'vote' in innerMessage ? innerMessage.vote : null;
           
-          if (vote && vote["@type"] === "/axelar.evm.v1beta1.VoteEvents") {
-            const voteChain = vote.chain;
-            const events = vote.events;
+          if (vote && typeof vote === 'object' && vote !== null && '@type' in vote && 
+              vote['@type'] === "/axelar.evm.v1beta1.VoteEvents" && 
+              'chain' in vote && 'events' in vote) {
+            
+            const voteChain = vote.chain as string;
+            const events = vote.events as Array<Record<string, unknown>>;
             
             // Check if vote is valid
             let isValid = false;
-            if (events && events.length > 0) {
+            if (Array.isArray(events) && events.length > 0) {
               // Check that chain in events matches the one in vote
-              isValid = events.some((event: any) => event.chain === voteChain);
+              isValid = events.some((event) => 'chain' in event && event.chain === voteChain);
             }
             
             // Determine status based on validity
@@ -340,16 +386,18 @@ export class EvmVoteManager extends EventEmitter {
             // Update poll status
             this.updatePollStatus(pollId, status, voteChain);
           } else {
-            console.log(`Unsupported vote type: ${vote?.["@type"] || "unknown"}`);
+            const voteType = vote && typeof vote === 'object' && '@type' in vote ? vote['@type'] : 'unknown';
+            console.log(`Unsupported vote type: ${voteType}`);
           }
         } else {
           console.log("No poll_id found in inner_message");
         }
       } else {
-        console.log(`Unsupported message type: ${message["@type"]}`);
+        const msgType = typeof message === 'object' && message !== null && '@type' in message ? message['@type'] : 'unknown';
+        console.log(`Unsupported message type: ${msgType}`);
       }
-    } catch (e) {
-      console.error("Error processing individual message:", e);
+    } catch (error) {
+      console.error("Error processing individual message:", error);
     }
   }
 
@@ -370,7 +418,6 @@ export class EvmVoteManager extends EventEmitter {
         
         // If found, update its status
         if (pollIndex >= 0) {
-          const oldStatus = this.chainData[normalizedChain].pollIds[pollIndex].result;
           this.chainData[normalizedChain].pollIds[pollIndex].result = newStatus;
           updated = true;
           
@@ -399,7 +446,6 @@ export class EvmVoteManager extends EventEmitter {
         
         // If found, update its status
         if (pollIndex >= 0) {
-          const oldStatus = chain.pollIds[pollIndex].result;
           chain.pollIds[pollIndex].result = newStatus;
           updated = true;
           

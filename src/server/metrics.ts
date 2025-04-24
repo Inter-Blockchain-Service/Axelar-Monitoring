@@ -1,6 +1,6 @@
 import { StatusType } from './tendermint';
 import { HeartbeatStatusType } from './heartbeat_manager';
-import { EvmVoteData, PollStatus as EvmPollStatus } from './evm-vote-manager';
+import { EvmVoteData } from './evm-vote-manager';
 import { AmpdVoteData, AmpdSigningData } from './ampd-manager';
 import { BLOCKS_HISTORY_SIZE, HEARTBEAT_HISTORY_SIZE } from '../constants';
 

@@ -2,11 +2,12 @@ import { TendermintClient, StatusUpdate, StatusType } from './tendermint';
 import { ValidatorMetrics, recalculateStats, recalculateHeartbeatStats } from './metrics';
 import { HeartbeatUpdate, HeartbeatStatusType } from './heartbeat_manager';
 import { io, broadcastMetricsUpdate } from './websockets';
+import { PollStatus } from './ampd-manager';
 
 // Interface for EVM event updates
 interface EvmVoteUpdate {
   chain: string;
-  pollIds?: any[];
+  pollIds?: PollStatus[];
   lastGlobalPollId?: number;
 }
 

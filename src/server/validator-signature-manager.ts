@@ -1,6 +1,37 @@
 import { EventEmitter } from 'events';
 import { StatusType, StatusUpdate } from './tendermint';
 
+// Définir les interfaces pour les structures de données
+interface BlockHeader {
+  height: string;
+  proposer_address: string;
+}
+
+interface BlockSignature {
+  validator_address: string;
+}
+
+interface BlockLastCommit {
+  signatures: BlockSignature[];
+}
+
+interface Block {
+  header: BlockHeader;
+  last_commit: BlockLastCommit;
+}
+
+interface BlockData {
+  block: Block;
+}
+
+interface VoteData {
+  Vote: {
+    validator_address: string;
+    height: string;
+    type: number;
+  };
+}
+
 export class ValidatorSignatureManager extends EventEmitter {
   private validatorAddress: string;
   private currentBlockHeight: number = 0;
@@ -13,7 +44,7 @@ export class ValidatorSignatureManager extends EventEmitter {
     this.validatorAddress = validatorAddress.toUpperCase();
   }
 
-  public handleNewBlock(blockData: any): void {
+  public handleNewBlock(blockData: BlockData): void {
     try {
       const height = parseInt(blockData.block.header.height);
       const proposerAddress = blockData.block.header.proposer_address;
@@ -46,7 +77,7 @@ export class ValidatorSignatureManager extends EventEmitter {
     }
   }
 
-  public handleVote(voteData: any): void {
+  public handleVote(voteData: VoteData): void {
     try {
       if (voteData.Vote.validator_address !== this.validatorAddress) {
         return; // This is not a vote from our validator
@@ -78,10 +109,10 @@ export class ValidatorSignatureManager extends EventEmitter {
     }
   }
 
-  private extractSignatures(blockData: any): string[] {
+  private extractSignatures(blockData: BlockData): string[] {
     const signatures: string[] = [];
     if (blockData.block.last_commit && blockData.block.last_commit.signatures) {
-      blockData.block.last_commit.signatures.forEach((sig: any) => {
+      blockData.block.last_commit.signatures.forEach((sig: BlockSignature) => {
         if (sig.validator_address) {
           signatures.push(sig.validator_address);
         }

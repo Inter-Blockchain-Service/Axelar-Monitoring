@@ -5,18 +5,14 @@ import { useMetrics } from '@/hooks/useMetrics';
 import MetricCard from '@/components/MetricCard';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import BlockStatus from '@/components/BlockStatus';
-import ValidatorInfo from '@/components/ValidatorInfo';
 import HeartBeatStatus from '@/components/HeartBeatStatus';
 import EvmVoteStatus from '@/components/EvmVoteStatus';
 import AmpdVoting from '@/components/AmpdVoting';
 import AmpdSigning from '@/components/AmpdSigning';
-import { BLOCKS_HISTORY_SIZE, HEARTBEAT_PERIOD } from '@/constants';
 
-// Période de signature d'Axelar
-const SIGNING_PERIOD = 35000;
 
 export default function Dashboard() {
-  const { metrics, connectionInfo, isConnected, socket } = useMetrics();
+  const { metrics, isConnected, socket } = useMetrics();
   const [formattedDate, setFormattedDate] = useState<string>('');
   const [formattedHeartbeatDate, setFormattedHeartbeatDate] = useState<string>('');
   const [isClient, setIsClient] = useState(false);
@@ -46,7 +42,7 @@ export default function Dashboard() {
     if (!date) return '-';
     try {
       return new Date(date).toLocaleString();
-    } catch (error) {
+    } catch {
       return '-';
     }
   };
@@ -226,44 +222,13 @@ export default function Dashboard() {
               </div>
             </section>
             
-            {/* Informations du validateur */}
-            <section>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-foreground">Informations du Validateur</h2>
-              </div>
-              <div className="grid grid-cols-1 gap-6">
-                <ValidatorInfo 
-                  connectionInfo={connectionInfo}
-                  moniker={metrics.moniker}
-                  chainId={metrics.chainId}
-                />
-              </div>
-            </section>
-            
-            {/* Messages d'erreur */}
-            {metrics.lastError && (
-              <section className="mt-6">
-                <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded">
-                  <h3 className="text-lg font-medium text-red-800 dark:text-red-200">Dernier message d'erreur</h3>
-                  <p className="mt-2 text-red-700 dark:text-red-300 whitespace-pre-line">{metrics.lastError}</p>
-                </div>
-              </section>
-            )}
+
           </>
         )}
       </main>
 
       <footer className="mt-12 text-center text-foreground/70">
-        <p>Actualisation automatique des données en temps réel</p>
-        <p className="mt-1">Statistiques basées sur la période de signature de {BLOCKS_HISTORY_SIZE} blocs</p>
-        <p className="mt-1">HeartBeats attendus tous les {HEARTBEAT_PERIOD} blocs</p>
-        <p className="mt-1">Affichage visuel des 200 derniers heartbeats avec leurs hauteurs de bloc</p>
-        {metrics.evmVotesEnabled && (
-          <p className="mt-1">Surveillance des votes EVM activée sur les chaînes supportées</p>
-        )}
-        {metrics.ampdEnabled && (
-          <p className="mt-1">Surveillance des votes et signatures AMPD activée pour les chaînes: {metrics.ampdSupportedChains.join(', ')}</p>
-        )}
+
       </footer>
     </div>
   );
