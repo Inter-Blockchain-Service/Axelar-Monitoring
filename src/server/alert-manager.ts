@@ -521,20 +521,11 @@ export class AlertManager extends EventEmitter {
   /**
    * Start periodic checks of metrics
    */
-  public startPeriodicChecks(intervalMs: number = 60000): void {
+  public startPeriodicChecks(intervalMs: number = 5000): void {
     setInterval(() => {
       this.checkMetrics();
     }, intervalMs);
     
     console.log(`Alert Manager started periodic checks with interval ${intervalMs}ms`);
   }
-
-  // /**
-  //  * Fetch vote details from a transaction hash
-  //  */
-  // private async fetchVoteDetails(txHash: string): Promise<void> {
-  //   console.log(`Stub method: fetchVoteDetails for hash ${txHash} - Not implemented in AlertManager`);
-  //   // Cette méthode est un stub et n'a pas d'implémentation dans AlertManager
-  //   // L'implémentation réelle est dans ampd-manager.ts
-  // }
 } 

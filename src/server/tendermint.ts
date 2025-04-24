@@ -47,7 +47,7 @@ interface TxResult {
   events?: Record<string, string[]>;
 }
 
-// Types pour les structures de données de Tendermint
+// Types for Tendermint data structures
 interface BlockHeader {
   height: string;
   proposer_address: string;
@@ -270,7 +270,7 @@ export class TendermintClient extends EventEmitter {
     
     switch (eventType) {
       case 'tendermint/event/NewBlock':
-        // Type assertion pour indiquer que value est de type BlockData
+        // Type assertion to indicate that value is of type BlockData
         if (value && typeof value === 'object' && 'block' in value && 
             value.block && typeof value.block === 'object' && 'header' in value.block) {
           const blockData = value as unknown as BlockData;
@@ -281,21 +281,21 @@ export class TendermintClient extends EventEmitter {
         }
         break;
       case 'tendermint/event/Vote':
-        // Type assertion pour indiquer que value est de type VoteData
+        // Type assertion to indicate that value is of type VoteData
         if (value && typeof value === 'object' && 'Vote' in value) {
           const voteData = value as unknown as VoteData;
           this.signatureManager.handleVote(voteData);
         }
         break;
       case 'tendermint/event/Tx':
-        // Type assertion pour indiquer que value est de type TxData
+        // Type assertion to indicate that value is of type TxData
         if (value && typeof value === 'object' && 'TxResult' in value) {
           const txData = value as unknown as TxData;
           this.heartbeatManager.handleTransaction(txData.TxResult);
           
           // Process transactions for EVM votes if manager is enabled
           if (this.evmVoteManager) {
-            // Adapter le format du résultat pour correspondre à ce que EvmVoteManager attend
+            // Adapt the result format to match what EvmVoteManager expects
             const evmTxResult = {
               events: reply.result.events || {},
               data: {
@@ -309,7 +309,7 @@ export class TendermintClient extends EventEmitter {
           
           // Process transactions for AMPD votes and signatures if manager is enabled
           if (this.ampdManager) {
-            // Adapter le format du résultat pour correspondre à ce que AmpdManager attend
+            // Adapt the result format to match what AmpdManager expects
             const ampdTxResult = {
               events: reply.result.events || {}
             };

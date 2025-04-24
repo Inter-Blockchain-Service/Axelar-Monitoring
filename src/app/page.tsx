@@ -30,7 +30,7 @@ export default function Home() {
       </main>
       <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
         <p className="text-gray-500 dark:text-gray-400 text-sm">
-          © 2023 Axelar Monitoring - All rights reserved
+          © 2024 IBS Axelar Monitoring - All rights reserved
         </p>
       </footer>
     </div>

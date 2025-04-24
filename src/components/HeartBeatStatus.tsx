@@ -112,10 +112,6 @@ export default function HeartBeatStatus({ statusList, className = '', lastPeriod
             <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
             <span className="text-xs">Missed</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-[#9e9e9e4d] rounded-sm"></div>
-            <span className="text-xs">No data</span>
-          </div>
         </div>
       </div>
     </div>
