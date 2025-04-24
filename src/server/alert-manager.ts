@@ -499,7 +499,7 @@ export class AlertManager extends EventEmitter {
         
       case AlertType.EVM_VOTE_MISSED:
         // Extract chain from message
-        const evmChainMatch = alert.message.match(/on chain (\w+)/);
+        const evmChainMatch = alert.message.match(/on chain ([^\s]+)/);
         const evmChain = evmChainMatch ? evmChainMatch[1] : null;
         
         if (evmChain && metrics.evmVotes && metrics.evmVotes[evmChain]) {
@@ -527,7 +527,7 @@ export class AlertManager extends EventEmitter {
         break;
         
       case AlertType.EVM_VOTES_RECOVERED:
-        const evmRecoveredChainMatch = alert.message.match(/on chain (\w+)/);
+        const evmRecoveredChainMatch = alert.message.match(/on chain ([^\s]+)/);
         const evmRecoveredChain = evmRecoveredChainMatch ? evmRecoveredChainMatch[1] : null;
         
         if (evmRecoveredChain && metrics.evmVotes && metrics.evmVotes[evmRecoveredChain]) {
@@ -544,7 +544,7 @@ export class AlertManager extends EventEmitter {
         
       case AlertType.AMPD_VOTE_MISSED:
         // Extract chain from message
-        const ampdVoteChainMatch = alert.message.match(/on chain (\w+)/);
+        const ampdVoteChainMatch = alert.message.match(/on chain ([^\s]+)/);
         const ampdVoteChain = ampdVoteChainMatch ? ampdVoteChainMatch[1] : null;
         
         if (ampdVoteChain && metrics.ampdVotes && metrics.ampdVotes[ampdVoteChain]) {
@@ -572,7 +572,7 @@ export class AlertManager extends EventEmitter {
         break;
         
       case AlertType.AMPD_VOTES_RECOVERED:
-        const ampdVotesRecoveredChainMatch = alert.message.match(/on chain (\w+)/);
+        const ampdVotesRecoveredChainMatch = alert.message.match(/on chain ([^\s]+)/);
         const ampdVotesRecoveredChain = ampdVotesRecoveredChainMatch ? ampdVotesRecoveredChainMatch[1] : null;
         
         if (ampdVotesRecoveredChain && metrics.ampdVotes && metrics.ampdVotes[ampdVotesRecoveredChain]) {
@@ -589,7 +589,7 @@ export class AlertManager extends EventEmitter {
         
       case AlertType.AMPD_SIGNING_MISSED:
         // Extract chain from message
-        const ampdSigningChainMatch = alert.message.match(/on chain (\w+)/);
+        const ampdSigningChainMatch = alert.message.match(/on chain ([^\s]+)/);
         const ampdSigningChain = ampdSigningChainMatch ? ampdSigningChainMatch[1] : null;
         
         if (ampdSigningChain && metrics.ampdSignings && metrics.ampdSignings[ampdSigningChain]) {
@@ -604,20 +604,20 @@ export class AlertManager extends EventEmitter {
           if (missedSignings.length > 0) {
             message += `\nMissed Signings:\n`;
             missedSignings.forEach((signing: AmpdSigning) => {
-              message += `- ${signing.signingId || 'Unknown'}: ${signing.result}\n`;
+              message += `- Signing ID: ${signing.signingId || 'Unknown'}, Status: ${signing.result || 'Unknown'}\n`;
             });
           }
           
           // Afficher également quelques signings récents pour contexte
           message += `\nRecent Signings:\n`;
           allSignings.slice(0, 5).forEach((signing: AmpdSigning) => {
-            message += `- ${signing.signingId || 'Unknown'}: ${signing.result}\n`;
+            message += `- Signing ID: ${signing.signingId || 'Unknown'}, Status: ${signing.result || 'Unknown'}\n`;
           });
         }
         break;
         
       case AlertType.AMPD_SIGNINGS_RECOVERED:
-        const ampdSigningsRecoveredChainMatch = alert.message.match(/on chain (\w+)/);
+        const ampdSigningsRecoveredChainMatch = alert.message.match(/on chain ([^\s]+)/);
         const ampdSigningsRecoveredChain = ampdSigningsRecoveredChainMatch ? ampdSigningsRecoveredChainMatch[1] : null;
         
         if (ampdSigningsRecoveredChain && metrics.ampdSignings && metrics.ampdSignings[ampdSigningsRecoveredChain]) {
