@@ -228,23 +228,34 @@ export class AlertManager extends EventEmitter {
     Object.entries(this.metrics.ampdVotes).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0) return;
       
-      const latestVote = chainData.pollIds[0]; // The first one is the most recent
+      // Compter les votes "not_found" dans les pollIds actuels
+      let notFoundCount = 0;
       
-      // Check if the vote is missed - assuming the result property holds the status
-      if (latestVote.result === 'not_found') {
-        // Increment the counter
-        this.ampdVotesConsecutiveMissedByChain[chain] = (this.ampdVotesConsecutiveMissedByChain[chain] || 0) + 1;
-        
-        // If we reached the threshold, send an alert
-        if (this.ampdVotesConsecutiveMissedByChain[chain] >= this.thresholds.consecutiveAmpdVotesMissed) {
-          this.createAlert(
-            AlertType.AMPD_VOTE_MISSED,
-            `⚠️ ALERT: ${this.ampdVotesConsecutiveMissedByChain[chain]} consecutive AMPD votes missed on chain ${chain}`,
-            'warning'
-          );
+      // Parcourir tous les pollIds pour compter les "not_found"
+      chainData.pollIds.forEach(vote => {
+        if (vote.result === 'not_found') {
+          notFoundCount++;
         }
+      });
+      
+      // Si le nombre de votes not_found dépasse le seuil, déclencher une alerte
+      if (notFoundCount >= this.thresholds.consecutiveAmpdVotesMissed) {
+        this.createAlert(
+          AlertType.AMPD_VOTE_MISSED,
+          `⚠️ ALERT: ${notFoundCount} AMPD votes missed (not_found) sur ${chainData.pollIds.length} votes récents sur la chaîne ${chain}`,
+          'warning'
+        );
+      }
+      
+      // Nous conservons la logique pour votes consécutifs manqués mais sans déclencher d'alerte
+      // Cette information pourrait être utile pour le débogage ou des fonctionnalités futures
+      const latestVote = chainData.pollIds[0]; // Le premier est le plus récent
+      
+      if (latestVote.result === 'not_found') {
+        // Incrémenter le compteur des votes consécutifs manqués
+        this.ampdVotesConsecutiveMissedByChain[chain] = (this.ampdVotesConsecutiveMissedByChain[chain] || 0) + 1;
       } else if (latestVote.result === 'validated') {
-        // Reset the counter
+        // Réinitialiser le compteur des votes consécutifs
         this.ampdVotesConsecutiveMissedByChain[chain] = 0;
       }
     });
@@ -434,16 +445,34 @@ export class AlertManager extends EventEmitter {
         
       case AlertType.AMPD_VOTE_MISSED:
         // Extract chain from message
-        const ampdVoteChainMatch = alert.message.match(/on chain (\w+)/);
-        const ampdVoteChain = ampdVoteChainMatch ? ampdVoteChainMatch[1] : null;
+        const ampdVoteChainMatch = alert.message.match(/on chain (\w+)|sur la chaîne (\w+)/);
+        const ampdVoteChain = ampdVoteChainMatch ? (ampdVoteChainMatch[1] || ampdVoteChainMatch[2]) : null;
         
         if (ampdVoteChain && metrics.ampdVotes && metrics.ampdVotes[ampdVoteChain]) {
           message += `\nAMPD Vote Details (${ampdVoteChain}):\n`;
-          const votes = metrics.ampdVotes[ampdVoteChain].pollIds.slice(0, 5); // Last 5 votes
           
+          // Compter les votes not_found
+          let notFoundCount = 0;
+          const totalVotes = metrics.ampdVotes[ampdVoteChain].pollIds.length;
+          
+          // Récupérer les 5 derniers votes pour les afficher
+          const votes = metrics.ampdVotes[ampdVoteChain].pollIds.slice(0, 5);
+          
+          // Afficher le résumé des votes
+          message += `- Total votes récents: ${totalVotes}\n`;
+          
+          // Afficher chaque vote individuellement
           votes.forEach((vote) => {
-            message += `- ${vote.pollId}: ${vote.result}\n`;
+            const isNotFound = vote.result === 'not_found';
+            if (isNotFound) notFoundCount++;
+            message += `- ${vote.pollId}: ${vote.result}${isNotFound ? ' ❌' : ' ✅'}\n`;
           });
+          
+          // Afficher le pourcentage de votes not_found
+          if (totalVotes > 0) {
+            const notFoundPercentage = ((notFoundCount / votes.length) * 100).toFixed(1);
+            message += `- Votes manqués (échantillon): ${notFoundCount}/${votes.length} (${notFoundPercentage}%)\n`;
+          }
         }
         break;
         
