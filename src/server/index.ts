@@ -1,7 +1,6 @@
 import express from 'express';
 import http from 'http';
 import dotenv from 'dotenv';
-// import cors from 'cors';
 import { TendermintClient } from './tendermint';
 import { createInitialMetrics } from './metrics';
 import { setupApiRoutes } from './api';
@@ -21,13 +20,6 @@ const DEFAULT_VALIDATOR_ADDRESS = '';
 // Create Express application
 const app = express();
 const server = http.createServer(app);
-
-// // Enable CORS
-// app.use(cors({
-//   origin: '*',
-//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-//   allowedHeaders: ['Content-Type', 'Authorization']
-// }));
 
 // Initialize metrics
 const metrics = createInitialMetrics(
@@ -135,7 +127,7 @@ server.listen(Number(PORT), '0.0.0.0', async () => {
   }
   
   // Start periodic alert checks (every minute)
-  alertManager.startPeriodicChecks(60000);
+  alertManager.startPeriodicChecks(5000);
   console.log('Alert system started with periodic checks every minute');
   
   // Connect to RPC node after checking its status
