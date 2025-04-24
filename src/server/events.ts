@@ -107,9 +107,6 @@ export const setupEventHandlers = (
         chain: update.chain, 
         votes: tendermintClient.getAmpdChainVotes(update.chain) 
       });
-      
-      // Debug log
-      console.log(`Updated AMPD votes for ${update.chain}, pollId: ${update.pollId}`);
     }
   });
   
@@ -124,9 +121,6 @@ export const setupEventHandlers = (
         chain: update.chain, 
         signings: tendermintClient.getAmpdChainSignings(update.chain) 
       });
-      
-      // Debug log
-      console.log(`Updated AMPD signatures for ${update.chain}, signingId: ${update.signingId}`);
     }
   });
   
