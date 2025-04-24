@@ -262,7 +262,7 @@ export class AlertManager extends EventEmitter {
       
       // Comptons combien de votes sont invalides
       for (const vote of chainData.pollIds) {
-        if (vote.result === 'invalid') {
+        if (vote.result === 'not_found') {
           invalidCount++;
           invalidVoteIds.push(vote.pollId || 'unknown');
         }
