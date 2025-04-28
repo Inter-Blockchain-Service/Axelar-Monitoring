@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { ValidatorMetrics } from './metrics';
 import { EventEmitter } from 'events';
+import { StatusType } from '../hooks/useMetrics';
+import { HeartbeatStatusType } from '../hooks/useMetrics';
 
 // Alert types
 export enum AlertType {
@@ -69,6 +71,20 @@ export class AlertManager extends EventEmitter {
   private notificationConfig: NotificationConfig;
   private cooldownPeriod: number = 5 * 60 * 1000; // 5 minutes in milliseconds by default
   
+  // État pour suivre les blocs manqués
+  private isMissingBlocks: boolean = false;
+  private lastAlertedConsecutiveMissed: number = 0;
+  
+  // État pour suivre les heartbeats manqués
+  private isMissingHeartbeats: boolean = false;
+  private lastAlertedConsecutiveHeartbeatsMissed: number = 0;
+  
+  // État pour suivre les taux bas
+  private isLowSignRate: boolean = false;
+  private isLowHeartbeatRate: boolean = false;
+  private lastAlertedSignRate: number = 0;
+  private lastAlertedHeartbeatRate: number = 0;
+  
   // Counters for consecutive missed votes and signatures
   private evmConsecutiveMissedByChain: Record<string, number> = {};
   private ampdVotesConsecutiveMissedByChain: Record<string, number> = {};
@@ -131,43 +147,157 @@ export class AlertManager extends EventEmitter {
     const prevMetrics = { ...this.previousMetrics };
     this.previousMetrics = { ...this.metrics };
     
+    // Vérifier les blocs manqués consécutifs en utilisant signStatus
+    if (this.metrics.signStatus && this.metrics.signStatus.length > 0) {
+      let consecutiveMissed = 0;
+      
+      // On ne regarde que les premiers blocs jusqu'à ce qu'on trouve un bloc signé
+      for (const status of this.metrics.signStatus) {
+        if (status === StatusType.Missed) {
+          consecutiveMissed++;
+        } else {
+          // Dès qu'on trouve un bloc signé, on arrête de compter
+          break;
+        }
+      }
+      
+      // Vérifier si on dépasse le seuil
+      if (consecutiveMissed >= this.thresholds.consecutiveBlocksMissed) {
+        if (!this.isMissingBlocks) {
+          // Premier dépassement du seuil
+          this.isMissingBlocks = true;
+          this.lastAlertedConsecutiveMissed = consecutiveMissed;
+          this.createAlert(
+            AlertType.CONSECUTIVE_BLOCKS_MISSED,
+            `⚠️ ALERT: ${consecutiveMissed} blocs manqués consécutifs au début`,
+            'warning'
+          );
+        } else if (consecutiveMissed > this.lastAlertedConsecutiveMissed) {
+          // Le nombre de blocs manqués a augmenté
+          this.lastAlertedConsecutiveMissed = consecutiveMissed;
+          this.createAlert(
+            AlertType.CONSECUTIVE_BLOCKS_MISSED,
+            `🚨 ALERT: ${consecutiveMissed} blocs manqués consécutifs au début (augmentation)`,
+            'critical'
+          );
+        }
+      } else if (this.isMissingBlocks) {
+        // On est revenu en dessous du seuil
+        this.isMissingBlocks = false;
+        this.createAlert(
+          AlertType.CONSECUTIVE_BLOCKS_MISSED,
+          `✅ Récupération: Plus de blocs manqués consécutifs au début`,
+          'info'
+        );
+      }
+    }
+    
+    // Vérifier les heartbeats manqués consécutifs en utilisant heartbeatStatus
+    if (this.metrics.heartbeatStatus && this.metrics.heartbeatStatus.length > 0) {
+      let consecutiveHeartbeatsMissed = 0;
+      
+      // On ne regarde que les premiers heartbeats jusqu'à ce qu'on trouve un heartbeat signé
+      for (const status of this.metrics.heartbeatStatus) {
+        if (status === HeartbeatStatusType.Missed) {
+          consecutiveHeartbeatsMissed++;
+        } else {
+          // Dès qu'on trouve un heartbeat signé, on arrête de compter
+          break;
+        }
+      }
+      
+      // Vérifier si on dépasse le seuil
+      if (consecutiveHeartbeatsMissed >= this.thresholds.consecutiveHeartbeatsMissed) {
+        if (!this.isMissingHeartbeats) {
+          // Premier dépassement du seuil
+          this.isMissingHeartbeats = true;
+          this.lastAlertedConsecutiveHeartbeatsMissed = consecutiveHeartbeatsMissed;
+          this.createAlert(
+            AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
+            `⚠️ ALERT: ${consecutiveHeartbeatsMissed} heartbeats manqués consécutifs au début`,
+            'warning'
+          );
+        } else if (consecutiveHeartbeatsMissed > this.lastAlertedConsecutiveHeartbeatsMissed) {
+          // Le nombre de heartbeats manqués a augmenté
+          this.lastAlertedConsecutiveHeartbeatsMissed = consecutiveHeartbeatsMissed;
+          this.createAlert(
+            AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
+            `🚨 ALERT: ${consecutiveHeartbeatsMissed} heartbeats manqués consécutifs au début (augmentation)`,
+            'critical'
+          );
+        }
+      } else if (this.isMissingHeartbeats) {
+        // On est revenu en dessous du seuil
+        this.isMissingHeartbeats = false;
+        this.createAlert(
+          AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
+          `✅ Récupération: Plus de heartbeats manqués consécutifs au début`,
+          'info'
+        );
+      }
+    }
+    
     // Calculate current rates
     const signRate = this.calculateSignRate();
     const heartbeatRate = this.calculateHeartbeatRate();
     
-    // Check consecutive missed blocks
-    if (this.metrics.consecutiveMissed >= this.thresholds.consecutiveBlocksMissed) {
-      this.createAlert(
-        AlertType.CONSECUTIVE_BLOCKS_MISSED,
-        `⚠️ ALERT: ${this.metrics.consecutiveMissed} consecutive blocks missed`,
-        'critical'
-      );
-    }
-    
-    // Check consecutive missed heartbeats
-    if (this.metrics.heartbeatsConsecutiveMissed >= this.thresholds.consecutiveHeartbeatsMissed) {
-      this.createAlert(
-        AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
-        `⚠️ ALERT: ${this.metrics.heartbeatsConsecutiveMissed} consecutive heartbeats missed`,
-        'critical'
-      );
-    }
-    
-    // Check signing rate
+    // Vérifier le taux de signature
     if (signRate < this.thresholds.signRateThreshold) {
+      if (!this.isLowSignRate) {
+        // Premier dépassement du seuil
+        this.isLowSignRate = true;
+        this.lastAlertedSignRate = signRate;
+        this.createAlert(
+          AlertType.SIGN_RATE_LOW,
+          `⚠️ ALERT: Taux de signature bas (${signRate.toFixed(2)}%)`,
+          'warning'
+        );
+      } else if (signRate < this.lastAlertedSignRate) {
+        // Le taux a baissé
+        this.lastAlertedSignRate = signRate;
+        this.createAlert(
+          AlertType.SIGN_RATE_LOW,
+          `🚨 ALERT: Taux de signature en baisse (${signRate.toFixed(2)}%)`,
+          'critical'
+        );
+      }
+    } else if (this.isLowSignRate) {
+      // On est revenu au-dessus du seuil
+      this.isLowSignRate = false;
       this.createAlert(
         AlertType.SIGN_RATE_LOW,
-        `⚠️ ALERT: Low signing rate (${signRate.toFixed(2)}%)`,
-        'warning'
+        `✅ Récupération: Taux de signature normal (${signRate.toFixed(2)}%)`,
+        'info'
       );
     }
     
-    // Check heartbeat rate
+    // Vérifier le taux de heartbeat
     if (heartbeatRate < this.thresholds.heartbeatRateThreshold) {
+      if (!this.isLowHeartbeatRate) {
+        // Premier dépassement du seuil
+        this.isLowHeartbeatRate = true;
+        this.lastAlertedHeartbeatRate = heartbeatRate;
+        this.createAlert(
+          AlertType.HEARTBEAT_RATE_LOW,
+          `⚠️ ALERT: Taux de heartbeat bas (${heartbeatRate.toFixed(2)}%)`,
+          'warning'
+        );
+      } else if (heartbeatRate < this.lastAlertedHeartbeatRate) {
+        // Le taux a baissé
+        this.lastAlertedHeartbeatRate = heartbeatRate;
+        this.createAlert(
+          AlertType.HEARTBEAT_RATE_LOW,
+          `🚨 ALERT: Taux de heartbeat en baisse (${heartbeatRate.toFixed(2)}%)`,
+          'critical'
+        );
+      }
+    } else if (this.isLowHeartbeatRate) {
+      // On est revenu au-dessus du seuil
+      this.isLowHeartbeatRate = false;
       this.createAlert(
         AlertType.HEARTBEAT_RATE_LOW,
-        `⚠️ ALERT: Low heartbeat rate (${heartbeatRate.toFixed(2)}%)`,
-        'warning'
+        `✅ Récupération: Taux de heartbeat normal (${heartbeatRate.toFixed(2)}%)`,
+        'info'
       );
     }
     
@@ -301,16 +431,20 @@ export class AlertManager extends EventEmitter {
       // On regarde tous les signings, pas seulement le plus récent
       let unsubmitCount = 0;
       let unsubmitIds = [];
+      const twoMinutesAgo = Date.now() - (2 * 60 * 1000); // 2 minutes en millisecondes
       
-      // Comptons combien de signings sont manqués
+      // Comptons combien de signings sont manqués depuis plus de 2 minutes
       for (const signing of chainData.signingIds) {
-        if (signing.result === 'unsubmit') {
-          unsubmitCount++;
-          unsubmitIds.push(signing.signingId || 'unknown');
+        if (signing.result === 'unsubmit' && signing.timestamp) {
+          const signingTime = new Date(signing.timestamp).getTime();
+          if (signingTime < twoMinutesAgo) {
+            unsubmitCount++;
+            unsubmitIds.push(signing.signingId || 'unknown');
+          }
         }
       }
       
-      console.log(`Chain ${chain}: ${unsubmitCount}/${chainData.signingIds.length} unsubmit signings`);
+      console.log(`Chain ${chain}: ${unsubmitCount}/${chainData.signingIds.length} unsubmit signings (plus de 2 minutes)`);
       
       if (unsubmitCount > 0) {
         console.log(`  Unsubmit signing IDs: ${unsubmitIds.slice(0, 5).join(', ')}${unsubmitIds.length > 5 ? '...' : ''}`);
@@ -321,7 +455,7 @@ export class AlertManager extends EventEmitter {
         console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdSigningsMissed}) exceeded, sending alert`);
         this.createAlert(
           AlertType.AMPD_SIGNING_MISSED,
-          `⚠️ ALERT: ${unsubmitCount} AMPD signings missed on chain ${chain}`,
+          `⚠️ ALERT: ${unsubmitCount} AMPD signings manqués depuis plus de 2 minutes sur la chaîne ${chain}`,
           'warning'
         );
       }

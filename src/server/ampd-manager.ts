@@ -18,6 +18,7 @@ export interface SigningStatus {
     signingId: string;
     contractAddress: string;
     result: string;
+    timestamp: string; // Date ISO string
 }
 
 // Interfaces for data structures
@@ -81,7 +82,8 @@ export class AmpdManager extends EventEmitter {
                 signingIds: Array(this.maxPollHistory).fill(null).map(() => ({
                     signingId: "unknown",
                     contractAddress: "unknown",
-                    result: "unknown"
+                    result: "unknown",
+                    timestamp: new Date().toISOString()
                 }))
             };
         });
@@ -223,21 +225,24 @@ export class AmpdManager extends EventEmitter {
      * Update chain data with a new signing session
      */
     private updateSigningSession(destinationChain: string | null, sessionId: string | null, contractAddress: string | null): void {
-        const chainKey = destinationChain ? destinationChain.toLowerCase() : null;
+        if (!destinationChain || !sessionId || !contractAddress) return;
         
-        if (chainKey && this.signingData[chainKey]) {
-            this.signingData[chainKey].signingIds.unshift({
-                signingId: sessionId || 'unknown',
-                contractAddress: contractAddress || 'unknown',
-                result: 'unsubmit'
-            });
-            
-            // Maintain maximum size
-            if (this.signingData[chainKey].signingIds.length > this.maxPollHistory) {
-                this.signingData[chainKey].signingIds.pop();
-            }
-        } else {
-            console.warn(`Unable to determine chain for session ${sessionId} or unsupported chain: ${chainKey}`);
+        const chain = destinationChain.toLowerCase();
+        if (!this.supportedChains.includes(chain)) return;
+        
+        // Update the signing session in the chain's data
+        const signingStatus: SigningStatus = {
+            signingId: sessionId,
+            contractAddress: contractAddress,
+            result: 'unsubmit',
+            timestamp: new Date().toISOString()
+        };
+        
+        // Add to the beginning of the array
+        this.signingData[chain].signingIds.unshift(signingStatus);
+        // Keep only the last maxPollHistory items
+        if (this.signingData[chain].signingIds.length > this.maxPollHistory) {
+            this.signingData[chain].signingIds = this.signingData[chain].signingIds.slice(0, this.maxPollHistory);
         }
     }
 
