@@ -67,6 +67,7 @@ export class AlertManager extends EventEmitter {
   private metrics: ValidatorMetrics;
   private previousMetrics: Partial<ValidatorMetrics> = {};
   private lastAlertTimestamps: Record<AlertType, Date> = {} as Record<AlertType, Date>;
+  private lastAlertSeverities: Record<AlertType, 'info' | 'warning' | 'critical'> = {} as Record<AlertType, 'info' | 'warning' | 'critical'>;
   private thresholds: AlertThresholds;
   private notificationConfig: NotificationConfig;
   private cooldownPeriod: number = 5 * 60 * 1000; // 5 minutes in milliseconds by default
@@ -487,10 +488,24 @@ export class AlertManager extends EventEmitter {
   /**
    * Check if we can send an alert (cooldown period elapsed)
    */
-  private canSendAlert(type: AlertType): boolean {
+  private canSendAlert(type: AlertType, severity: 'info' | 'warning' | 'critical'): boolean {
     const now = new Date();
     const lastAlert = this.lastAlertTimestamps[type];
-    return (now.getTime() - lastAlert.getTime()) > this.cooldownPeriod;
+    const lastSeverity = this.lastAlertSeverities[type];
+
+    // Pas de cooldown pour les alertes info (retour à la normale)
+    if (severity === 'info') {
+      return true;
+    }
+
+    // Si c'est la première alerte de ce type ou si la sévérité a changé
+    if (!lastAlert || lastSeverity !== severity) {
+      return true;
+    }
+
+    // Vérifier le cooldown en fonction de la sévérité
+    const cooldown = severity === 'critical' ? this.cooldownPeriod : this.cooldownPeriod * 2;
+    return (now.getTime() - lastAlert.getTime()) > cooldown;
   }
   
   /**
@@ -498,12 +513,13 @@ export class AlertManager extends EventEmitter {
    */
   private createAlert(type: AlertType, message: string, severity: 'info' | 'warning' | 'critical'): void {
     // Check if we can send this alert type (cooldown)
-    if (!this.canSendAlert(type)) {
+    if (!this.canSendAlert(type, severity)) {
       return;
     }
     
-    // Update last alert timestamp
+    // Update last alert timestamp and severity
     this.lastAlertTimestamps[type] = new Date();
+    this.lastAlertSeverities[type] = severity;
     
     // Create alert object
     const alert: Alert = {
