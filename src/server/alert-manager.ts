@@ -94,6 +94,11 @@ export class AlertManager extends EventEmitter {
   private lastAlertedSignRate: number = 0;
   private lastAlertedHeartbeatRate: number = 0;
   
+  // État pour suivre les taux bas des votes et signatures
+  private evmVoteRateByChain: Record<string, { isLow: boolean; lastRate: number }> = {};
+  private ampdVoteRateByChain: Record<string, { isLow: boolean; lastRate: number }> = {};
+  private ampdSigningRateByChain: Record<string, { isLow: boolean; lastRate: number }> = {};
+  
   // Counters for consecutive missed votes and signatures
   private evmConsecutiveMissedByChain: Record<string, number> = {};
   private ampdVotesConsecutiveMissedByChain: Record<string, number> = {};
@@ -706,11 +711,40 @@ export class AlertManager extends EventEmitter {
     if (this.metrics.evmVotesEnabled && this.metrics.evmVotes) {
       Object.keys(this.metrics.evmVotes).forEach(chain => {
         const rate = this.calculateEvmVoteRate(chain);
+        
+        // Initialiser l'état si nécessaire
+        if (!this.evmVoteRateByChain[chain]) {
+          this.evmVoteRateByChain[chain] = { isLow: false, lastRate: rate };
+        }
+        
         if (rate < this.thresholds.evmVoteRateThreshold) {
+          if (!this.evmVoteRateByChain[chain].isLow) {
+            // Premier dépassement du seuil
+            this.evmVoteRateByChain[chain].isLow = true;
+            this.evmVoteRateByChain[chain].lastRate = rate;
+            this.createAlert(
+              AlertType.EVM_VOTE_RATE_LOW,
+              `⚠️ ALERT: Taux de votes EVM bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+              'warning',
+              chain
+            );
+          } else if (rate < this.evmVoteRateByChain[chain].lastRate) {
+            // Le taux a baissé
+            this.evmVoteRateByChain[chain].lastRate = rate;
+            this.createAlert(
+              AlertType.EVM_VOTE_RATE_LOW,
+              `🚨 ALERT: Taux de votes EVM en baisse (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+              'critical',
+              chain
+            );
+          }
+        } else if (this.evmVoteRateByChain[chain].isLow) {
+          // On est revenu au-dessus du seuil
+          this.evmVoteRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.EVM_VOTE_RATE_LOW,
-            `⚠️ ALERT: Taux de votes EVM bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
-            'warning',
+            `✅ Récupération: Taux de votes EVM normal (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+            'info',
             chain
           );
         }
@@ -721,11 +755,40 @@ export class AlertManager extends EventEmitter {
     if (this.metrics.ampdEnabled && this.metrics.ampdVotes) {
       Object.keys(this.metrics.ampdVotes).forEach(chain => {
         const rate = this.calculateAmpdVoteRate(chain);
+        
+        // Initialiser l'état si nécessaire
+        if (!this.ampdVoteRateByChain[chain]) {
+          this.ampdVoteRateByChain[chain] = { isLow: false, lastRate: rate };
+        }
+        
         if (rate < this.thresholds.ampdVoteRateThreshold) {
+          if (!this.ampdVoteRateByChain[chain].isLow) {
+            // Premier dépassement du seuil
+            this.ampdVoteRateByChain[chain].isLow = true;
+            this.ampdVoteRateByChain[chain].lastRate = rate;
+            this.createAlert(
+              AlertType.AMPD_VOTE_RATE_LOW,
+              `⚠️ ALERT: Taux de votes AMPD bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+              'warning',
+              chain
+            );
+          } else if (rate < this.ampdVoteRateByChain[chain].lastRate) {
+            // Le taux a baissé
+            this.ampdVoteRateByChain[chain].lastRate = rate;
+            this.createAlert(
+              AlertType.AMPD_VOTE_RATE_LOW,
+              `🚨 ALERT: Taux de votes AMPD en baisse (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+              'critical',
+              chain
+            );
+          }
+        } else if (this.ampdVoteRateByChain[chain].isLow) {
+          // On est revenu au-dessus du seuil
+          this.ampdVoteRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.AMPD_VOTE_RATE_LOW,
-            `⚠️ ALERT: Taux de votes AMPD bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
-            'warning',
+            `✅ Récupération: Taux de votes AMPD normal (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+            'info',
             chain
           );
         }
@@ -736,11 +799,40 @@ export class AlertManager extends EventEmitter {
     if (this.metrics.ampdEnabled && this.metrics.ampdSignings) {
       Object.keys(this.metrics.ampdSignings).forEach(chain => {
         const rate = this.calculateAmpdSigningRate(chain);
+        
+        // Initialiser l'état si nécessaire
+        if (!this.ampdSigningRateByChain[chain]) {
+          this.ampdSigningRateByChain[chain] = { isLow: false, lastRate: rate };
+        }
+        
         if (rate < this.thresholds.ampdSigningRateThreshold) {
+          if (!this.ampdSigningRateByChain[chain].isLow) {
+            // Premier dépassement du seuil
+            this.ampdSigningRateByChain[chain].isLow = true;
+            this.ampdSigningRateByChain[chain].lastRate = rate;
+            this.createAlert(
+              AlertType.AMPD_SIGNING_RATE_LOW,
+              `⚠️ ALERT: Taux de signatures AMPD bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+              'warning',
+              chain
+            );
+          } else if (rate < this.ampdSigningRateByChain[chain].lastRate) {
+            // Le taux a baissé
+            this.ampdSigningRateByChain[chain].lastRate = rate;
+            this.createAlert(
+              AlertType.AMPD_SIGNING_RATE_LOW,
+              `🚨 ALERT: Taux de signatures AMPD en baisse (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+              'critical',
+              chain
+            );
+          }
+        } else if (this.ampdSigningRateByChain[chain].isLow) {
+          // On est revenu au-dessus du seuil
+          this.ampdSigningRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.AMPD_SIGNING_RATE_LOW,
-            `⚠️ ALERT: Taux de signatures AMPD bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
-            'warning',
+            `✅ Récupération: Taux de signatures AMPD normal (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+            'info',
             chain
           );
         }
