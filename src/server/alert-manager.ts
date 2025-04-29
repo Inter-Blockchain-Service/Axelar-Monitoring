@@ -11,6 +11,7 @@ export enum AlertType {
   HEARTBEAT_MISSED = 'heartbeat_missed',
   CONSECUTIVE_HEARTBEATS_MISSED = 'consecutive_heartbeats_missed',
   NODE_DISCONNECTED = 'node_disconnected',
+  NODE_RECONNECTED = 'node_reconnected',
   SIGN_RATE_LOW = 'sign_rate_low',
   HEARTBEAT_RATE_LOW = 'heartbeat_rate_low',
   EVM_VOTE_MISSED = 'evm_vote_missed',
@@ -21,7 +22,10 @@ export enum AlertType {
   EVM_VOTES_RECOVERED = 'evm_votes_recovered',
   AMPD_VOTES_RECOVERED = 'ampd_votes_recovered',
   AMPD_SIGNINGS_RECOVERED = 'ampd_signings_recovered',
-  NODE_RECONNECTED = 'node_reconnected'
+  // Nouveaux types d'alertes pour les taux bas
+  EVM_VOTE_RATE_LOW = 'evm_vote_rate_low',
+  AMPD_VOTE_RATE_LOW = 'ampd_vote_rate_low',
+  AMPD_SIGNING_RATE_LOW = 'ampd_signing_rate_low'
 }
 
 // Interface for AMPD signings
@@ -48,6 +52,10 @@ interface AlertThresholds {
   consecutiveEvmVotesMissed: number;
   consecutiveAmpdVotesMissed: number;
   consecutiveAmpdSigningsMissed: number;
+  // Nouveaux seuils pour les taux
+  evmVoteRateThreshold: number;
+  ampdVoteRateThreshold: number;
+  ampdSigningRateThreshold: number;
 }
 
 // Interface for notification configuration
@@ -110,7 +118,10 @@ export class AlertManager extends EventEmitter {
       heartbeatRateThreshold: parseFloat(process.env.ALERT_HEARTBEAT_RATE_THRESHOLD || '98.0'),
       consecutiveEvmVotesMissed: parseInt(process.env.ALERT_CONSECUTIVE_EVM_VOTES_THRESHOLD || '3', 10),
       consecutiveAmpdVotesMissed: parseInt(process.env.ALERT_CONSECUTIVE_AMPD_VOTES_THRESHOLD || '3', 10),
-      consecutiveAmpdSigningsMissed: parseInt(process.env.ALERT_CONSECUTIVE_AMPD_SIGNINGS_THRESHOLD || '3', 10)
+      consecutiveAmpdSigningsMissed: parseInt(process.env.ALERT_CONSECUTIVE_AMPD_SIGNINGS_THRESHOLD || '3', 10),
+      evmVoteRateThreshold: parseFloat(process.env.ALERT_EVM_VOTE_RATE_THRESHOLD || '98.0'),
+      ampdVoteRateThreshold: parseFloat(process.env.ALERT_AMPD_VOTE_RATE_THRESHOLD || '98.0'),
+      ampdSigningRateThreshold: parseFloat(process.env.ALERT_AMPD_SIGNING_RATE_THRESHOLD || '98.0')
     };
     
     this.notificationConfig = {
@@ -339,6 +350,9 @@ export class AlertManager extends EventEmitter {
       this.checkAmpdVotes();
       this.checkAmpdSignings();
     }
+    
+    // Check rate-based alerts
+    this.checkRateAlerts();
   }
   
   /**
@@ -637,6 +651,143 @@ export class AlertManager extends EventEmitter {
     const totalHeartbeats = heartbeatsSigned + heartbeatsMissed;
     if (totalHeartbeats === 0) return 100;
     return (heartbeatsSigned / totalHeartbeats) * 100;
+  }
+  
+  /**
+   * Calculate EVM vote rate for a specific chain
+   */
+  private calculateEvmVoteRate(chain: string): number {
+    if (!this.metrics.evmVotes || !this.metrics.evmVotes[chain]) return 100;
+    
+    const chainData = this.metrics.evmVotes[chain];
+    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+    
+    let validVotes = 0;
+    let totalVotes = 0;
+    
+    chainData.pollIds.forEach(vote => {
+      if (vote.timestamp) {
+        const voteTime = new Date(vote.timestamp).getTime();
+        // On ne compte que les votes matures (plus de 5 minutes)
+        if (voteTime < fiveMinutesAgo) {
+          totalVotes++;
+          if (vote.result === 'Validated') {
+            validVotes++;
+          }
+        }
+      }
+    });
+    
+    if (totalVotes === 0) return 100;
+    return (validVotes / totalVotes) * 100;
+  }
+  
+  /**
+   * Calculate AMPD vote rate for a specific chain
+   */
+  private calculateAmpdVoteRate(chain: string): number {
+    if (!this.metrics.ampdVotes || !this.metrics.ampdVotes[chain]) return 100;
+    
+    const chainData = this.metrics.ampdVotes[chain];
+    const twoMinutesAgo = Date.now() - (2 * 60 * 1000);
+    
+    let validVotes = 0;
+    let totalVotes = 0;
+    
+    chainData.pollIds.forEach(vote => {
+      if (vote.timestamp) {
+        const voteTime = new Date(vote.timestamp).getTime();
+        // On ne compte que les votes matures (plus de 2 minutes)
+        if (voteTime < twoMinutesAgo) {
+          totalVotes++;
+          if (vote.result === 'succeeded_on_chain') {
+            validVotes++;
+          }
+        }
+      }
+    });
+    
+    if (totalVotes === 0) return 100;
+    return (validVotes / totalVotes) * 100;
+  }
+  
+  /**
+   * Calculate AMPD signing rate for a specific chain
+   */
+  private calculateAmpdSigningRate(chain: string): number {
+    if (!this.metrics.ampdSignings || !this.metrics.ampdSignings[chain]) return 100;
+    
+    const chainData = this.metrics.ampdSignings[chain];
+    const twoMinutesAgo = Date.now() - (2 * 60 * 1000);
+    
+    let validSignings = 0;
+    let totalSignings = 0;
+    
+    chainData.signingIds.forEach(signing => {
+      if (signing.timestamp) {
+        const signingTime = new Date(signing.timestamp).getTime();
+        // On ne compte que les signatures matures (plus de 2 minutes)
+        if (signingTime < twoMinutesAgo) {
+          totalSignings++;
+          if (signing.result === 'signed') {
+            validSignings++;
+          }
+        }
+      }
+    });
+    
+    if (totalSignings === 0) return 100;
+    return (validSignings / totalSignings) * 100;
+  }
+  
+  /**
+   * Check metrics for rate-based alerts
+   */
+  private checkRateAlerts(): void {
+    // Check EVM vote rates
+    if (this.metrics.evmVotesEnabled && this.metrics.evmVotes) {
+      Object.keys(this.metrics.evmVotes).forEach(chain => {
+        const rate = this.calculateEvmVoteRate(chain);
+        if (rate < this.thresholds.evmVoteRateThreshold) {
+          this.createAlert(
+            AlertType.EVM_VOTE_RATE_LOW,
+            `⚠️ ALERT: Taux de votes EVM bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+            'warning',
+            chain
+          );
+        }
+      });
+    }
+
+    // Check AMPD vote rates
+    if (this.metrics.ampdEnabled && this.metrics.ampdVotes) {
+      Object.keys(this.metrics.ampdVotes).forEach(chain => {
+        const rate = this.calculateAmpdVoteRate(chain);
+        if (rate < this.thresholds.ampdVoteRateThreshold) {
+          this.createAlert(
+            AlertType.AMPD_VOTE_RATE_LOW,
+            `⚠️ ALERT: Taux de votes AMPD bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+            'warning',
+            chain
+          );
+        }
+      });
+    }
+
+    // Check AMPD signing rates
+    if (this.metrics.ampdEnabled && this.metrics.ampdSignings) {
+      Object.keys(this.metrics.ampdSignings).forEach(chain => {
+        const rate = this.calculateAmpdSigningRate(chain);
+        if (rate < this.thresholds.ampdSigningRateThreshold) {
+          this.createAlert(
+            AlertType.AMPD_SIGNING_RATE_LOW,
+            `⚠️ ALERT: Taux de signatures AMPD bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+            'warning',
+            chain
+          );
+        }
+      });
+    }
   }
   
   /**
