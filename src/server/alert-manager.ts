@@ -355,10 +355,9 @@ export class AlertManager extends EventEmitter {
       let consecutiveMissed = 0;
       let missedVoteIds = [];
       const fiveMinutesAgo = Date.now() - (5 * 60 * 1000); // 5 minutes en millisecondes
-      const maxVotesToCheck = 10; // Nombre maximum de votes à vérifier
       
       // Parcourir les votes du plus récent au plus ancien
-      for (let i = 0; i < Math.min(chainData.pollIds.length, maxVotesToCheck); i++) {
+      for (let i = 0; i < chainData.pollIds.length; i++) {
         const vote = chainData.pollIds[i];
         if (vote.result === 'Invalid') {
           consecutiveMissed++;
@@ -376,7 +375,7 @@ export class AlertManager extends EventEmitter {
         }
       }
       
-      console.log(`Chain ${chain}: ${consecutiveMissed} votes consécutifs manqués sur les ${Math.min(chainData.pollIds.length, maxVotesToCheck)} derniers votes`);
+      console.log(`Chain ${chain}: ${consecutiveMissed} votes consécutifs manqués sur les ${chainData.pollIds.length} derniers votes`);
       
       if (consecutiveMissed > 0) {
         console.log(`  Missed vote IDs: ${missedVoteIds.slice(0, 5).join(', ')}${missedVoteIds.length > 5 ? '...' : ''}`);
@@ -449,10 +448,9 @@ export class AlertManager extends EventEmitter {
       let consecutiveMissed = 0;
       let missedVoteIds = [];
       const twoMinutesAgo = Date.now() - (1 * 60 * 1000); // 1 minute en millisecondes
-      const maxVotesToCheck = 10; // Nombre maximum de votes à vérifier
       
       // Parcourir les votes du plus récent au plus ancien
-      for (let i = 0; i < Math.min(chainData.pollIds.length, maxVotesToCheck); i++) {
+      for (let i = 0; i < chainData.pollIds.length; i++) {
         const vote = chainData.pollIds[i];
         if (vote.result === 'not_found') {
           consecutiveMissed++;
@@ -470,7 +468,7 @@ export class AlertManager extends EventEmitter {
         }
       }
       
-      console.log(`Chain ${chain}: ${consecutiveMissed} votes consécutifs manqués sur les ${Math.min(chainData.pollIds.length, maxVotesToCheck)} derniers votes`);
+      console.log(`Chain ${chain}: ${consecutiveMissed} votes consécutifs manqués sur les ${chainData.pollIds.length} derniers votes`);
       
       if (consecutiveMissed > 0) {
         console.log(`  Missed vote IDs: ${missedVoteIds.slice(0, 5).join(', ')}${missedVoteIds.length > 5 ? '...' : ''}`);
@@ -543,10 +541,9 @@ export class AlertManager extends EventEmitter {
       let consecutiveMissed = 0;
       let missedSigningIds = [];
       const twoMinutesAgo = Date.now() - (1 * 60 * 1000); // 1 minute en millisecondes
-      const maxSigningsToCheck = 10; // Nombre maximum de signings à vérifier
       
       // Parcourir les signings du plus récent au plus ancien
-      for (let i = 0; i < Math.min(chainData.signingIds.length, maxSigningsToCheck); i++) {
+      for (let i = 0; i < chainData.signingIds.length; i++) {
         const signing = chainData.signingIds[i];
         if (signing.result === 'unsubmit' && signing.timestamp) {
           const signingTime = new Date(signing.timestamp).getTime();
@@ -561,7 +558,7 @@ export class AlertManager extends EventEmitter {
         }
       }
       
-      console.log(`Chain ${chain}: ${consecutiveMissed} signings consécutifs manqués sur les ${Math.min(chainData.signingIds.length, maxSigningsToCheck)} derniers signings`);
+      console.log(`Chain ${chain}: ${consecutiveMissed} signings consécutifs manqués sur les ${chainData.signingIds.length} derniers signings`);
       
       if (consecutiveMissed > 0) {
         console.log(`  Missed signing IDs: ${missedSigningIds.slice(0, 5).join(', ')}${missedSigningIds.length > 5 ? '...' : ''}`);
