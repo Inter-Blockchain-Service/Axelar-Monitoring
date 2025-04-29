@@ -1,6 +1,9 @@
 export const getAxelarscanUrl = (chainId: string): string => {
-  const mainnetChainId = process.env.CHAIN_ID || 'axelar-dojo-1';
-  return chainId === mainnetChainId 
-    ? 'https://axelarscan.io' 
-    : 'https://testnet.axelarscan.io';
+  const envChainId = process.env.CHAIN_ID;
+  
+  if (envChainId === 'axelar-dojo-1') {
+    return 'https://axelarscan.io';
+  } else {
+    return 'https://testnet.axelarscan.io';
+  }
 }; 
