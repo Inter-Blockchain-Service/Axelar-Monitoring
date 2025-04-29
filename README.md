@@ -68,18 +68,18 @@ The `.env` file contains all the necessary configuration for the monitoring syst
 The monitoring system implements several types of alerts to ensure your validator's optimal performance. Alerts are triggered based on two main criteria: consecutive misses and performance rates.
 
 #### Block and Heartbeat Alerts
-- `ALERT_CONSECUTIVE_BLOCKS_THRESHOLD`: Triggers an alert if your validator misses this number of consecutive blocks. This helps identify potential validator downtime or connectivity issues.
-- `ALERT_CONSECUTIVE_HEARTBEATS_THRESHOLD`: Triggers an alert if your validator misses this number of consecutive heartbeats. Heartbeats are crucial for maintaining validator health.
-- `ALERT_SIGN_RATE_THRESHOLD`: Triggers an alert if your validator's block signing rate falls below this percentage. The rate is calculated over the last 10,000 blocks.
-- `ALERT_HEARTBEAT_RATE_THRESHOLD`: Triggers an alert if your validator's heartbeat success rate falls below this percentage. The rate is calculated over the last 1,000 heartbeats.
+- `ALERT_CONSECUTIVE_BLOCKS_THRESHOLD`: Triggers an alert if your validator misses this number of consecutive blocks.
+- `ALERT_CONSECUTIVE_HEARTBEATS_THRESHOLD`: Triggers an alert if your validator misses this number of consecutive heartbeats.
+- `ALERT_SIGN_RATE_THRESHOLD`: Triggers an alert if your validator's block signing rate falls below this percentage. The rate is calculated over the last 35,000 blocks.
+- `ALERT_HEARTBEAT_RATE_THRESHOLD`: Triggers an alert if your validator's heartbeat success rate falls below this percentage. The rate is calculated over the last 700 heartbeats.
 
 #### EVM and AMPD Alerts
-- `ALERT_CONSECUTIVE_EVM_VOTES_THRESHOLD`: Triggers an alert if your validator misses this number of consecutive EVM votes. Important for cross-chain operations.
-- `ALERT_EVM_VOTE_RATE_THRESHOLD`: Triggers an alert if your validator's EVM vote success rate falls below this percentage. The rate is calculated over the last 1,000 EVM votes.
+- `ALERT_CONSECUTIVE_EVM_VOTES_THRESHOLD`: Triggers an alert if your validator misses this number of consecutive EVM votes.
+- `ALERT_EVM_VOTE_RATE_THRESHOLD`: Triggers an alert if your validator's EVM vote success rate falls below this percentage. The rate is calculated over the last 200 EVM votes.
 - `ALERT_CONSECUTIVE_AMPD_VOTES_THRESHOLD`: Triggers an alert if your validator misses this number of consecutive AMPD votes.
-- `ALERT_AMPD_VOTE_RATE_THRESHOLD`: Triggers an alert if your validator's AMPD vote success rate falls below this percentage. The rate is calculated over the last 1,000 AMPD votes.
+- `ALERT_AMPD_VOTE_RATE_THRESHOLD`: Triggers an alert if your validator's AMPD vote success rate falls below this percentage. The rate is calculated over the last 200 AMPD votes.
 - `ALERT_CONSECUTIVE_AMPD_SIGNINGS_THRESHOLD`: Triggers an alert if your validator misses this number of consecutive AMPD signings.
-- `ALERT_AMPD_SIGNING_RATE_THRESHOLD`: Triggers an alert if your validator's AMPD signing success rate falls below this percentage. The rate is calculated over the last 1,000 AMPD signings.
+- `ALERT_AMPD_SIGNING_RATE_THRESHOLD`: Triggers an alert if your validator's AMPD signing success rate falls below this percentage. The rate is calculated over the last 200 AMPD signings.
 
 #### Alert Behavior
 - Alerts are sent through configured notification channels (Discord and/or Telegram)
