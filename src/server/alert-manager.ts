@@ -553,7 +553,7 @@ export class AlertManager extends EventEmitter {
             missedSigningIds.push(signing.signingId || 'unknown');
           }
           // On continue à chercher même si le signing est unsubmit de moins de 2 minutes
-        } else if (signing.result === 'succeeded_on_chain') {
+        } else if (signing.result === 'signed') {
           // On a trouvé un signing valide, on arrête de compter
           break;
         }
@@ -589,7 +589,7 @@ export class AlertManager extends EventEmitter {
       } else if (this.ampdSigningsConsecutiveMissedByChain[chain]) {
         // Vérifier si nous avons reçu un nouveau signing valide
         const hasNewValidSigning = chainData.signingIds.some(signing => 
-          signing.result === 'succeeded_on_chain' && 
+          signing.result === 'signed' && 
           signing.timestamp && 
           new Date(signing.timestamp).getTime() > twoMinutesAgo
         );
