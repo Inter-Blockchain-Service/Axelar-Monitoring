@@ -18,6 +18,7 @@ export enum AlertType {
   AMPD_VOTE_MISSED = 'ampd_vote_missed',
   AMPD_SIGNING_MISSED = 'ampd_signing_missed',
   NODE_SYNC_ISSUE = 'node_sync_issue',
+  NO_NEW_BLOCK = 'no_new_block',
   // Nouveaux types d'alertes pour les retours à la normale
   EVM_VOTES_RECOVERED = 'evm_votes_recovered',
   AMPD_VOTES_RECOVERED = 'ampd_votes_recovered',
@@ -104,6 +105,9 @@ export class AlertManager extends EventEmitter {
   private ampdVotesConsecutiveMissedByChain: Record<string, number> = {};
   private ampdSigningsConsecutiveMissedByChain: Record<string, number> = {};
   
+  private isNoNewBlockAlerted: boolean = false;
+  private lastBlockHeight: number = 0;
+  
   constructor(metrics: ValidatorMetrics) {
     super();
     this.metrics = metrics;
@@ -182,6 +186,34 @@ export class AlertManager extends EventEmitter {
         `🟢 INFO: Node reconnected successfully!`,
         'info'
       );
+    }
+    
+    // Check for no new blocks
+    if (this.metrics.lastBlock === this.lastBlockHeight) {
+      const timeSinceLastBlock = Date.now() - this.metrics.lastBlockTime.getTime();
+      const alertDelayMinutes = parseInt(process.env.ALERT_NO_NEW_BLOCK_DELAY || '2', 10);
+      const alertDelayMs = alertDelayMinutes * 60 * 1000; // Convertir les minutes en millisecondes
+      
+      if (timeSinceLastBlock > alertDelayMs) {
+        if (!this.isNoNewBlockAlerted) {
+          this.isNoNewBlockAlerted = true;
+          this.createAlert(
+            AlertType.NO_NEW_BLOCK,
+            `⚠️ ALERT: No new block detected for ${Math.floor(timeSinceLastBlock / 1000 / 60)} minutes`,
+            'warning'
+          );
+        }
+      }
+    } else {
+      this.lastBlockHeight = this.metrics.lastBlock;
+      if (this.isNoNewBlockAlerted) {
+        this.isNoNewBlockAlerted = false;
+        this.createAlert(
+          AlertType.NO_NEW_BLOCK,
+          `✅ Récupération: New blocks are being received again`,
+          'info'
+        );
+      }
     }
     
     // Vérifier les blocs manqués consécutifs en utilisant signStatus
