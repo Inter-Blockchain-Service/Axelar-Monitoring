@@ -11,6 +11,7 @@ export interface PollStatus {
     pollId: string;
     contractAddress: string;
     result: string;
+    timestamp: string; // Date ISO string
 }
 
 // Structure for a signing session
@@ -73,7 +74,8 @@ export class AmpdManager extends EventEmitter {
                 pollIds: Array(this.maxPollHistory).fill(null).map(() => ({
                     pollId: "unknown",
                     contractAddress: "unknown",
-                    result: "unknown"
+                    result: "unknown",
+                    timestamp: new Date().toISOString()
                 }))
             };
             
@@ -209,7 +211,8 @@ export class AmpdManager extends EventEmitter {
             this.voteData[chainKey].pollIds.unshift({
                 pollId: cleanPollId,
                 contractAddress: contractAddress || 'unknown',
-                result: 'unsubmit'
+                result: 'unsubmit',
+                timestamp: new Date().toISOString()
             });
             
             // Maintain maximum size

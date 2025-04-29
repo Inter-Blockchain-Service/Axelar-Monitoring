@@ -63,6 +63,13 @@ interface NotificationConfig {
   };
 }
 
+interface PollStatus {
+  pollId: string;
+  contractAddress: string;
+  result: string;
+  timestamp: string;
+}
+
 export class AlertManager extends EventEmitter {
   private metrics: ValidatorMetrics;
   private previousMetrics: Partial<ValidatorMetrics> = {};
@@ -80,6 +87,10 @@ export class AlertManager extends EventEmitter {
   private isMissingHeartbeats: boolean = false;
   private lastAlertedConsecutiveHeartbeatsMissed: number = 0;
   
+  // État pour suivre les votes EVM manqués
+  private isMissingEvmVotes: boolean = false;
+  private lastAlertedEvmVotesMissed: number = 0;
+  
   // État pour suivre les taux bas
   private isLowSignRate: boolean = false;
   private isLowHeartbeatRate: boolean = false;
@@ -90,6 +101,10 @@ export class AlertManager extends EventEmitter {
   private evmConsecutiveMissedByChain: Record<string, number> = {};
   private ampdVotesConsecutiveMissedByChain: Record<string, number> = {};
   private ampdSigningsConsecutiveMissedByChain: Record<string, number> = {};
+  
+  // État pour suivre les votes AMPD manqués
+  private isMissingAmpdVotes: boolean = false;
+  private lastAlertedAmpdVotesMissed: number = 0;
   
   constructor(metrics: ValidatorMetrics) {
     super();
@@ -170,7 +185,7 @@ export class AlertManager extends EventEmitter {
           this.lastAlertedConsecutiveMissed = consecutiveMissed;
           this.createAlert(
             AlertType.CONSECUTIVE_BLOCKS_MISSED,
-            `⚠️ ALERT: ${consecutiveMissed} blocs manqués consécutifs au début`,
+            `⚠️ ALERT: ${consecutiveMissed} blocs manqués`,
             'warning'
           );
         } else if (consecutiveMissed > this.lastAlertedConsecutiveMissed) {
@@ -178,7 +193,7 @@ export class AlertManager extends EventEmitter {
           this.lastAlertedConsecutiveMissed = consecutiveMissed;
           this.createAlert(
             AlertType.CONSECUTIVE_BLOCKS_MISSED,
-            `🚨 ALERT: ${consecutiveMissed} blocs manqués consécutifs au début (augmentation)`,
+            `🚨 ALERT: ${consecutiveMissed} blocs manqués en augmentation`,
             'critical'
           );
         }
@@ -187,7 +202,7 @@ export class AlertManager extends EventEmitter {
         this.isMissingBlocks = false;
         this.createAlert(
           AlertType.CONSECUTIVE_BLOCKS_MISSED,
-          `✅ Récupération: Plus de blocs manqués consécutifs au début`,
+          `✅ Récupération: Plus de blocs manqués`,
           'info'
         );
       }
@@ -215,7 +230,7 @@ export class AlertManager extends EventEmitter {
           this.lastAlertedConsecutiveHeartbeatsMissed = consecutiveHeartbeatsMissed;
           this.createAlert(
             AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
-            `⚠️ ALERT: ${consecutiveHeartbeatsMissed} heartbeats manqués consécutifs au début`,
+            `⚠️ ALERT: ${consecutiveHeartbeatsMissed} heartbeats manqués`,
             'warning'
           );
         } else if (consecutiveHeartbeatsMissed > this.lastAlertedConsecutiveHeartbeatsMissed) {
@@ -223,7 +238,7 @@ export class AlertManager extends EventEmitter {
           this.lastAlertedConsecutiveHeartbeatsMissed = consecutiveHeartbeatsMissed;
           this.createAlert(
             AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
-            `🚨 ALERT: ${consecutiveHeartbeatsMissed} heartbeats manqués consécutifs au début (augmentation)`,
+            `🚨 ALERT: ${consecutiveHeartbeatsMissed} heartbeats manqués en augmentation`,
             'critical'
           );
         }
@@ -232,7 +247,7 @@ export class AlertManager extends EventEmitter {
         this.isMissingHeartbeats = false;
         this.createAlert(
           AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
-          `✅ Récupération: Plus de heartbeats manqués consécutifs au début`,
+          `✅ Récupération: Plus de heartbeats manqués`,
           'info'
         );
       }
@@ -347,29 +362,67 @@ export class AlertManager extends EventEmitter {
       
       // On regarde tous les votes, pas seulement le plus récent
       let invalidCount = 0;
+      let unsubmitCount = 0;
       let invalidPollIds = [];
+      let unsubmitPollIds = [];
+      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000); // 5 minutes en millisecondes
       
-      // Comptons combien de votes sont invalides
+      // Comptons combien de votes sont invalides ou unsubmit depuis plus de 5 minutes
       for (const poll of chainData.pollIds) {
         if (poll.result === 'Invalid') {
           invalidCount++;
           invalidPollIds.push(poll.pollId || 'unknown');
+        } else if (poll.result === 'unsubmit' && poll.timestamp) {
+          const pollTime = new Date(poll.timestamp).getTime();
+          if (pollTime < fiveMinutesAgo) {
+            unsubmitCount++;
+            unsubmitPollIds.push(poll.pollId || 'unknown');
+          }
         }
       }
       
-      console.log(`Chain ${chain}: ${invalidCount}/${chainData.pollIds.length} invalid votes`);
+      const totalMissed = invalidCount + unsubmitCount;
+      console.log(`Chain ${chain}: ${totalMissed}/${chainData.pollIds.length} missed votes (${invalidCount} invalid + ${unsubmitCount} unsubmit > 5min)`);
       
-      if (invalidCount > 0) {
-        console.log(`  Invalid poll IDs: ${invalidPollIds.slice(0, 5).join(', ')}${invalidPollIds.length > 5 ? '...' : ''}`);
+      if (totalMissed > 0) {
+        if (invalidCount > 0) {
+          console.log(`  Invalid poll IDs: ${invalidPollIds.slice(0, 5).join(', ')}${invalidPollIds.length > 5 ? '...' : ''}`);
+        }
+        if (unsubmitCount > 0) {
+          console.log(`  Unsubmit poll IDs: ${unsubmitPollIds.slice(0, 5).join(', ')}${unsubmitPollIds.length > 5 ? '...' : ''}`);
+        }
       }
       
-      // Si le nombre de votes invalides dépasse le seuil, envoyer une alerte
-      if (invalidCount >= this.thresholds.consecutiveEvmVotesMissed) {
-        console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveEvmVotesMissed}) exceeded, sending alert`);
+      // Si le nombre total de votes manqués dépasse le seuil warning, envoyer une alerte warning
+      if (totalMissed >= this.thresholds.consecutiveEvmVotesMissed) {
+        if (!this.isMissingEvmVotes) {
+          // Premier dépassement du seuil
+          this.isMissingEvmVotes = true;
+          this.lastAlertedEvmVotesMissed = totalMissed;
+          console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveEvmVotesMissed}) exceeded, sending warning alert`);
+          this.createAlert(
+            AlertType.EVM_VOTE_MISSED,
+            `⚠️ ALERT: ${totalMissed} EVM votes manqués sur la chaîne ${chain} (${invalidCount} invalid + ${unsubmitCount} unsubmit > 5min)`,
+            'warning'
+          );
+        } else if (totalMissed > this.lastAlertedEvmVotesMissed) {
+          // Le nombre de votes manqués a augmenté
+          this.lastAlertedEvmVotesMissed = totalMissed;
+          console.log(`Chain ${chain}: Increased to ${totalMissed} missed votes, sending critical alert`);
+          this.createAlert(
+            AlertType.EVM_VOTE_MISSED,
+            `🚨 ALERT: ${totalMissed} EVM votes manqués en augmentation sur la chaîne ${chain} (${invalidCount} invalid + ${unsubmitCount} unsubmit > 5min)`,
+            'critical'
+          );
+        }
+      } else if (this.isMissingEvmVotes) {
+        // On est revenu en dessous du seuil
+        this.isMissingEvmVotes = false;
+        console.log(`Chain ${chain}: Recovered from missed votes`);
         this.createAlert(
-          AlertType.EVM_VOTE_MISSED,
-          `⚠️ ALERT: ${invalidCount} EVM votes missed on chain ${chain}`,
-          'warning'
+          AlertType.EVM_VOTES_RECOVERED,
+          `✅ Récupération: Plus de votes EVM manqués sur la chaîne ${chain}`,
+          'info'
         );
       }
     });
@@ -389,29 +442,67 @@ export class AlertManager extends EventEmitter {
       
       // On regarde tous les votes, pas seulement le plus récent
       let invalidCount = 0;
+      let unsubmitCount = 0;
       let invalidVoteIds = [];
+      let unsubmitVoteIds = [];
+      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000); // 5 minutes en millisecondes
       
-      // Comptons combien de votes sont invalides
+      // Comptons combien de votes sont invalides ou unsubmit depuis plus de 5 minutes
       for (const vote of chainData.pollIds) {
         if (vote.result === 'not_found') {
           invalidCount++;
           invalidVoteIds.push(vote.pollId || 'unknown');
+        } else if (vote.result === 'unsubmit' && vote.timestamp) {
+          const voteTime = new Date(vote.timestamp).getTime();
+          if (voteTime < fiveMinutesAgo) {
+            unsubmitCount++;
+            unsubmitVoteIds.push(vote.pollId || 'unknown');
+          }
         }
       }
       
-      console.log(`Chain ${chain}: ${invalidCount}/${chainData.pollIds.length} invalid votes`);
+      const totalMissed = invalidCount + unsubmitCount;
+      console.log(`Chain ${chain}: ${totalMissed}/${chainData.pollIds.length} missed votes (${invalidCount} invalid + ${unsubmitCount} unsubmit > 5min)`);
       
-      if (invalidCount > 0) {
-        console.log(`  Invalid vote IDs: ${invalidVoteIds.slice(0, 5).join(', ')}${invalidVoteIds.length > 5 ? '...' : ''}`);
+      if (totalMissed > 0) {
+        if (invalidCount > 0) {
+          console.log(`  Invalid vote IDs: ${invalidVoteIds.slice(0, 5).join(', ')}${invalidVoteIds.length > 5 ? '...' : ''}`);
+        }
+        if (unsubmitCount > 0) {
+          console.log(`  Unsubmit vote IDs: ${unsubmitVoteIds.slice(0, 5).join(', ')}${unsubmitVoteIds.length > 5 ? '...' : ''}`);
+        }
       }
       
-      // Si le nombre de votes invalides dépasse le seuil, envoyer une alerte
-      if (invalidCount >= this.thresholds.consecutiveAmpdVotesMissed) {
-        console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdVotesMissed}) exceeded, sending alert`);
+      // Si le nombre total de votes manqués dépasse le seuil warning, envoyer une alerte warning
+      if (totalMissed >= this.thresholds.consecutiveAmpdVotesMissed) {
+        if (!this.isMissingAmpdVotes) {
+          // Premier dépassement du seuil
+          this.isMissingAmpdVotes = true;
+          this.lastAlertedAmpdVotesMissed = totalMissed;
+          console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdVotesMissed}) exceeded, sending warning alert`);
+          this.createAlert(
+            AlertType.AMPD_VOTE_MISSED,
+            `⚠️ ALERT: ${totalMissed} AMPD votes manqués sur la chaîne ${chain} (${invalidCount} invalid + ${unsubmitCount} unsubmit > 5min)`,
+            'warning'
+          );
+        } else if (totalMissed > this.lastAlertedAmpdVotesMissed) {
+          // Le nombre de votes manqués a augmenté
+          this.lastAlertedAmpdVotesMissed = totalMissed;
+          console.log(`Chain ${chain}: Increased to ${totalMissed} missed votes, sending critical alert`);
+          this.createAlert(
+            AlertType.AMPD_VOTE_MISSED,
+            `🚨 ALERT: ${totalMissed} AMPD votes manqués en augmentation sur la chaîne ${chain} (${invalidCount} invalid + ${unsubmitCount} unsubmit > 5min)`,
+            'critical'
+          );
+        }
+      } else if (this.isMissingAmpdVotes) {
+        // On est revenu en dessous du seuil
+        this.isMissingAmpdVotes = false;
+        console.log(`Chain ${chain}: Recovered from missed votes`);
         this.createAlert(
-          AlertType.AMPD_VOTE_MISSED,
-          `⚠️ ALERT: ${invalidCount} AMPD votes missed on chain ${chain}`,
-          'warning'
+          AlertType.AMPD_VOTES_RECOVERED,
+          `✅ Récupération: Plus de votes AMPD manqués sur la chaîne ${chain}`,
+          'info'
         );
       }
     });
@@ -451,13 +542,35 @@ export class AlertManager extends EventEmitter {
         console.log(`  Unsubmit signing IDs: ${unsubmitIds.slice(0, 5).join(', ')}${unsubmitIds.length > 5 ? '...' : ''}`);
       }
       
-      // Si le nombre de signings manqués dépasse le seuil, envoyer une alerte
+      // Si le nombre de signings manqués dépasse le seuil warning, envoyer une alerte warning
       if (unsubmitCount >= this.thresholds.consecutiveAmpdSigningsMissed) {
-        console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdSigningsMissed}) exceeded, sending alert`);
+        if (!this.ampdSigningsConsecutiveMissedByChain[chain]) {
+          // Premier dépassement du seuil
+          this.ampdSigningsConsecutiveMissedByChain[chain] = unsubmitCount;
+          console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdSigningsMissed}) exceeded, sending warning alert`);
+          this.createAlert(
+            AlertType.AMPD_SIGNING_MISSED,
+            `⚠️ ALERT: ${unsubmitCount} AMPD signings manqués depuis plus de 2 minutes sur la chaîne ${chain}`,
+            'warning'
+          );
+        } else if (unsubmitCount > this.ampdSigningsConsecutiveMissedByChain[chain]) {
+          // Le nombre de signings manqués a augmenté
+          this.ampdSigningsConsecutiveMissedByChain[chain] = unsubmitCount;
+          console.log(`Chain ${chain}: Increased to ${unsubmitCount} missed signings, sending critical alert`);
+          this.createAlert(
+            AlertType.AMPD_SIGNING_MISSED,
+            `🚨 ALERT: ${unsubmitCount} AMPD signings manqués en augmentation sur la chaîne ${chain}`,
+            'critical'
+          );
+        }
+      } else if (this.ampdSigningsConsecutiveMissedByChain[chain]) {
+        // On est revenu en dessous du seuil
+        this.ampdSigningsConsecutiveMissedByChain[chain] = 0;
+        console.log(`Chain ${chain}: Recovered from missed signings`);
         this.createAlert(
-          AlertType.AMPD_SIGNING_MISSED,
-          `⚠️ ALERT: ${unsubmitCount} AMPD signings manqués depuis plus de 2 minutes sur la chaîne ${chain}`,
-          'warning'
+          AlertType.AMPD_SIGNINGS_RECOVERED,
+          `✅ Récupération: Plus de signings AMPD manqués sur la chaîne ${chain}`,
+          'info'
         );
       }
     });

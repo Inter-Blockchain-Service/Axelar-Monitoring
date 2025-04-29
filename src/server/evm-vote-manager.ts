@@ -37,6 +37,7 @@ export enum VoteStatusType {
 export interface PollStatus {
   pollId: string;
   result: VoteStatusType | string;
+  timestamp?: string; // Date ISO string
 }
 
 // Interface for chain data
