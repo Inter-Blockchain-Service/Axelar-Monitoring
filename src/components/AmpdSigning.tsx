@@ -164,14 +164,22 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
                 <div className="grid grid-cols-35 gap-1 flex-1">
                   {signingsToDisplay.length > 0 ? (
                     signingsToDisplay.map((signing, index) => (
-                      <a
-                        href={`${getAxelarscanUrl()}/amplifier-proof/${signing.contractAddress}_${signing.signingId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        key={`${signing.signingId}-${index}`}
-                        className={`w-4 h-4 ${getStatusColor(signing.result)} hover:opacity-80 transition-opacity rounded-sm block`}
-                        title={`Session ID: ${formatSigningId(signing.signingId)} - ${getStatusTooltip(signing.result)}`}
-                      />
+                      signing.result === 'unknown' ? (
+                        <div
+                          key={`${signing.signingId}-${index}`}
+                          className={`w-4 h-4 ${getStatusColor(signing.result)} rounded-sm block`}
+                          title={`Session ID: ${formatSigningId(signing.signingId)} - ${getStatusTooltip(signing.result)}`}
+                        />
+                      ) : (
+                        <a
+                          href={`${getAxelarscanUrl()}/amplifier-proof/${signing.contractAddress}_${signing.signingId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          key={`${signing.signingId}-${index}`}
+                          className={`w-4 h-4 ${getStatusColor(signing.result)} hover:opacity-80 transition-opacity rounded-sm block`}
+                          title={`Session ID: ${formatSigningId(signing.signingId)} - ${getStatusTooltip(signing.result)}`}
+                        />
+                      )
                     ))
                   ) : (
                     <p className="text-gray-400 text-sm">
@@ -201,14 +209,22 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
             </div>
             <div className="grid grid-cols-20 gap-1">
               {signingData[selectedChain]?.map((signing, index) => (
-                <a
-                  href={`${getAxelarscanUrl()}/amplifier-proof/${signing.contractAddress}_${signing.signingId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  key={`${signing.signingId}-${index}`}
-                  className={`w-6 h-6 ${getStatusColor(signing.result)} hover:opacity-80 transition-opacity rounded-sm block`}
-                  title={`Session ID: ${formatSigningId(signing.signingId)} - ${getStatusTooltip(signing.result)}`}
-                />
+                signing.result === 'unknown' ? (
+                  <div
+                    key={`${signing.signingId}-${index}`}
+                    className={`w-6 h-6 ${getStatusColor(signing.result)} rounded-sm block`}
+                    title={`Session ID: ${formatSigningId(signing.signingId)} - ${getStatusTooltip(signing.result)}`}
+                  />
+                ) : (
+                  <a
+                    href={`${getAxelarscanUrl()}/amplifier-proof/${signing.contractAddress}_${signing.signingId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    key={`${signing.signingId}-${index}`}
+                    className={`w-6 h-6 ${getStatusColor(signing.result)} hover:opacity-80 transition-opacity rounded-sm block`}
+                    title={`Session ID: ${formatSigningId(signing.signingId)} - ${getStatusTooltip(signing.result)}`}
+                  />
+                )
               ))}
             </div>
             <div className="mt-4 pt-4 border-t border-gray-700">

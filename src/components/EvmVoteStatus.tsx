@@ -130,14 +130,22 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
                 <div className="grid grid-cols-35 gap-1 flex-1">
                   {chainVotes.length > 0 ? (
                     chainVotes.slice(0, displayLimit).map((vote, index) => (
-                      <a
-                        href={`${getAxelarscanUrl()}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        key={`${vote.pollId}-${index}`}
-                        className={`w-4 h-4 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block`}
-                        title={`Poll ID: ${vote.pollId} - ${getStatusTooltip(vote.result.toString())}`}
-                      />
+                      vote.result.toString() === 'unknown' ? (
+                        <div
+                          key={`${vote.pollId}-${index}`}
+                          className={`w-4 h-4 ${getStatusColor(vote.result.toString())} rounded-sm block`}
+                          title={`Poll ID: ${vote.pollId} - ${getStatusTooltip(vote.result.toString())}`}
+                        />
+                      ) : (
+                        <a
+                          href={`${getAxelarscanUrl()}/evm-poll/${vote.pollId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          key={`${vote.pollId}-${index}`}
+                          className={`w-4 h-4 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block`}
+                          title={`Poll ID: ${vote.pollId} - ${getStatusTooltip(vote.result.toString())}`}
+                        />
+                      )
                     ))
                   ) : (
                     <p className="text-gray-400 text-sm">
@@ -167,14 +175,22 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
             </div>
             <div className="grid grid-cols-20 gap-1">
               {evmVotes[selectedChain]?.pollIds.map((vote, index) => (
-                <a
-                  href={`${getAxelarscanUrl()}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  key={`${vote.pollId}-${index}`}
-                  className={`w-6 h-6 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block`}
-                  title={`Poll ID: ${vote.pollId} - ${getStatusTooltip(vote.result.toString())}`}
-                />
+                vote.result.toString() === 'unknown' ? (
+                  <div
+                    key={`${vote.pollId}-${index}`}
+                    className={`w-6 h-6 ${getStatusColor(vote.result.toString())} rounded-sm block`}
+                    title={`Poll ID: ${vote.pollId} - ${getStatusTooltip(vote.result.toString())}`}
+                  />
+                ) : (
+                  <a
+                    href={`${getAxelarscanUrl()}/evm-poll/${vote.pollId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    key={`${vote.pollId}-${index}`}
+                    className={`w-6 h-6 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block`}
+                    title={`Poll ID: ${vote.pollId} - ${getStatusTooltip(vote.result.toString())}`}
+                  />
+                )
               ))}
             </div>
             <div className="mt-4 pt-4 border-t border-gray-700">
