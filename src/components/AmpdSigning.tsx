@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { SigningStatus } from '../server/ampd-manager';
 import { Socket } from 'socket.io-client';
+import { getAxelarscanUrl } from '../utils/urls';
 
 interface AmpdSigningProps {
   socket: Socket | null;
   chain?: string;
   className?: string;
+  chainId: string;
 }
 
-const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = '' }) => {
+const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = '', chainId }) => {
   const [signingData, setSigningData] = useState<Record<string, SigningStatus[]>>({});
   const [supportedChains, setSupportedChains] = useState<string[]>([]);
   const [displayLimit] = useState(35); // Display a maximum number of signatures
@@ -152,7 +154,7 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
                   {signingsToDisplay.length > 0 ? (
                     signingsToDisplay.map((signing, index) => (
                       <a
-                        href={`https://axelarscan.io/amplifier-proof/${signing.contractAddress}_${signing.signingId}`}
+                        href={`${getAxelarscanUrl(chainId)}/amplifier-proof/${signing.contractAddress}_${signing.signingId}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         key={`${signing.signingId}-${index}`}
@@ -189,7 +191,7 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
             <div className="grid grid-cols-20 gap-1">
               {signingData[selectedChain]?.map((signing, index) => (
                 <a
-                  href={`https://axelarscan.io/amplifier-proof/${signing.contractAddress}_${signing.signingId}`}
+                  href={`${getAxelarscanUrl(chainId)}/amplifier-proof/${signing.contractAddress}_${signing.signingId}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   key={`${signing.signingId}-${index}`}

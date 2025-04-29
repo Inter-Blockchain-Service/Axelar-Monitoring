@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
-
-interface PollStatus {
-  pollId: string;
-  result: string;
-}
+import { PollStatus } from '../server/ampd-manager';
+import { getAxelarscanUrl } from '../utils/urls';
 
 interface ChainData {
   [chain: string]: {
@@ -124,7 +121,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
                   {chainVotes.length > 0 ? (
                     chainVotes.slice(0, displayLimit).map((vote, index) => (
                       <a
-                        href={`https://axelarscan.io/evm-poll/${vote.pollId}`}
+                        href={`${getAxelarscanUrl(chain)}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         key={`${vote.pollId}-${index}`}
@@ -161,7 +158,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
             <div className="grid grid-cols-20 gap-1">
               {evmVotes[selectedChain]?.pollIds.map((vote, index) => (
                 <a
-                  href={`https://axelarscan.io/evm-poll/${vote.pollId}`}
+                  href={`${getAxelarscanUrl(selectedChain)}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   key={`${vote.pollId}-${index}`}
