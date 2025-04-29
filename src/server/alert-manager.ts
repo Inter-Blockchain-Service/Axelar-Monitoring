@@ -71,13 +71,6 @@ interface NotificationConfig {
   };
 }
 
-interface PollStatus {
-  pollId: string;
-  contractAddress: string;
-  result: string;
-  timestamp: string;
-}
-
 export class AlertManager extends EventEmitter {
   private metrics: ValidatorMetrics;
   private previousMetrics: Partial<ValidatorMetrics> = {};
@@ -369,7 +362,6 @@ export class AlertManager extends EventEmitter {
       
       // On regarde uniquement les votes consécutifs manqués récents
       let consecutiveMissed = 0;
-      let missedVoteIds = [];
       const fiveMinutesAgo = Date.now() - (5 * 60 * 1000); // 5 minutes en millisecondes
       
       // Parcourir les votes du plus récent au plus ancien
@@ -377,30 +369,21 @@ export class AlertManager extends EventEmitter {
         const vote = chainData.pollIds[i];
         if (vote.result === 'Invalid') {
           consecutiveMissed++;
-          missedVoteIds.push(vote.pollId || 'unknown');
         } else if (vote.result === 'unsubmit' && vote.timestamp) {
           const voteTime = new Date(vote.timestamp).getTime();
           if (voteTime < fiveMinutesAgo) {
             consecutiveMissed++;
-            missedVoteIds.push(vote.pollId || 'unknown');
           }
-          // On continue à chercher même si le vote est unsubmit de moins de 5 minutes
         } else if (vote.result === 'Validated') {
-          // On a trouvé un vote valide, on arrête de compter
           break;
         }
       }
       
       console.log(`Chain ${chain}: ${consecutiveMissed} votes consécutifs manqués sur les ${chainData.pollIds.length} derniers votes`);
       
-      if (consecutiveMissed > 0) {
-        console.log(`  Missed vote IDs: ${missedVoteIds.slice(0, 5).join(', ')}${missedVoteIds.length > 5 ? '...' : ''}`);
-      }
-      
       // Si le nombre de votes manqués consécutifs dépasse le seuil warning, envoyer une alerte warning
       if (consecutiveMissed >= this.thresholds.consecutiveEvmVotesMissed) {
         if (!this.evmConsecutiveMissedByChain[chain]) {
-          // Premier dépassement du seuil
           this.evmConsecutiveMissedByChain[chain] = consecutiveMissed;
           console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveEvmVotesMissed}) exceeded, sending warning alert`);
           this.createAlert(
@@ -410,7 +393,6 @@ export class AlertManager extends EventEmitter {
             chain
           );
         } else if (consecutiveMissed > this.evmConsecutiveMissedByChain[chain]) {
-          // Le nombre de votes manqués a augmenté
           this.evmConsecutiveMissedByChain[chain] = consecutiveMissed;
           console.log(`Chain ${chain}: Increased to ${consecutiveMissed} missed votes, sending critical alert`);
           this.createAlert(
@@ -421,7 +403,6 @@ export class AlertManager extends EventEmitter {
           );
         }
       } else if (this.evmConsecutiveMissedByChain[chain]) {
-        // Vérifier si nous avons reçu un nouveau vote valide en ignorant les unsubmit non matures
         const hasNewValidVote = chainData.pollIds.some(vote => {
           if (vote.result === 'unsubmit' && vote.timestamp) {
             const voteTime = new Date(vote.timestamp).getTime();
@@ -462,7 +443,6 @@ export class AlertManager extends EventEmitter {
       
       // On regarde uniquement les votes consécutifs manqués récents
       let consecutiveMissed = 0;
-      let missedVoteIds = [];
       const twoMinutesAgo = Date.now() - (1 * 60 * 1000); // 1 minute en millisecondes
       
       // Parcourir les votes du plus récent au plus ancien
@@ -470,30 +450,21 @@ export class AlertManager extends EventEmitter {
         const vote = chainData.pollIds[i];
         if (vote.result === 'not_found') {
           consecutiveMissed++;
-          missedVoteIds.push(vote.pollId || 'unknown');
         } else if (vote.result === 'unsubmit' && vote.timestamp) {
           const voteTime = new Date(vote.timestamp).getTime();
           if (voteTime < twoMinutesAgo) {
             consecutiveMissed++;
-            missedVoteIds.push(vote.pollId || 'unknown');
           }
-          // On continue à chercher même si le vote est unsubmit de moins de 2 minutes
         } else if (vote.result === 'succeeded_on_chain') {
-          // On a trouvé un vote valide, on arrête de compter
           break;
         }
       }
       
       console.log(`Chain ${chain}: ${consecutiveMissed} votes consécutifs manqués sur les ${chainData.pollIds.length} derniers votes`);
       
-      if (consecutiveMissed > 0) {
-        console.log(`  Missed vote IDs: ${missedVoteIds.slice(0, 5).join(', ')}${missedVoteIds.length > 5 ? '...' : ''}`);
-      }
-      
       // Si le nombre de votes manqués consécutifs dépasse le seuil warning, envoyer une alerte warning
       if (consecutiveMissed >= this.thresholds.consecutiveAmpdVotesMissed) {
         if (!this.ampdVotesConsecutiveMissedByChain[chain]) {
-          // Premier dépassement du seuil
           this.ampdVotesConsecutiveMissedByChain[chain] = consecutiveMissed;
           console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdVotesMissed}) exceeded, sending warning alert`);
           this.createAlert(
@@ -503,7 +474,6 @@ export class AlertManager extends EventEmitter {
             chain
           );
         } else if (consecutiveMissed > this.ampdVotesConsecutiveMissedByChain[chain]) {
-          // Le nombre de votes manqués a augmenté
           this.ampdVotesConsecutiveMissedByChain[chain] = consecutiveMissed;
           console.log(`Chain ${chain}: Increased to ${consecutiveMissed} missed votes, sending critical alert`);
           this.createAlert(
@@ -514,7 +484,6 @@ export class AlertManager extends EventEmitter {
           );
         }
       } else if (this.ampdVotesConsecutiveMissedByChain[chain]) {
-        // Vérifier si nous avons reçu un nouveau vote valide en ignorant les unsubmit non matures
         const hasNewValidVote = chainData.pollIds.some(vote => {
           if (vote.result === 'unsubmit' && vote.timestamp) {
             const voteTime = new Date(vote.timestamp).getTime();
@@ -555,7 +524,6 @@ export class AlertManager extends EventEmitter {
       
       // On regarde uniquement les signings consécutifs manqués récents
       let consecutiveMissed = 0;
-      let missedSigningIds = [];
       const twoMinutesAgo = Date.now() - (1 * 60 * 1000); // 1 minute en millisecondes
       
       // Parcourir les signings du plus récent au plus ancien
@@ -565,25 +533,17 @@ export class AlertManager extends EventEmitter {
           const signingTime = new Date(signing.timestamp).getTime();
           if (signingTime < twoMinutesAgo) {
             consecutiveMissed++;
-            missedSigningIds.push(signing.signingId || 'unknown');
           }
-          // On continue à chercher même si le signing est unsubmit de moins de 2 minutes
         } else if (signing.result === 'signed') {
-          // On a trouvé un signing valide, on arrête de compter
           break;
         }
       }
       
       console.log(`Chain ${chain}: ${consecutiveMissed} signings consécutifs manqués sur les ${chainData.signingIds.length} derniers signings`);
       
-      if (consecutiveMissed > 0) {
-        console.log(`  Missed signing IDs: ${missedSigningIds.slice(0, 5).join(', ')}${missedSigningIds.length > 5 ? '...' : ''}`);
-      }
-      
       // Si le nombre de signings manqués consécutifs dépasse le seuil warning, envoyer une alerte warning
       if (consecutiveMissed >= this.thresholds.consecutiveAmpdSigningsMissed) {
         if (!this.ampdSigningsConsecutiveMissedByChain[chain]) {
-          // Premier dépassement du seuil
           this.ampdSigningsConsecutiveMissedByChain[chain] = consecutiveMissed;
           console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdSigningsMissed}) exceeded, sending warning alert`);
           this.createAlert(
@@ -593,7 +553,6 @@ export class AlertManager extends EventEmitter {
             chain
           );
         } else if (consecutiveMissed > this.ampdSigningsConsecutiveMissedByChain[chain]) {
-          // Le nombre de signings manqués a augmenté
           this.ampdSigningsConsecutiveMissedByChain[chain] = consecutiveMissed;
           console.log(`Chain ${chain}: Increased to ${consecutiveMissed} missed signings, sending critical alert`);
           this.createAlert(
@@ -604,7 +563,6 @@ export class AlertManager extends EventEmitter {
           );
         }
       } else if (this.ampdSigningsConsecutiveMissedByChain[chain]) {
-        // Vérifier si nous avons reçu un nouveau signing valide en ignorant les unsubmit non matures
         const hasNewValidSigning = chainData.signingIds.some(signing => {
           if (signing.result === 'unsubmit' && signing.timestamp) {
             const signingTime = new Date(signing.timestamp).getTime();

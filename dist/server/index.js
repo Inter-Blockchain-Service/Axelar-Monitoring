@@ -6,7 +6,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const http_1 = __importDefault(require("http"));
 const dotenv_1 = __importDefault(require("dotenv"));
-// import cors from 'cors';
 const tendermint_1 = require("./tendermint");
 const metrics_1 = require("./metrics");
 const api_1 = require("./api");
@@ -23,12 +22,6 @@ const DEFAULT_VALIDATOR_ADDRESS = '';
 // Create Express application
 const app = (0, express_1.default)();
 const server = http_1.default.createServer(app);
-// // Enable CORS
-// app.use(cors({
-//   origin: '*',
-//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-//   allowedHeaders: ['Content-Type', 'Authorization']
-// }));
 // Initialize metrics
 const metrics = (0, metrics_1.createInitialMetrics)(process.env.CHAIN_ID || 'axelar', process.env.VALIDATOR_MONIKER || 'My Validator');
 // Configure Tendermint client
@@ -45,7 +38,7 @@ if (!validatorAddress) {
 const ampdSupportedChainsEnv = process.env.AMPD_SUPPORTED_CHAINS || '';
 const ampdSupportedChains = ampdSupportedChainsEnv.split(',').filter(chain => chain.trim() !== '');
 // Create Tendermint client
-const tendermintClient = new tendermint_1.TendermintClient(rpcEndpoint, validatorAddress, broadcasterAddress, constants_1.HEARTBEAT_HISTORY_SIZE, axelarApiEndpoint, ampdSupportedChains, ampdAddress);
+const tendermintClient = new tendermint_1.TendermintClient(rpcEndpoint, validatorAddress, broadcasterAddress, constants_1.HEARTBEAT_HISTORY_SIZE, axelarApiEndpoint, ampdSupportedChains, ampdAddress, rpcEndpoint);
 // Check if EVM votes manager is enabled
 metrics.evmVotesEnabled = tendermintClient.hasEvmVoteManager();
 // If EVM votes manager is enabled, get initial votes
@@ -105,9 +98,9 @@ server.listen(Number(PORT), '0.0.0.0', async () => {
         console.log(`AMPD monitoring enabled for chains: ${metrics.ampdSupportedChains.join(', ')}`);
         console.log(`AMPD address used: ${tendermintClient.getAmpdAddress()}`);
     }
-    // Start periodic alert checks (every minute)
-    alertManager.startPeriodicChecks(60000);
-    console.log('Alert system started with periodic checks every minute');
+    // Start periodic alert checks (every 5 seconds)
+    alertManager.startPeriodicChecks(5000);
+    console.log('Alert system started with periodic checks every 5 seconds');
     // Connect to RPC node after checking its status
     await (0, node_manager_1.connectToNode)(tendermintClient, metrics, rpcEndpoint);
 });

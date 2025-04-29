@@ -24,7 +24,7 @@ var StatusType;
 })(StatusType || (exports.StatusType = StatusType = {}));
 // WebSocket client for Tendermint
 class TendermintClient extends events_1.EventEmitter {
-    constructor(endpoint, validatorAddress, broadcasterAddress = '', historySize = 700, axelarApiEndpoint = '', ampdSupportedChains = [], ampdAddress = '') {
+    constructor(endpoint, validatorAddress, broadcasterAddress = '', historySize = 700, axelarApiEndpoint = '', ampdSupportedChains = [], ampdAddress = '', rpcUrl = '') {
         super();
         this.ws = null;
         this.connected = false;
@@ -33,12 +33,15 @@ class TendermintClient extends events_1.EventEmitter {
         this.reconnectInterval = 5000;
         this.evmVoteManager = null;
         this.ampdManager = null;
+        this.reconnectTimeout = null;
+        this.reconnectDelay = 5000;
         this.endpoint = this.normalizeEndpoint(endpoint);
         this.validatorAddress = validatorAddress.toUpperCase();
         this.broadcasterAddress = broadcasterAddress || validatorAddress;
         this.ampdAddress = ampdAddress || this.broadcasterAddress;
         this.signatureManager = new validator_signature_manager_1.ValidatorSignatureManager(validatorAddress);
         this.heartbeatManager = new heartbeat_manager_1.HeartbeatManager(this.broadcasterAddress, historySize);
+        this.rpcUrl = rpcUrl || this.endpoint;
         if (axelarApiEndpoint) {
             this.evmVoteManager = new evm_vote_manager_1.EvmVoteManager(this.broadcasterAddress, axelarApiEndpoint);
             // Forward events from the EVM vote manager
@@ -90,49 +93,106 @@ class TendermintClient extends events_1.EventEmitter {
     connect() {
         try {
             console.log(`Connecting to ${this.endpoint}`);
-            this.ws = new ws_1.default(this.endpoint);
-            this.ws.on('open', () => {
-                console.log(`WebSocket connected to ${this.endpoint}`);
-                this.connected = true;
-                this.reconnectAttempts = 0;
-                this.subscribeToEvents();
-            });
-            this.ws.on('message', (data) => {
-                try {
-                    const reply = JSON.parse(data.toString());
-                    this.handleMessage(reply);
-                }
-                catch (err) {
-                    console.error('JSON parsing error:', err);
-                }
-            });
-            this.ws.on('close', () => {
-                console.log('WebSocket disconnected');
-                this.connected = false;
-                this.attemptReconnect();
-            });
-            this.ws.on('error', (error) => {
-                console.error('WebSocket error:', error);
-                if (this.ws) {
-                    this.ws.terminate();
-                }
-            });
+            this.setupWebSocket();
         }
         catch (error) {
             console.error('Connection error:', error);
             this.attemptReconnect();
         }
     }
+    setupWebSocket() {
+        try {
+            this.ws = new ws_1.default(this.endpoint);
+            this.ws.on('open', () => {
+                console.log('WebSocket connected');
+                this.connected = true;
+                this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
+                this.emit('connect');
+                // Subscribe to events
+                this.subscribeToEvents();
+            });
+            this.ws.on('close', () => {
+                console.log('WebSocket disconnected');
+                this.connected = false;
+                this.emit('disconnect');
+                this.attemptReconnect(); // Trigger reconnection on close
+            });
+            this.ws.on('error', (error) => {
+                console.error('WebSocket error:', error);
+                this.connected = false;
+                this.emit('disconnect');
+                this.attemptReconnect(); // Trigger reconnection on error
+            });
+            this.ws.on('message', (data) => {
+                try {
+                    const message = JSON.parse(data.toString());
+                    this.handleMessage(message);
+                }
+                catch (error) {
+                    console.error('Error parsing WebSocket message:', error);
+                }
+            });
+        }
+        catch (error) {
+            console.error('Error setting up WebSocket:', error);
+            this.connected = false;
+            this.emit('disconnect');
+            this.attemptReconnect();
+        }
+    }
+    async checkNodeAvailability() {
+        var _a, _b;
+        try {
+            const response = await fetch(`${this.rpcUrl}/status`);
+            if (!response.ok) {
+                return false;
+            }
+            const data = await response.json();
+            return ((_b = (_a = data.result) === null || _a === void 0 ? void 0 : _a.sync_info) === null || _b === void 0 ? void 0 : _b.catching_up) === false;
+        }
+        catch (error) {
+            console.error('Error checking node availability:', error);
+            return false;
+        }
+    }
     attemptReconnect() {
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.reconnectAttempts++;
-            console.log(`Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${this.reconnectInterval / 1000}s...`);
-            setTimeout(() => this.connect(), this.reconnectInterval);
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            console.error('Max reconnection attempts reached');
+            this.emit('permanentDisconnect');
+            return;
         }
-        else {
-            console.error(`Failed after ${this.maxReconnectAttempts} attempts. Stopping reconnection attempts.`);
-            this.emit('permanent-disconnect');
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
         }
+        this.reconnectTimeout = setTimeout(async () => {
+            try {
+                console.log(`Attempting to reconnect (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+                // Check if node is available and synced before reconnecting
+                const isAvailable = await this.checkNodeAvailability();
+                if (!isAvailable) {
+                    console.error('Node is not available, will retry later');
+                    this.reconnectAttempts++;
+                    this.attemptReconnect();
+                    return;
+                }
+                // Clean up existing connection
+                if (this.ws) {
+                    this.ws.removeAllListeners();
+                    this.ws.terminate();
+                    this.ws = null;
+                }
+                // Reset state
+                this.connected = false;
+                this.reconnectAttempts++;
+                // Attempt new connection
+                this.setupWebSocket();
+            }
+            catch (error) {
+                console.error('Error during reconnection attempt:', error);
+                this.reconnectAttempts++;
+                this.attemptReconnect();
+            }
+        }, this.reconnectDelay);
     }
     subscribeToEvents() {
         if (!this.ws || !this.connected)

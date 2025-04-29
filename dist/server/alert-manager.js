@@ -6,6 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AlertManager = exports.AlertType = void 0;
 const axios_1 = __importDefault(require("axios"));
 const events_1 = require("events");
+const useMetrics_1 = require("../hooks/useMetrics");
+const useMetrics_2 = require("../hooks/useMetrics");
 // Alert types
 var AlertType;
 (function (AlertType) {
@@ -14,19 +16,40 @@ var AlertType;
     AlertType["HEARTBEAT_MISSED"] = "heartbeat_missed";
     AlertType["CONSECUTIVE_HEARTBEATS_MISSED"] = "consecutive_heartbeats_missed";
     AlertType["NODE_DISCONNECTED"] = "node_disconnected";
+    AlertType["NODE_RECONNECTED"] = "node_reconnected";
     AlertType["SIGN_RATE_LOW"] = "sign_rate_low";
     AlertType["HEARTBEAT_RATE_LOW"] = "heartbeat_rate_low";
     AlertType["EVM_VOTE_MISSED"] = "evm_vote_missed";
     AlertType["AMPD_VOTE_MISSED"] = "ampd_vote_missed";
     AlertType["AMPD_SIGNING_MISSED"] = "ampd_signing_missed";
     AlertType["NODE_SYNC_ISSUE"] = "node_sync_issue";
+    // Nouveaux types d'alertes pour les retours à la normale
+    AlertType["EVM_VOTES_RECOVERED"] = "evm_votes_recovered";
+    AlertType["AMPD_VOTES_RECOVERED"] = "ampd_votes_recovered";
+    AlertType["AMPD_SIGNINGS_RECOVERED"] = "ampd_signings_recovered";
+    // Nouveaux types d'alertes pour les taux bas
+    AlertType["EVM_VOTE_RATE_LOW"] = "evm_vote_rate_low";
+    AlertType["AMPD_VOTE_RATE_LOW"] = "ampd_vote_rate_low";
+    AlertType["AMPD_SIGNING_RATE_LOW"] = "ampd_signing_rate_low";
 })(AlertType || (exports.AlertType = AlertType = {}));
 class AlertManager extends events_1.EventEmitter {
     constructor(metrics) {
         super();
         this.previousMetrics = {};
         this.lastAlertTimestamps = {};
+        this.lastAlertSeverities = {};
         this.cooldownPeriod = 5 * 60 * 1000; // 5 minutes in milliseconds by default
+        // État pour suivre les blocs manqués
+        this.isMissingBlocks = false;
+        this.lastAlertedConsecutiveMissed = 0;
+        // État pour suivre les heartbeats manqués
+        this.isMissingHeartbeats = false;
+        this.lastAlertedConsecutiveHeartbeatsMissed = 0;
+        // État pour suivre les taux bas
+        this.isLowSignRate = false;
+        this.isLowHeartbeatRate = false;
+        this.lastAlertedSignRate = 0;
+        this.lastAlertedHeartbeatRate = 0;
         // Counters for consecutive missed votes and signatures
         this.evmConsecutiveMissedByChain = {};
         this.ampdVotesConsecutiveMissedByChain = {};
@@ -40,7 +63,10 @@ class AlertManager extends events_1.EventEmitter {
             heartbeatRateThreshold: parseFloat(process.env.ALERT_HEARTBEAT_RATE_THRESHOLD || '98.0'),
             consecutiveEvmVotesMissed: parseInt(process.env.ALERT_CONSECUTIVE_EVM_VOTES_THRESHOLD || '3', 10),
             consecutiveAmpdVotesMissed: parseInt(process.env.ALERT_CONSECUTIVE_AMPD_VOTES_THRESHOLD || '3', 10),
-            consecutiveAmpdSigningsMissed: parseInt(process.env.ALERT_CONSECUTIVE_AMPD_SIGNINGS_THRESHOLD || '3', 10)
+            consecutiveAmpdSigningsMissed: parseInt(process.env.ALERT_CONSECUTIVE_AMPD_SIGNINGS_THRESHOLD || '3', 10),
+            evmVoteRateThreshold: parseFloat(process.env.ALERT_EVM_VOTE_RATE_THRESHOLD || '98.0'),
+            ampdVoteRateThreshold: parseFloat(process.env.ALERT_AMPD_VOTE_RATE_THRESHOLD || '98.0'),
+            ampdSigningRateThreshold: parseFloat(process.env.ALERT_AMPD_SIGNING_RATE_THRESHOLD || '98.0')
         };
         this.notificationConfig = {
             discord: {
@@ -78,28 +104,122 @@ class AlertManager extends events_1.EventEmitter {
         // Save previous state of metrics for comparison
         const prevMetrics = Object.assign({}, this.previousMetrics);
         this.previousMetrics = Object.assign({}, this.metrics);
+        // Check if node is disconnected
+        if (prevMetrics.connected === true && this.metrics.connected === false) {
+            console.log('Node disconnected detected in checkMetrics');
+            this.createAlert(AlertType.NODE_DISCONNECTED, `🔴 CRITICAL ALERT: Node disconnected! Last error: ${this.metrics.lastError}`, 'critical');
+        }
+        // Check if node is reconnected
+        if (prevMetrics.connected === false && this.metrics.connected === true) {
+            console.log('Node reconnected detected in checkMetrics');
+            this.createAlert(AlertType.NODE_RECONNECTED, `🟢 INFO: Node reconnected successfully!`, 'info');
+        }
+        // Vérifier les blocs manqués consécutifs en utilisant signStatus
+        if (this.metrics.signStatus && this.metrics.signStatus.length > 0) {
+            let consecutiveMissed = 0;
+            // On ne regarde que les premiers blocs jusqu'à ce qu'on trouve un bloc signé
+            for (const status of this.metrics.signStatus) {
+                if (status === useMetrics_1.StatusType.Missed) {
+                    consecutiveMissed++;
+                }
+                else {
+                    // Dès qu'on trouve un bloc signé, on arrête de compter
+                    break;
+                }
+            }
+            // Vérifier si on dépasse le seuil
+            if (consecutiveMissed >= this.thresholds.consecutiveBlocksMissed) {
+                if (!this.isMissingBlocks) {
+                    // Premier dépassement du seuil
+                    this.isMissingBlocks = true;
+                    this.lastAlertedConsecutiveMissed = consecutiveMissed;
+                    this.createAlert(AlertType.CONSECUTIVE_BLOCKS_MISSED, `⚠️ ALERT: ${consecutiveMissed} blocs manqués`, 'warning');
+                }
+                else if (consecutiveMissed > this.lastAlertedConsecutiveMissed) {
+                    // Le nombre de blocs manqués a augmenté
+                    this.lastAlertedConsecutiveMissed = consecutiveMissed;
+                    this.createAlert(AlertType.CONSECUTIVE_BLOCKS_MISSED, `🚨 ALERT: ${consecutiveMissed} blocs manqués en augmentation`, 'critical');
+                }
+            }
+            else if (this.isMissingBlocks) {
+                // On est revenu en dessous du seuil
+                this.isMissingBlocks = false;
+                this.createAlert(AlertType.CONSECUTIVE_BLOCKS_MISSED, `✅ Récupération: Plus de blocs manqués`, 'info');
+            }
+        }
+        // Vérifier les heartbeats manqués consécutifs en utilisant heartbeatStatus
+        if (this.metrics.heartbeatStatus && this.metrics.heartbeatStatus.length > 0) {
+            let consecutiveHeartbeatsMissed = 0;
+            // On ne regarde que les premiers heartbeats jusqu'à ce qu'on trouve un heartbeat signé
+            for (const status of this.metrics.heartbeatStatus) {
+                if (status === useMetrics_2.HeartbeatStatusType.Missed) {
+                    consecutiveHeartbeatsMissed++;
+                }
+                else {
+                    // Dès qu'on trouve un heartbeat signé, on arrête de compter
+                    break;
+                }
+            }
+            // Vérifier si on dépasse le seuil
+            if (consecutiveHeartbeatsMissed >= this.thresholds.consecutiveHeartbeatsMissed) {
+                if (!this.isMissingHeartbeats) {
+                    // Premier dépassement du seuil
+                    this.isMissingHeartbeats = true;
+                    this.lastAlertedConsecutiveHeartbeatsMissed = consecutiveHeartbeatsMissed;
+                    this.createAlert(AlertType.CONSECUTIVE_HEARTBEATS_MISSED, `⚠️ ALERT: ${consecutiveHeartbeatsMissed} heartbeats manqués`, 'warning');
+                }
+                else if (consecutiveHeartbeatsMissed > this.lastAlertedConsecutiveHeartbeatsMissed) {
+                    // Le nombre de heartbeats manqués a augmenté
+                    this.lastAlertedConsecutiveHeartbeatsMissed = consecutiveHeartbeatsMissed;
+                    this.createAlert(AlertType.CONSECUTIVE_HEARTBEATS_MISSED, `🚨 ALERT: ${consecutiveHeartbeatsMissed} heartbeats manqués en augmentation`, 'critical');
+                }
+            }
+            else if (this.isMissingHeartbeats) {
+                // On est revenu en dessous du seuil
+                this.isMissingHeartbeats = false;
+                this.createAlert(AlertType.CONSECUTIVE_HEARTBEATS_MISSED, `✅ Récupération: Plus de heartbeats manqués`, 'info');
+            }
+        }
         // Calculate current rates
         const signRate = this.calculateSignRate();
         const heartbeatRate = this.calculateHeartbeatRate();
-        // Check consecutive missed blocks
-        if (this.metrics.consecutiveMissed >= this.thresholds.consecutiveBlocksMissed) {
-            this.createAlert(AlertType.CONSECUTIVE_BLOCKS_MISSED, `⚠️ ALERT: ${this.metrics.consecutiveMissed} consecutive blocks missed`, 'critical');
-        }
-        // Check consecutive missed heartbeats
-        if (this.metrics.heartbeatsConsecutiveMissed >= this.thresholds.consecutiveHeartbeatsMissed) {
-            this.createAlert(AlertType.CONSECUTIVE_HEARTBEATS_MISSED, `⚠️ ALERT: ${this.metrics.heartbeatsConsecutiveMissed} consecutive heartbeats missed`, 'critical');
-        }
-        // Check signing rate
+        // Vérifier le taux de signature
         if (signRate < this.thresholds.signRateThreshold) {
-            this.createAlert(AlertType.SIGN_RATE_LOW, `⚠️ ALERT: Low signing rate (${signRate.toFixed(2)}%)`, 'warning');
+            if (!this.isLowSignRate) {
+                // Premier dépassement du seuil
+                this.isLowSignRate = true;
+                this.lastAlertedSignRate = signRate;
+                this.createAlert(AlertType.SIGN_RATE_LOW, `⚠️ ALERT: Taux de signature bas (${signRate.toFixed(2)}%)`, 'warning');
+            }
+            else if (signRate < this.lastAlertedSignRate) {
+                // Le taux a baissé
+                this.lastAlertedSignRate = signRate;
+                this.createAlert(AlertType.SIGN_RATE_LOW, `🚨 ALERT: Taux de signature en baisse (${signRate.toFixed(2)}%)`, 'critical');
+            }
         }
-        // Check heartbeat rate
+        else if (this.isLowSignRate) {
+            // On est revenu au-dessus du seuil
+            this.isLowSignRate = false;
+            this.createAlert(AlertType.SIGN_RATE_LOW, `✅ Récupération: Taux de signature normal (${signRate.toFixed(2)}%)`, 'info');
+        }
+        // Vérifier le taux de heartbeat
         if (heartbeatRate < this.thresholds.heartbeatRateThreshold) {
-            this.createAlert(AlertType.HEARTBEAT_RATE_LOW, `⚠️ ALERT: Low heartbeat rate (${heartbeatRate.toFixed(2)}%)`, 'warning');
+            if (!this.isLowHeartbeatRate) {
+                // Premier dépassement du seuil
+                this.isLowHeartbeatRate = true;
+                this.lastAlertedHeartbeatRate = heartbeatRate;
+                this.createAlert(AlertType.HEARTBEAT_RATE_LOW, `⚠️ ALERT: Taux de heartbeat bas (${heartbeatRate.toFixed(2)}%)`, 'warning');
+            }
+            else if (heartbeatRate < this.lastAlertedHeartbeatRate) {
+                // Le taux a baissé
+                this.lastAlertedHeartbeatRate = heartbeatRate;
+                this.createAlert(AlertType.HEARTBEAT_RATE_LOW, `🚨 ALERT: Taux de heartbeat en baisse (${heartbeatRate.toFixed(2)}%)`, 'critical');
+            }
         }
-        // Check if node is disconnected
-        if (prevMetrics.connected === true && this.metrics.connected === false) {
-            this.createAlert(AlertType.NODE_DISCONNECTED, `🔴 CRITICAL ALERT: Node disconnected! Last error: ${this.metrics.lastError}`, 'critical');
+        else if (this.isLowHeartbeatRate) {
+            // On est revenu au-dessus du seuil
+            this.isLowHeartbeatRate = false;
+            this.createAlert(AlertType.HEARTBEAT_RATE_LOW, `✅ Récupération: Taux de heartbeat normal (${heartbeatRate.toFixed(2)}%)`, 'info');
         }
         // Analyze EVM votes
         if (this.metrics.evmVotesEnabled) {
@@ -110,29 +230,72 @@ class AlertManager extends events_1.EventEmitter {
             this.checkAmpdVotes();
             this.checkAmpdSignings();
         }
+        // Check rate-based alerts
+        this.checkRateAlerts();
     }
     /**
      * Check missed EVM votes
      */
     checkEvmVotes() {
+        if (!this.metrics.evmVotes)
+            return;
+        console.log(`EVM votes check: chains=${Object.keys(this.metrics.evmVotes).join(',')}`);
         // Loop through all EVM chains
         Object.entries(this.metrics.evmVotes).forEach(([chain, chainData]) => {
-            // If no votes or no pollIds, ignore
             if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0)
                 return;
-            const latestPoll = chainData.pollIds[0]; // The first one is the most recent
-            // Check if the vote is missed
-            if (latestPoll.result === 'Missed' || latestPoll.result === 'missed' || latestPoll.result === 'invalid' || latestPoll.result === 'Invalid') {
-                // Increment the counter of consecutive missed votes
-                this.evmConsecutiveMissedByChain[chain] = (this.evmConsecutiveMissedByChain[chain] || 0) + 1;
-                // If we reached the threshold, send an alert
-                if (this.evmConsecutiveMissedByChain[chain] >= this.thresholds.consecutiveEvmVotesMissed) {
-                    this.createAlert(AlertType.EVM_VOTE_MISSED, `⚠️ ALERT: ${this.evmConsecutiveMissedByChain[chain]} consecutive EVM votes missed on chain ${chain}`, 'warning');
+            // On regarde uniquement les votes consécutifs manqués récents
+            let consecutiveMissed = 0;
+            const fiveMinutesAgo = Date.now() - (5 * 60 * 1000); // 5 minutes en millisecondes
+            // Parcourir les votes du plus récent au plus ancien
+            for (let i = 0; i < chainData.pollIds.length; i++) {
+                const vote = chainData.pollIds[i];
+                if (vote.result === 'Invalid') {
+                    consecutiveMissed++;
+                }
+                else if (vote.result === 'unsubmit' && vote.timestamp) {
+                    const voteTime = new Date(vote.timestamp).getTime();
+                    if (voteTime < fiveMinutesAgo) {
+                        consecutiveMissed++;
+                    }
+                }
+                else if (vote.result === 'Validated') {
+                    break;
                 }
             }
-            else if (latestPoll.result === 'Validated' || latestPoll.result === 'validated') {
-                // Reset the counter if we have a validated vote
-                this.evmConsecutiveMissedByChain[chain] = 0;
+            console.log(`Chain ${chain}: ${consecutiveMissed} votes consécutifs manqués sur les ${chainData.pollIds.length} derniers votes`);
+            // Si le nombre de votes manqués consécutifs dépasse le seuil warning, envoyer une alerte warning
+            if (consecutiveMissed >= this.thresholds.consecutiveEvmVotesMissed) {
+                if (!this.evmConsecutiveMissedByChain[chain]) {
+                    this.evmConsecutiveMissedByChain[chain] = consecutiveMissed;
+                    console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveEvmVotesMissed}) exceeded, sending warning alert`);
+                    this.createAlert(AlertType.EVM_VOTE_MISSED, `⚠️ ALERT: ${consecutiveMissed} votes EVM consécutifs manqués sur la chaîne ${chain}`, 'warning', chain);
+                }
+                else if (consecutiveMissed > this.evmConsecutiveMissedByChain[chain]) {
+                    this.evmConsecutiveMissedByChain[chain] = consecutiveMissed;
+                    console.log(`Chain ${chain}: Increased to ${consecutiveMissed} missed votes, sending critical alert`);
+                    this.createAlert(AlertType.EVM_VOTE_MISSED, `🚨 ALERT: ${consecutiveMissed} votes EVM consécutifs manqués en augmentation sur la chaîne ${chain}`, 'critical', chain);
+                }
+            }
+            else if (this.evmConsecutiveMissedByChain[chain]) {
+                const hasNewValidVote = chainData.pollIds.some(vote => {
+                    if (vote.result === 'unsubmit' && vote.timestamp) {
+                        const voteTime = new Date(vote.timestamp).getTime();
+                        if (voteTime > fiveMinutesAgo)
+                            return false;
+                    }
+                    return vote.result === 'Validated' &&
+                        vote.timestamp &&
+                        new Date(vote.timestamp).getTime() > fiveMinutesAgo;
+                });
+                if (hasNewValidVote) {
+                    this.evmConsecutiveMissedByChain[chain] = 0;
+                    console.log(`Chain ${chain}: Recovered from missed votes after receiving a valid vote`);
+                    this.createAlert(AlertType.EVM_VOTES_RECOVERED, `✅ Récupération: Plus de votes EVM consécutifs manqués sur la chaîne ${chain} après réception d'un vote valide`, 'info', chain);
+                }
+                else {
+                    console.log(`Chain ${chain}: Still in alert state, waiting for a valid vote`);
+                }
             }
         });
     }
@@ -142,23 +305,63 @@ class AlertManager extends events_1.EventEmitter {
     checkAmpdVotes() {
         if (!this.metrics.ampdVotes)
             return;
+        console.log(`AMPD votes check: chains=${Object.keys(this.metrics.ampdVotes).join(',')}`);
         // Loop through all AMPD chains
         Object.entries(this.metrics.ampdVotes).forEach(([chain, chainData]) => {
             if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0)
                 return;
-            const latestVote = chainData.pollIds[0]; // The first one is the most recent
-            // Check if the vote is missed - assuming the result property holds the status
-            if (latestVote.result === 'missed' || latestVote.result === 'invalid') {
-                // Increment the counter
-                this.ampdVotesConsecutiveMissedByChain[chain] = (this.ampdVotesConsecutiveMissedByChain[chain] || 0) + 1;
-                // If we reached the threshold, send an alert
-                if (this.ampdVotesConsecutiveMissedByChain[chain] >= this.thresholds.consecutiveAmpdVotesMissed) {
-                    this.createAlert(AlertType.AMPD_VOTE_MISSED, `⚠️ ALERT: ${this.ampdVotesConsecutiveMissedByChain[chain]} consecutive AMPD votes missed on chain ${chain}`, 'warning');
+            // On regarde uniquement les votes consécutifs manqués récents
+            let consecutiveMissed = 0;
+            const twoMinutesAgo = Date.now() - (1 * 60 * 1000); // 1 minute en millisecondes
+            // Parcourir les votes du plus récent au plus ancien
+            for (let i = 0; i < chainData.pollIds.length; i++) {
+                const vote = chainData.pollIds[i];
+                if (vote.result === 'not_found') {
+                    consecutiveMissed++;
+                }
+                else if (vote.result === 'unsubmit' && vote.timestamp) {
+                    const voteTime = new Date(vote.timestamp).getTime();
+                    if (voteTime < twoMinutesAgo) {
+                        consecutiveMissed++;
+                    }
+                }
+                else if (vote.result === 'succeeded_on_chain') {
+                    break;
                 }
             }
-            else if (latestVote.result === 'validated') {
-                // Reset the counter
-                this.ampdVotesConsecutiveMissedByChain[chain] = 0;
+            console.log(`Chain ${chain}: ${consecutiveMissed} votes consécutifs manqués sur les ${chainData.pollIds.length} derniers votes`);
+            // Si le nombre de votes manqués consécutifs dépasse le seuil warning, envoyer une alerte warning
+            if (consecutiveMissed >= this.thresholds.consecutiveAmpdVotesMissed) {
+                if (!this.ampdVotesConsecutiveMissedByChain[chain]) {
+                    this.ampdVotesConsecutiveMissedByChain[chain] = consecutiveMissed;
+                    console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdVotesMissed}) exceeded, sending warning alert`);
+                    this.createAlert(AlertType.AMPD_VOTE_MISSED, `⚠️ ALERT: ${consecutiveMissed} votes AMPD consécutifs manqués sur la chaîne ${chain}`, 'warning', chain);
+                }
+                else if (consecutiveMissed > this.ampdVotesConsecutiveMissedByChain[chain]) {
+                    this.ampdVotesConsecutiveMissedByChain[chain] = consecutiveMissed;
+                    console.log(`Chain ${chain}: Increased to ${consecutiveMissed} missed votes, sending critical alert`);
+                    this.createAlert(AlertType.AMPD_VOTE_MISSED, `🚨 ALERT: ${consecutiveMissed} votes AMPD consécutifs manqués en augmentation sur la chaîne ${chain}`, 'critical', chain);
+                }
+            }
+            else if (this.ampdVotesConsecutiveMissedByChain[chain]) {
+                const hasNewValidVote = chainData.pollIds.some(vote => {
+                    if (vote.result === 'unsubmit' && vote.timestamp) {
+                        const voteTime = new Date(vote.timestamp).getTime();
+                        if (voteTime > twoMinutesAgo)
+                            return false;
+                    }
+                    return vote.result === 'succeeded_on_chain' &&
+                        vote.timestamp &&
+                        new Date(vote.timestamp).getTime() > twoMinutesAgo;
+                });
+                if (hasNewValidVote) {
+                    this.ampdVotesConsecutiveMissedByChain[chain] = 0;
+                    console.log(`Chain ${chain}: Recovered from missed votes after receiving a valid vote`);
+                    this.createAlert(AlertType.AMPD_VOTES_RECOVERED, `✅ Récupération: Plus de votes AMPD consécutifs manqués sur la chaîne ${chain} après réception d'un vote valide`, 'info', chain);
+                }
+                else {
+                    console.log(`Chain ${chain}: Still in alert state, waiting for a valid vote`);
+                }
             }
         });
     }
@@ -168,23 +371,60 @@ class AlertManager extends events_1.EventEmitter {
     checkAmpdSignings() {
         if (!this.metrics.ampdSignings)
             return;
+        console.log(`AMPD signings check: chains=${Object.keys(this.metrics.ampdSignings).join(',')}`);
         // Loop through all AMPD chains
         Object.entries(this.metrics.ampdSignings).forEach(([chain, chainData]) => {
             if (!chainData || !chainData.signingIds || chainData.signingIds.length === 0)
                 return;
-            const latestSigning = chainData.signingIds[0]; // The first one is the most recent
-            // Check if the signing is missed - assuming the result property holds the status
-            if (latestSigning.result === 'missed' || latestSigning.result === 'invalid') {
-                // Increment the counter
-                this.ampdSigningsConsecutiveMissedByChain[chain] = (this.ampdSigningsConsecutiveMissedByChain[chain] || 0) + 1;
-                // If we reached the threshold, send an alert
-                if (this.ampdSigningsConsecutiveMissedByChain[chain] >= this.thresholds.consecutiveAmpdSigningsMissed) {
-                    this.createAlert(AlertType.AMPD_SIGNING_MISSED, `⚠️ ALERT: ${this.ampdSigningsConsecutiveMissedByChain[chain]} consecutive AMPD signings missed on chain ${chain}`, 'warning');
+            // On regarde uniquement les signings consécutifs manqués récents
+            let consecutiveMissed = 0;
+            const twoMinutesAgo = Date.now() - (1 * 60 * 1000); // 1 minute en millisecondes
+            // Parcourir les signings du plus récent au plus ancien
+            for (let i = 0; i < chainData.signingIds.length; i++) {
+                const signing = chainData.signingIds[i];
+                if (signing.result === 'unsubmit' && signing.timestamp) {
+                    const signingTime = new Date(signing.timestamp).getTime();
+                    if (signingTime < twoMinutesAgo) {
+                        consecutiveMissed++;
+                    }
+                }
+                else if (signing.result === 'signed') {
+                    break;
                 }
             }
-            else if (latestSigning.result === 'validated') {
-                // Reset the counter
-                this.ampdSigningsConsecutiveMissedByChain[chain] = 0;
+            console.log(`Chain ${chain}: ${consecutiveMissed} signings consécutifs manqués sur les ${chainData.signingIds.length} derniers signings`);
+            // Si le nombre de signings manqués consécutifs dépasse le seuil warning, envoyer une alerte warning
+            if (consecutiveMissed >= this.thresholds.consecutiveAmpdSigningsMissed) {
+                if (!this.ampdSigningsConsecutiveMissedByChain[chain]) {
+                    this.ampdSigningsConsecutiveMissedByChain[chain] = consecutiveMissed;
+                    console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdSigningsMissed}) exceeded, sending warning alert`);
+                    this.createAlert(AlertType.AMPD_SIGNING_MISSED, `⚠️ ALERT: ${consecutiveMissed} signings AMPD consécutifs manqués sur la chaîne ${chain}`, 'warning', chain);
+                }
+                else if (consecutiveMissed > this.ampdSigningsConsecutiveMissedByChain[chain]) {
+                    this.ampdSigningsConsecutiveMissedByChain[chain] = consecutiveMissed;
+                    console.log(`Chain ${chain}: Increased to ${consecutiveMissed} missed signings, sending critical alert`);
+                    this.createAlert(AlertType.AMPD_SIGNING_MISSED, `🚨 ALERT: ${consecutiveMissed} signings AMPD consécutifs manqués en augmentation sur la chaîne ${chain}`, 'critical', chain);
+                }
+            }
+            else if (this.ampdSigningsConsecutiveMissedByChain[chain]) {
+                const hasNewValidSigning = chainData.signingIds.some(signing => {
+                    if (signing.result === 'unsubmit' && signing.timestamp) {
+                        const signingTime = new Date(signing.timestamp).getTime();
+                        if (signingTime > twoMinutesAgo)
+                            return false;
+                    }
+                    return signing.result === 'signed' &&
+                        signing.timestamp &&
+                        new Date(signing.timestamp).getTime() > twoMinutesAgo;
+                });
+                if (hasNewValidSigning) {
+                    this.ampdSigningsConsecutiveMissedByChain[chain] = 0;
+                    console.log(`Chain ${chain}: Recovered from missed signings after receiving a valid signing`);
+                    this.createAlert(AlertType.AMPD_SIGNINGS_RECOVERED, `✅ Récupération: Plus de signings AMPD consécutifs manqués sur la chaîne ${chain} après réception d'un signing valide`, 'info', chain);
+                }
+                else {
+                    console.log(`Chain ${chain}: Still in alert state, waiting for a valid signing`);
+                }
             }
         });
     }
@@ -211,23 +451,147 @@ class AlertManager extends events_1.EventEmitter {
         return (heartbeatsSigned / totalHeartbeats) * 100;
     }
     /**
+     * Calculate EVM vote rate for a specific chain
+     */
+    calculateEvmVoteRate(chain) {
+        if (!this.metrics.evmVotes || !this.metrics.evmVotes[chain])
+            return 100;
+        const chainData = this.metrics.evmVotes[chain];
+        const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+        let validVotes = 0;
+        let totalVotes = 0;
+        chainData.pollIds.forEach(vote => {
+            if (vote.timestamp && vote.result !== 'unknown') {
+                const voteTime = new Date(vote.timestamp).getTime();
+                // On ne compte que les votes matures (plus de 5 minutes)
+                if (voteTime < fiveMinutesAgo) {
+                    totalVotes++;
+                    if (vote.result === 'Validated') {
+                        validVotes++;
+                    }
+                }
+            }
+        });
+        if (totalVotes === 0)
+            return 100;
+        return (validVotes / totalVotes) * 100;
+    }
+    /**
+     * Calculate AMPD vote rate for a specific chain
+     */
+    calculateAmpdVoteRate(chain) {
+        if (!this.metrics.ampdVotes || !this.metrics.ampdVotes[chain])
+            return 100;
+        const chainData = this.metrics.ampdVotes[chain];
+        const twoMinutesAgo = Date.now() - (2 * 60 * 1000);
+        let validVotes = 0;
+        let totalVotes = 0;
+        chainData.pollIds.forEach(vote => {
+            if (vote.timestamp && vote.result !== 'unknown') {
+                const voteTime = new Date(vote.timestamp).getTime();
+                // On ne compte que les votes matures (plus de 2 minutes)
+                if (voteTime < twoMinutesAgo) {
+                    totalVotes++;
+                    if (vote.result === 'succeeded_on_chain') {
+                        validVotes++;
+                    }
+                }
+            }
+        });
+        if (totalVotes === 0)
+            return 100;
+        return (validVotes / totalVotes) * 100;
+    }
+    /**
+     * Calculate AMPD signing rate for a specific chain
+     */
+    calculateAmpdSigningRate(chain) {
+        if (!this.metrics.ampdSignings || !this.metrics.ampdSignings[chain])
+            return 100;
+        const chainData = this.metrics.ampdSignings[chain];
+        const twoMinutesAgo = Date.now() - (2 * 60 * 1000);
+        let validSignings = 0;
+        let totalSignings = 0;
+        chainData.signingIds.forEach(signing => {
+            if (signing.timestamp && signing.result !== 'unknown') {
+                const signingTime = new Date(signing.timestamp).getTime();
+                // On ne compte que les signatures matures (plus de 2 minutes)
+                if (signingTime < twoMinutesAgo) {
+                    totalSignings++;
+                    if (signing.result === 'signed') {
+                        validSignings++;
+                    }
+                }
+            }
+        });
+        if (totalSignings === 0)
+            return 100;
+        return (validSignings / totalSignings) * 100;
+    }
+    /**
+     * Check metrics for rate-based alerts
+     */
+    checkRateAlerts() {
+        // Check EVM vote rates
+        if (this.metrics.evmVotesEnabled && this.metrics.evmVotes) {
+            Object.keys(this.metrics.evmVotes).forEach(chain => {
+                const rate = this.calculateEvmVoteRate(chain);
+                if (rate < this.thresholds.evmVoteRateThreshold) {
+                    this.createAlert(AlertType.EVM_VOTE_RATE_LOW, `⚠️ ALERT: Taux de votes EVM bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`, 'warning', chain);
+                }
+            });
+        }
+        // Check AMPD vote rates
+        if (this.metrics.ampdEnabled && this.metrics.ampdVotes) {
+            Object.keys(this.metrics.ampdVotes).forEach(chain => {
+                const rate = this.calculateAmpdVoteRate(chain);
+                if (rate < this.thresholds.ampdVoteRateThreshold) {
+                    this.createAlert(AlertType.AMPD_VOTE_RATE_LOW, `⚠️ ALERT: Taux de votes AMPD bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`, 'warning', chain);
+                }
+            });
+        }
+        // Check AMPD signing rates
+        if (this.metrics.ampdEnabled && this.metrics.ampdSignings) {
+            Object.keys(this.metrics.ampdSignings).forEach(chain => {
+                const rate = this.calculateAmpdSigningRate(chain);
+                if (rate < this.thresholds.ampdSigningRateThreshold) {
+                    this.createAlert(AlertType.AMPD_SIGNING_RATE_LOW, `⚠️ ALERT: Taux de signatures AMPD bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`, 'warning', chain);
+                }
+            });
+        }
+    }
+    /**
      * Check if we can send an alert (cooldown period elapsed)
      */
-    canSendAlert(type) {
+    canSendAlert(type, severity, chain) {
         const now = new Date();
-        const lastAlert = this.lastAlertTimestamps[type];
-        return (now.getTime() - lastAlert.getTime()) > this.cooldownPeriod;
+        const alertKey = chain ? `${type}_${chain}` : type;
+        const lastAlert = this.lastAlertTimestamps[alertKey];
+        const lastSeverity = this.lastAlertSeverities[alertKey];
+        // Pas de cooldown pour les alertes info (retour à la normale)
+        if (severity === 'info') {
+            return true;
+        }
+        // Si c'est la première alerte de ce type ou si la sévérité a changé
+        if (!lastAlert || lastSeverity !== severity) {
+            return true;
+        }
+        // Vérifier le cooldown en fonction de la sévérité
+        const cooldown = severity === 'critical' ? this.cooldownPeriod : this.cooldownPeriod * 2;
+        return (now.getTime() - lastAlert.getTime()) > cooldown;
     }
     /**
      * Create and send an alert
      */
-    createAlert(type, message, severity) {
+    createAlert(type, message, severity, chain) {
         // Check if we can send this alert type (cooldown)
-        if (!this.canSendAlert(type)) {
+        if (!this.canSendAlert(type, severity, chain)) {
             return;
         }
-        // Update last alert timestamp
-        this.lastAlertTimestamps[type] = new Date();
+        // Update last alert timestamp and severity
+        const alertKey = chain ? `${type}_${chain}` : type;
+        this.lastAlertTimestamps[alertKey] = new Date();
+        this.lastAlertSeverities[alertKey] = severity;
         // Create alert object
         const alert = {
             type,
@@ -271,6 +635,7 @@ class AlertManager extends events_1.EventEmitter {
      * Format alert message for notifications
      */
     formatAlertMessage(alert) {
+        var _a;
         const timestamp = alert.timestamp.toISOString();
         const metrics = alert.metrics;
         // Base message
@@ -303,38 +668,146 @@ class AlertManager extends events_1.EventEmitter {
                 message += `\nConnection Error:\n${metrics.lastError || 'Unknown error'}\n`;
                 message += `Last seen: ${metrics.lastBlockTime ? new Date(metrics.lastBlockTime).toISOString() : 'unknown'}\n`;
                 break;
+            case AlertType.NODE_RECONNECTED:
+                message += `\nNode reconnected after being offline\n`;
+                message += `- Current block height: ${metrics.lastBlock || 0}\n`;
+                message += `- Last block time: ${metrics.lastBlockTime ? new Date(metrics.lastBlockTime).toISOString() : 'unknown'}\n`;
+                break;
             case AlertType.EVM_VOTE_MISSED:
                 // Extract chain from message
-                const evmChainMatch = alert.message.match(/on chain (\w+)/);
+                const evmChainMatch = alert.message.match(/on chain ([^\s]+)/);
                 const evmChain = evmChainMatch ? evmChainMatch[1] : null;
                 if (evmChain && metrics.evmVotes && metrics.evmVotes[evmChain]) {
                     message += `\nEVM Vote Details (${evmChain}):\n`;
-                    const polls = metrics.evmVotes[evmChain].pollIds.slice(0, 5); // Last 5 polls
-                    polls.forEach((poll) => {
+                    const polls = metrics.evmVotes[evmChain].pollIds;
+                    // Afficher les polls récents pour contexte
+                    message += `\nRecent Polls (5):\n`;
+                    polls.slice(0, 5).forEach((poll) => {
+                        message += `- ${poll.pollId || 'Unknown'}: ${poll.result || 'Unknown'}\n`;
+                    });
+                    // Afficher un résumé des statuts
+                    let validCount = 0;
+                    let invalidCount = 0;
+                    polls.forEach(poll => {
+                        if (poll.result === 'Invalid') {
+                            invalidCount++;
+                        }
+                        else if (poll.result === 'Validated') {
+                            validCount++;
+                        }
+                    });
+                    message += `\nSummary:\n`;
+                    message += `- Total polls: ${polls.length}\n`;
+                    message += `- Valid polls: ${validCount}\n`;
+                    message += `- Invalid polls: ${invalidCount}\n`;
+                }
+                break;
+            case AlertType.EVM_VOTES_RECOVERED:
+                const evmRecoveredChainMatch = alert.message.match(/on chain ([^\s]+)/);
+                const evmRecoveredChain = evmRecoveredChainMatch ? evmRecoveredChainMatch[1] : null;
+                if (evmRecoveredChain && metrics.evmVotes && metrics.evmVotes[evmRecoveredChain]) {
+                    message += `\nEVM Votes have recovered on chain ${evmRecoveredChain}\n`;
+                    // Afficher les 5 polls les plus récents pour contexte
+                    message += `\nRecent Polls:\n`;
+                    const recentPolls = metrics.evmVotes[evmRecoveredChain].pollIds.slice(0, 5);
+                    recentPolls.forEach((poll) => {
                         message += `- Poll ${poll.pollId}: ${poll.result}\n`;
                     });
                 }
                 break;
             case AlertType.AMPD_VOTE_MISSED:
+                // Extract chain from message
+                const ampdVoteChainMatch = alert.message.match(/on chain ([^\s]+)/);
+                const ampdVoteChain = ampdVoteChainMatch ? ampdVoteChainMatch[1] : null;
+                if (ampdVoteChain && metrics.ampdVotes && metrics.ampdVotes[ampdVoteChain]) {
+                    message += `\nAMPD Vote Details (${ampdVoteChain}):\n`;
+                    const votes = metrics.ampdVotes[ampdVoteChain].pollIds;
+                    // Afficher les votes récents pour contexte
+                    message += `\nRecent Votes (5):\n`;
+                    votes.slice(0, 5).forEach((vote) => {
+                        message += `- ${vote.pollId || 'Unknown'}: ${vote.result || 'Unknown'}\n`;
+                    });
+                    // Afficher un résumé des statuts
+                    let validCount = 0;
+                    let invalidCount = 0;
+                    votes.forEach(vote => {
+                        if (vote.result === 'invalid') {
+                            invalidCount++;
+                        }
+                        else if (vote.result === 'validated') {
+                            validCount++;
+                        }
+                    });
+                    message += `\nSummary:\n`;
+                    message += `- Total votes: ${votes.length}\n`;
+                    message += `- Valid votes: ${validCount}\n`;
+                    message += `- Invalid votes: ${invalidCount}\n`;
+                }
+                break;
+            case AlertType.AMPD_VOTES_RECOVERED:
+                const ampdVotesRecoveredChainMatch = alert.message.match(/on chain ([^\s]+)/);
+                const ampdVotesRecoveredChain = ampdVotesRecoveredChainMatch ? ampdVotesRecoveredChainMatch[1] : null;
+                if (ampdVotesRecoveredChain && metrics.ampdVotes && metrics.ampdVotes[ampdVotesRecoveredChain]) {
+                    message += `\nAMPD Votes have recovered on chain ${ampdVotesRecoveredChain}\n`;
+                    // Afficher les 5 votes les plus récents pour contexte
+                    message += `\nRecent Votes:\n`;
+                    const recentVotes = metrics.ampdVotes[ampdVotesRecoveredChain].pollIds.slice(0, 5);
+                    recentVotes.forEach((vote) => {
+                        message += `- ${vote.pollId}: ${vote.result}\n`;
+                    });
+                }
+                break;
             case AlertType.AMPD_SIGNING_MISSED:
                 // Extract chain from message
-                const ampdChainMatch = alert.message.match(/on chain (\w+)/);
-                const ampdChain = ampdChainMatch ? ampdChainMatch[1] : null;
-                if (ampdChain && metrics.ampdVotes && metrics.ampdVotes[ampdChain]) {
-                    if (alert.type === AlertType.AMPD_VOTE_MISSED) {
-                        message += `\nAMPD Vote Details (${ampdChain}):\n`;
-                        const votes = metrics.ampdVotes[ampdChain].pollIds.slice(0, 5); // Last 5 votes
-                        votes.forEach((vote) => {
-                            message += `- ${vote.pollId}: ${vote.result}\n`;
+                const ampdSigningChainMatch = alert.message.match(/on chain ([^\s]+)/);
+                const ampdSigningChain = ampdSigningChainMatch ? ampdSigningChainMatch[1] : null;
+                if (ampdSigningChain && metrics.ampdSignings && metrics.ampdSignings[ampdSigningChain]) {
+                    message += `\nAMPD Signing Details (${ampdSigningChain}):\n`;
+                    const signings = metrics.ampdSignings[ampdSigningChain].signingIds;
+                    // Afficher les signings récents pour contexte
+                    message += `\nRecent Signings (5):\n`;
+                    signings.slice(0, 5).forEach((signing) => {
+                        message += `- ${signing.signingId || 'Unknown'}: ${signing.result || 'Unknown'}\n`;
+                    });
+                    // Afficher un résumé des statuts
+                    let validCount = 0;
+                    let unsubmitCount = 0;
+                    signings.forEach(signing => {
+                        if (signing.result === 'unsubmit') {
+                            unsubmitCount++;
+                        }
+                        else if (signing.result === 'validated') {
+                            validCount++;
+                        }
+                    });
+                    message += `\nSummary:\n`;
+                    message += `- Total signings: ${signings.length}\n`;
+                    message += `- Valid signings: ${validCount}\n`;
+                    message += `- Unsubmit signings: ${unsubmitCount}\n`;
+                }
+                break;
+            case AlertType.AMPD_SIGNINGS_RECOVERED:
+                const ampdSigningsRecoveredChainMatch = alert.message.match(/on chain ([^\s]+)/);
+                const ampdSigningsRecoveredChain = ampdSigningsRecoveredChainMatch ? ampdSigningsRecoveredChainMatch[1] : null;
+                if (ampdSigningsRecoveredChain) {
+                    message += `\nAMPD Signings have recovered on chain ${ampdSigningsRecoveredChain}\n`;
+                    // Rechercher la chaîne dans ampdSignings, en essayant d'abord le nom exact extrait
+                    const chainData = metrics.ampdSignings && (metrics.ampdSignings[ampdSigningsRecoveredChain] ||
+                        (
+                        // Si on ne trouve pas la chaîne exacte, on essaie les alternatives possibles
+                        (_a = Object.entries(metrics.ampdSignings).find(([key]) => key === ampdSigningsRecoveredChain ||
+                            ampdSigningsRecoveredChain.includes(key) ||
+                            key.includes(ampdSigningsRecoveredChain))) === null || _a === void 0 ? void 0 : _a[1]));
+                    if (chainData && chainData.signingIds) {
+                        // Afficher les 5 signings les plus récents pour contexte
+                        message += `\nRecent Signings:\n`;
+                        const recentSignings = chainData.signingIds.slice(0, 5);
+                        recentSignings.forEach((signing) => {
+                            message += `- Signing ID: ${signing.signingId || 'Unknown'}, Status: ${signing.result || 'Unknown'}\n`;
                         });
                     }
-                    else if (alert.type === AlertType.AMPD_SIGNING_MISSED &&
-                        metrics.ampdSignings && metrics.ampdSignings[ampdChain]) {
-                        message += `\nAMPD Signing Details (${ampdChain}):\n`;
-                        const signings = metrics.ampdSignings[ampdChain].signingIds.slice(0, 5); // Last 5 signings
-                        signings.forEach((signing) => {
-                            message += `- ${signing.signingId || 'Unknown'}: ${signing.result}\n`;
-                        });
+                    else {
+                        message += `No signing data found for this chain.\n`;
                     }
                 }
                 break;
@@ -395,7 +868,7 @@ class AlertManager extends events_1.EventEmitter {
     /**
      * Start periodic checks of metrics
      */
-    startPeriodicChecks(intervalMs = 60000) {
+    startPeriodicChecks(intervalMs = 5000) {
         setInterval(() => {
             this.checkMetrics();
         }, intervalMs);

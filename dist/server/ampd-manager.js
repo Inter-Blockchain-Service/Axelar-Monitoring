@@ -15,7 +15,7 @@ class AmpdManager extends events_1.EventEmitter {
         // Separate data structures for votes and signings
         this.voteData = {};
         this.signingData = {};
-        this.maxPollHistory = 35;
+        this.maxPollHistory = 100;
         this.ampdAddress = ampdAddress;
         this.axelarApiEndpoint = axelarApiEndpoint;
         this.supportedChains = supportedChains.map(chain => chain.toLowerCase());
@@ -29,7 +29,8 @@ class AmpdManager extends events_1.EventEmitter {
                 pollIds: Array(this.maxPollHistory).fill(null).map(() => ({
                     pollId: "unknown",
                     contractAddress: "unknown",
-                    result: "unknown"
+                    result: "unknown",
+                    timestamp: new Date().toISOString()
                 }))
             };
             // Initialize signing data
@@ -37,7 +38,8 @@ class AmpdManager extends events_1.EventEmitter {
                 signingIds: Array(this.maxPollHistory).fill(null).map(() => ({
                     signingId: "unknown",
                     contractAddress: "unknown",
-                    result: "unknown"
+                    result: "unknown",
+                    timestamp: new Date().toISOString()
                 }))
             };
         });
@@ -144,7 +146,8 @@ class AmpdManager extends events_1.EventEmitter {
             this.voteData[chainKey].pollIds.unshift({
                 pollId: cleanPollId,
                 contractAddress: contractAddress || 'unknown',
-                result: 'unsubmit'
+                result: 'unsubmit',
+                timestamp: new Date().toISOString()
             });
             // Maintain maximum size
             if (this.voteData[chainKey].pollIds.length > this.maxPollHistory) {
@@ -159,20 +162,23 @@ class AmpdManager extends events_1.EventEmitter {
      * Update chain data with a new signing session
      */
     updateSigningSession(destinationChain, sessionId, contractAddress) {
-        const chainKey = destinationChain ? destinationChain.toLowerCase() : null;
-        if (chainKey && this.signingData[chainKey]) {
-            this.signingData[chainKey].signingIds.unshift({
-                signingId: sessionId || 'unknown',
-                contractAddress: contractAddress || 'unknown',
-                result: 'unsubmit'
-            });
-            // Maintain maximum size
-            if (this.signingData[chainKey].signingIds.length > this.maxPollHistory) {
-                this.signingData[chainKey].signingIds.pop();
-            }
-        }
-        else {
-            console.warn(`Unable to determine chain for session ${sessionId} or unsupported chain: ${chainKey}`);
+        if (!destinationChain || !sessionId || !contractAddress)
+            return;
+        const chain = destinationChain.toLowerCase();
+        if (!this.supportedChains.includes(chain))
+            return;
+        // Update the signing session in the chain's data
+        const signingStatus = {
+            signingId: sessionId,
+            contractAddress: contractAddress,
+            result: 'unsubmit',
+            timestamp: new Date().toISOString()
+        };
+        // Add to the beginning of the array
+        this.signingData[chain].signingIds.unshift(signingStatus);
+        // Keep only the last maxPollHistory items
+        if (this.signingData[chain].signingIds.length > this.maxPollHistory) {
+            this.signingData[chain].signingIds = this.signingData[chain].signingIds.slice(0, this.maxPollHistory);
         }
     }
     /**

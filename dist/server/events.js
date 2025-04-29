@@ -69,8 +69,6 @@ const setupEventHandlers = (tendermintClient, metrics, onPermanentDisconnect) =>
                 chain: update.chain,
                 votes: tendermintClient.getAmpdChainVotes(update.chain)
             });
-            // Debug log
-            console.log(`Updated AMPD votes for ${update.chain}, pollId: ${update.pollId}`);
         }
     });
     // AMPD signature update handler
@@ -83,8 +81,6 @@ const setupEventHandlers = (tendermintClient, metrics, onPermanentDisconnect) =>
                 chain: update.chain,
                 signings: tendermintClient.getAmpdChainSignings(update.chain)
             });
-            // Debug log
-            console.log(`Updated AMPD signatures for ${update.chain}, signingId: ${update.signingId}`);
         }
     });
     // Permanent disconnect handler
@@ -99,6 +95,14 @@ const setupEventHandlers = (tendermintClient, metrics, onPermanentDisconnect) =>
             console.log("Node disconnected permanently. Attempting to reconnect...");
             await onPermanentDisconnect();
         }
+    });
+    // WebSocket disconnect handler
+    tendermintClient.on('disconnect', () => {
+        metrics.connected = false;
+        metrics.heartbeatConnected = false;
+        metrics.lastError = "WebSocket connection lost. Attempting to reconnect...";
+        metrics.heartbeatLastError = "WebSocket connection lost. Attempting to reconnect...";
+        (0, websockets_1.broadcastMetricsUpdate)(metrics);
     });
 };
 exports.setupEventHandlers = setupEventHandlers;
