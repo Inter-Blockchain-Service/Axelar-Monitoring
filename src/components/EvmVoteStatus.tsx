@@ -21,6 +21,8 @@ interface EvmVoteStatusProps {
 const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGlobalPollId, className = '' }) => {
   const [availableChains, setAvailableChains] = useState<string[]>([]);
   const [displayLimit] = useState(35); // Display maximum number of votes
+  const [selectedChain, setSelectedChain] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     if (evmVotes && Object.keys(evmVotes).length > 0) {
@@ -34,6 +36,16 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
       setAvailableChains(sortedChains);
     }
   }, [evmVotes]);
+
+  const handleChainClick = (chain: string) => {
+    setSelectedChain(chain);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedChain(null);
+  };
 
   if (!enabled) {
     return (
@@ -87,10 +99,10 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
       <div className="mb-3">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold text-gray-200">
-            EVM Votes Status
+            EVM Votes
           </h3>
           <div className="text-sm text-gray-500">
-            Last Global Poll ID: {lastGlobalPollId}
+            Last 35 votes are displayed (you can click on the chain to see last 200)
           </div>
         </div>
       </div>
@@ -102,15 +114,21 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
           return (
             <div key={chain} className="mb-2">
               <div className="flex items-start">
-                <div className="w-30 font-semibold text-white text-sm">
+                <div 
+                  className="w-30 font-semibold text-white text-sm cursor-pointer hover:text-blue-400"
+                  onClick={() => handleChainClick(chain)}
+                >
                   {chain.toUpperCase()}:
                 </div>
                 <div className="grid grid-cols-35 gap-1 flex-1">
                   {chainVotes.length > 0 ? (
                     chainVotes.slice(0, displayLimit).map((vote, index) => (
-                      <div 
-                        key={`${vote.pollId}-${index}`} 
-                        className={`w-4 h-4 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm`}
+                      <a
+                        href={`https://axelarscan.io/evm-poll/${vote.pollId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        key={`${vote.pollId}-${index}`}
+                        className={`w-4 h-4 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block`}
                         title={`Poll ID: ${vote.pollId} - ${getStatusTooltip(vote.result.toString())}`}
                       />
                     ))
@@ -125,6 +143,52 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
           );
         })}
       </div>
+
+      {showModal && selectedChain && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-[#333333] p-6 rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold text-white">
+                EVM History Votes - {selectedChain.toUpperCase()}
+              </h3>
+              <button
+                onClick={closeModal}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-20 gap-1">
+              {evmVotes[selectedChain]?.pollIds.map((vote, index) => (
+                <a
+                  href={`https://axelarscan.io/evm-poll/${vote.pollId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  key={`${vote.pollId}-${index}`}
+                  className={`w-6 h-6 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block`}
+                  title={`Poll ID: ${vote.pollId} - ${getStatusTooltip(vote.result.toString())}`}
+                />
+              ))}
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-700">
+              <div className="flex flex-wrap gap-4">
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-orange-500 rounded-sm"></div>
+                  <span className="text-xs">Unsubmitted</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-green-500 rounded-sm"></div>
+                  <span className="text-xs">Validated</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
+                  <span className="text-xs">Invalid</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-auto pt-4">
         <div className="flex flex-wrap gap-4">
