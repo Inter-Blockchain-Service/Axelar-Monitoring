@@ -51,7 +51,8 @@ const tendermintClient = new TendermintClient(
   HEARTBEAT_HISTORY_SIZE,
   axelarApiEndpoint,
   ampdSupportedChains,
-  ampdAddress
+  ampdAddress,
+  rpcEndpoint
 );
 
 // Check if EVM votes manager is enabled

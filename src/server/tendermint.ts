@@ -102,6 +102,7 @@ export class TendermintClient extends EventEmitter {
   private ampdManager: AmpdManager | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private reconnectDelay: number = 5000;
+  private rpcUrl: string;
   
   constructor(
     endpoint: string, 
@@ -110,7 +111,8 @@ export class TendermintClient extends EventEmitter {
     historySize: number = 700, 
     axelarApiEndpoint: string = '', 
     ampdSupportedChains: string[] = [],
-    ampdAddress: string = ''
+    ampdAddress: string = '',
+    rpcUrl: string = ''
   ) {
     super();
     this.endpoint = this.normalizeEndpoint(endpoint);
@@ -119,6 +121,7 @@ export class TendermintClient extends EventEmitter {
     this.ampdAddress = ampdAddress || this.broadcasterAddress;
     this.signatureManager = new ValidatorSignatureManager(validatorAddress);
     this.heartbeatManager = new HeartbeatManager(this.broadcasterAddress, historySize);
+    this.rpcUrl = rpcUrl || this.endpoint;
     
     if (axelarApiEndpoint) {
       this.evmVoteManager = new EvmVoteManager(this.broadcasterAddress, axelarApiEndpoint);
@@ -236,7 +239,7 @@ export class TendermintClient extends EventEmitter {
   
   private async checkNodeAvailability(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.endpoint}/status`);
+      const response = await fetch(`${this.rpcUrl}/status`);
       if (!response.ok) {
         return false;
       }
