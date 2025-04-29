@@ -666,7 +666,7 @@ export class AlertManager extends EventEmitter {
     let totalVotes = 0;
     
     chainData.pollIds.forEach(vote => {
-      if (vote.timestamp) {
+      if (vote.timestamp && vote.result !== 'unknown') {
         const voteTime = new Date(vote.timestamp).getTime();
         // On ne compte que les votes matures (plus de 5 minutes)
         if (voteTime < fiveMinutesAgo) {
@@ -695,7 +695,7 @@ export class AlertManager extends EventEmitter {
     let totalVotes = 0;
     
     chainData.pollIds.forEach(vote => {
-      if (vote.timestamp) {
+      if (vote.timestamp && vote.result !== 'unknown') {
         const voteTime = new Date(vote.timestamp).getTime();
         // On ne compte que les votes matures (plus de 2 minutes)
         if (voteTime < twoMinutesAgo) {
@@ -724,7 +724,7 @@ export class AlertManager extends EventEmitter {
     let totalSignings = 0;
     
     chainData.signingIds.forEach(signing => {
-      if (signing.timestamp) {
+      if (signing.timestamp && signing.result !== 'unknown') {
         const signingTime = new Date(signing.timestamp).getTime();
         // On ne compte que les signatures matures (plus de 2 minutes)
         if (signingTime < twoMinutesAgo) {
