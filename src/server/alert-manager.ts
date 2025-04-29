@@ -412,15 +412,18 @@ export class AlertManager extends EventEmitter {
           );
         }
       } else if (this.evmConsecutiveMissedByChain[chain]) {
-        // Vérifier si nous avons reçu un nouveau vote valide
-        const hasNewValidVote = chainData.pollIds.some(vote => 
-          vote.result === 'Validated' && 
-          vote.timestamp && 
-          new Date(vote.timestamp).getTime() > fiveMinutesAgo
-        );
+        // Vérifier si nous avons reçu un nouveau vote valide en ignorant les unsubmit non matures
+        const hasNewValidVote = chainData.pollIds.some(vote => {
+          if (vote.result === 'unsubmit' && vote.timestamp) {
+            const voteTime = new Date(vote.timestamp).getTime();
+            if (voteTime > fiveMinutesAgo) return false;
+          }
+          return vote.result === 'Validated' && 
+                 vote.timestamp && 
+                 new Date(vote.timestamp).getTime() > fiveMinutesAgo;
+        });
 
         if (hasNewValidVote) {
-          // On a reçu un nouveau vote valide, on peut considérer la récupération
           this.evmConsecutiveMissedByChain[chain] = 0;
           console.log(`Chain ${chain}: Recovered from missed votes after receiving a valid vote`);
           this.createAlert(
@@ -429,7 +432,6 @@ export class AlertManager extends EventEmitter {
             'info'
           );
         } else {
-          // On reste en alerte car il n'y a pas eu de nouveau vote valide
           console.log(`Chain ${chain}: Still in alert state, waiting for a valid vote`);
         }
       }
@@ -501,15 +503,18 @@ export class AlertManager extends EventEmitter {
           );
         }
       } else if (this.ampdVotesConsecutiveMissedByChain[chain]) {
-        // Vérifier si nous avons reçu un nouveau vote valide
-        const hasNewValidVote = chainData.pollIds.some(vote => 
-          vote.result === 'succeeded_on_chain' && 
-          vote.timestamp && 
-          new Date(vote.timestamp).getTime() > twoMinutesAgo
-        );
+        // Vérifier si nous avons reçu un nouveau vote valide en ignorant les unsubmit non matures
+        const hasNewValidVote = chainData.pollIds.some(vote => {
+          if (vote.result === 'unsubmit' && vote.timestamp) {
+            const voteTime = new Date(vote.timestamp).getTime();
+            if (voteTime > twoMinutesAgo) return false;
+          }
+          return vote.result === 'succeeded_on_chain' && 
+                 vote.timestamp && 
+                 new Date(vote.timestamp).getTime() > twoMinutesAgo;
+        });
 
         if (hasNewValidVote) {
-          // On a reçu un nouveau vote valide, on peut considérer la récupération
           this.ampdVotesConsecutiveMissedByChain[chain] = 0;
           console.log(`Chain ${chain}: Recovered from missed votes after receiving a valid vote`);
           this.createAlert(
@@ -518,7 +523,6 @@ export class AlertManager extends EventEmitter {
             'info'
           );
         } else {
-          // On reste en alerte car il n'y a pas eu de nouveau vote valide
           console.log(`Chain ${chain}: Still in alert state, waiting for a valid vote`);
         }
       }
@@ -587,15 +591,18 @@ export class AlertManager extends EventEmitter {
           );
         }
       } else if (this.ampdSigningsConsecutiveMissedByChain[chain]) {
-        // Vérifier si nous avons reçu un nouveau signing valide
-        const hasNewValidSigning = chainData.signingIds.some(signing => 
-          signing.result === 'signed' && 
-          signing.timestamp && 
-          new Date(signing.timestamp).getTime() > twoMinutesAgo
-        );
+        // Vérifier si nous avons reçu un nouveau signing valide en ignorant les unsubmit non matures
+        const hasNewValidSigning = chainData.signingIds.some(signing => {
+          if (signing.result === 'unsubmit' && signing.timestamp) {
+            const signingTime = new Date(signing.timestamp).getTime();
+            if (signingTime > twoMinutesAgo) return false;
+          }
+          return signing.result === 'signed' && 
+                 signing.timestamp && 
+                 new Date(signing.timestamp).getTime() > twoMinutesAgo;
+        });
 
         if (hasNewValidSigning) {
-          // On a reçu un nouveau signing valide, on peut considérer la récupération
           this.ampdSigningsConsecutiveMissedByChain[chain] = 0;
           console.log(`Chain ${chain}: Recovered from missed signings after receiving a valid signing`);
           this.createAlert(
@@ -604,7 +611,6 @@ export class AlertManager extends EventEmitter {
             'info'
           );
         } else {
-          // On reste en alerte car il n'y a pas eu de nouveau signing valide
           console.log(`Chain ${chain}: Still in alert state, waiting for a valid signing`);
         }
       }
