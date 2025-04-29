@@ -126,9 +126,9 @@ server.listen(Number(PORT), '0.0.0.0', async () => {
     console.log(`AMPD address used: ${tendermintClient.getAmpdAddress()}`);
   }
   
-  // Start periodic alert checks (every minute)
+  // Start periodic alert checks (every 5 seconds)
   alertManager.startPeriodicChecks(5000);
-  console.log('Alert system started with periodic checks every minute');
+  console.log('Alert system started with periodic checks every 5 seconds');
   
   // Connect to RPC node after checking its status
   await connectToNode(tendermintClient, metrics, rpcEndpoint);

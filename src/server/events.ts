@@ -138,4 +138,13 @@ export const setupEventHandlers = (
       await onPermanentDisconnect();
     }
   });
+
+  // WebSocket disconnect handler
+  tendermintClient.on('disconnect', () => {
+    metrics.connected = false;
+    metrics.heartbeatConnected = false;
+    metrics.lastError = "WebSocket connection lost. Attempting to reconnect...";
+    metrics.heartbeatLastError = "WebSocket connection lost. Attempting to reconnect...";
+    broadcastMetricsUpdate(metrics);
+  });
 }; 

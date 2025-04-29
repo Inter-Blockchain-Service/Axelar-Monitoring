@@ -155,6 +155,26 @@ export class AlertManager extends EventEmitter {
     const prevMetrics = { ...this.previousMetrics };
     this.previousMetrics = { ...this.metrics };
     
+    // Check if node is disconnected
+    if (prevMetrics.connected === true && this.metrics.connected === false) {
+      console.log('Node disconnected detected in checkMetrics');
+      this.createAlert(
+        AlertType.NODE_DISCONNECTED,
+        `🔴 CRITICAL ALERT: Node disconnected! Last error: ${this.metrics.lastError}`,
+        'critical'
+      );
+    }
+    
+    // Check if node is reconnected
+    if (prevMetrics.connected === false && this.metrics.connected === true) {
+      console.log('Node reconnected detected in checkMetrics');
+      this.createAlert(
+        AlertType.NODE_RECONNECTED,
+        `🟢 INFO: Node reconnected successfully!`,
+        'info'
+      );
+    }
+    
     // Vérifier les blocs manqués consécutifs en utilisant signStatus
     if (this.metrics.signStatus && this.metrics.signStatus.length > 0) {
       let consecutiveMissed = 0;
@@ -305,24 +325,6 @@ export class AlertManager extends EventEmitter {
       this.createAlert(
         AlertType.HEARTBEAT_RATE_LOW,
         `✅ Récupération: Taux de heartbeat normal (${heartbeatRate.toFixed(2)}%)`,
-        'info'
-      );
-    }
-    
-    // Check if node is disconnected
-    if (prevMetrics.connected === true && this.metrics.connected === false) {
-      this.createAlert(
-        AlertType.NODE_DISCONNECTED,
-        `🔴 CRITICAL ALERT: Node disconnected! Last error: ${this.metrics.lastError}`,
-        'critical'
-      );
-    }
-    
-    // Check if node is reconnected
-    if (prevMetrics.connected === false && this.metrics.connected === true) {
-      this.createAlert(
-        AlertType.NODE_RECONNECTED,
-        `🟢 INFO: Node reconnected successfully!`,
         'info'
       );
     }

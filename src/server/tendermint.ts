@@ -181,40 +181,45 @@ export class TendermintClient extends EventEmitter {
   public connect(): void {
     try {
       console.log(`Connecting to ${this.endpoint}`);
-      this.ws = new WebSocket(this.endpoint);
-      
-      this.ws.on('open', () => {
-        console.log(`WebSocket connected to ${this.endpoint}`);
-        this.connected = true;
-        this.reconnectAttempts = 0;
-        this.subscribeToEvents();
-      });
-      
-      this.ws.on('message', (data: Buffer) => {
-        try {
-          const reply = JSON.parse(data.toString()) as WsReply;
-          this.handleMessage(reply);
-        } catch (err) {
-          console.error('JSON parsing error:', err);
-        }
-      });
-      
-      this.ws.on('close', () => {
-        console.log('WebSocket disconnected');
-        this.connected = false;
-        this.attemptReconnect();
-      });
-      
-      this.ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
-        if (this.ws) {
-          this.ws.terminate();
-        }
-      });
+      this.setupWebSocket();
     } catch (error) {
       console.error('Connection error:', error);
       this.attemptReconnect();
     }
+  }
+  
+  private setupWebSocket(): void {
+    this.ws = new WebSocket(this.endpoint);
+    
+    this.ws.on('open', () => {
+      console.log('WebSocket connected');
+      this.connected = true;
+      this.emit('connect');
+      
+      // Subscribe to events
+      this.subscribeToEvents();
+    });
+    
+    this.ws.on('close', () => {
+      console.log('WebSocket disconnected');
+      this.connected = false;
+      this.emit('disconnect');
+    });
+    
+    this.ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
+      this.connected = false;
+      this.emit('disconnect');
+    });
+    
+    this.ws.on('message', (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        this.handleMessage(message);
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    });
   }
   
   private attemptReconnect(): void {
