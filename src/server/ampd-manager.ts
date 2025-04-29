@@ -55,7 +55,7 @@ export class AmpdManager extends EventEmitter {
     // Separate data structures for votes and signings
     private voteData: AmpdVoteData = {};
     private signingData: AmpdSigningData = {};
-    private maxPollHistory: number = 35;
+    private maxPollHistory: number = 100;
 
     constructor(axelarApiEndpoint: string, supportedChains: string[] = [], ampdAddress: string) {
         super();

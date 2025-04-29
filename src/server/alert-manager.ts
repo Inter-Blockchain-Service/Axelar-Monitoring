@@ -73,8 +73,8 @@ interface PollStatus {
 export class AlertManager extends EventEmitter {
   private metrics: ValidatorMetrics;
   private previousMetrics: Partial<ValidatorMetrics> = {};
-  private lastAlertTimestamps: Record<AlertType, Date> = {} as Record<AlertType, Date>;
-  private lastAlertSeverities: Record<AlertType, 'info' | 'warning' | 'critical'> = {} as Record<AlertType, 'info' | 'warning' | 'critical'>;
+  private lastAlertTimestamps: Record<string, Date> = {} as Record<string, Date>;
+  private lastAlertSeverities: Record<string, 'info' | 'warning' | 'critical'> = {} as Record<string, 'info' | 'warning' | 'critical'>;
   private thresholds: AlertThresholds;
   private notificationConfig: NotificationConfig;
   private cooldownPeriod: number = 5 * 60 * 1000; // 5 minutes in milliseconds by default
@@ -87,10 +87,6 @@ export class AlertManager extends EventEmitter {
   private isMissingHeartbeats: boolean = false;
   private lastAlertedConsecutiveHeartbeatsMissed: number = 0;
   
-  // État pour suivre les votes EVM manqués
-  private isMissingEvmVotes: boolean = false;
-  private lastAlertedEvmVotesMissed: number = 0;
-  
   // État pour suivre les taux bas
   private isLowSignRate: boolean = false;
   private isLowHeartbeatRate: boolean = false;
@@ -101,10 +97,6 @@ export class AlertManager extends EventEmitter {
   private evmConsecutiveMissedByChain: Record<string, number> = {};
   private ampdVotesConsecutiveMissedByChain: Record<string, number> = {};
   private ampdSigningsConsecutiveMissedByChain: Record<string, number> = {};
-  
-  // État pour suivre les votes AMPD manqués
-  private isMissingAmpdVotes: boolean = false;
-  private lastAlertedAmpdVotesMissed: number = 0;
   
   constructor(metrics: ValidatorMetrics) {
     super();
@@ -399,7 +391,8 @@ export class AlertManager extends EventEmitter {
           this.createAlert(
             AlertType.EVM_VOTE_MISSED,
             `⚠️ ALERT: ${consecutiveMissed} votes EVM consécutifs manqués sur la chaîne ${chain}`,
-            'warning'
+            'warning',
+            chain
           );
         } else if (consecutiveMissed > this.evmConsecutiveMissedByChain[chain]) {
           // Le nombre de votes manqués a augmenté
@@ -408,7 +401,8 @@ export class AlertManager extends EventEmitter {
           this.createAlert(
             AlertType.EVM_VOTE_MISSED,
             `🚨 ALERT: ${consecutiveMissed} votes EVM consécutifs manqués en augmentation sur la chaîne ${chain}`,
-            'critical'
+            'critical',
+            chain
           );
         }
       } else if (this.evmConsecutiveMissedByChain[chain]) {
@@ -429,7 +423,8 @@ export class AlertManager extends EventEmitter {
           this.createAlert(
             AlertType.EVM_VOTES_RECOVERED,
             `✅ Récupération: Plus de votes EVM consécutifs manqués sur la chaîne ${chain} après réception d'un vote valide`,
-            'info'
+            'info',
+            chain
           );
         } else {
           console.log(`Chain ${chain}: Still in alert state, waiting for a valid vote`);
@@ -490,7 +485,8 @@ export class AlertManager extends EventEmitter {
           this.createAlert(
             AlertType.AMPD_VOTE_MISSED,
             `⚠️ ALERT: ${consecutiveMissed} votes AMPD consécutifs manqués sur la chaîne ${chain}`,
-            'warning'
+            'warning',
+            chain
           );
         } else if (consecutiveMissed > this.ampdVotesConsecutiveMissedByChain[chain]) {
           // Le nombre de votes manqués a augmenté
@@ -499,7 +495,8 @@ export class AlertManager extends EventEmitter {
           this.createAlert(
             AlertType.AMPD_VOTE_MISSED,
             `🚨 ALERT: ${consecutiveMissed} votes AMPD consécutifs manqués en augmentation sur la chaîne ${chain}`,
-            'critical'
+            'critical',
+            chain
           );
         }
       } else if (this.ampdVotesConsecutiveMissedByChain[chain]) {
@@ -520,7 +517,8 @@ export class AlertManager extends EventEmitter {
           this.createAlert(
             AlertType.AMPD_VOTES_RECOVERED,
             `✅ Récupération: Plus de votes AMPD consécutifs manqués sur la chaîne ${chain} après réception d'un vote valide`,
-            'info'
+            'info',
+            chain
           );
         } else {
           console.log(`Chain ${chain}: Still in alert state, waiting for a valid vote`);
@@ -578,7 +576,8 @@ export class AlertManager extends EventEmitter {
           this.createAlert(
             AlertType.AMPD_SIGNING_MISSED,
             `⚠️ ALERT: ${consecutiveMissed} signings AMPD consécutifs manqués sur la chaîne ${chain}`,
-            'warning'
+            'warning',
+            chain
           );
         } else if (consecutiveMissed > this.ampdSigningsConsecutiveMissedByChain[chain]) {
           // Le nombre de signings manqués a augmenté
@@ -587,7 +586,8 @@ export class AlertManager extends EventEmitter {
           this.createAlert(
             AlertType.AMPD_SIGNING_MISSED,
             `🚨 ALERT: ${consecutiveMissed} signings AMPD consécutifs manqués en augmentation sur la chaîne ${chain}`,
-            'critical'
+            'critical',
+            chain
           );
         }
       } else if (this.ampdSigningsConsecutiveMissedByChain[chain]) {
@@ -608,7 +608,8 @@ export class AlertManager extends EventEmitter {
           this.createAlert(
             AlertType.AMPD_SIGNINGS_RECOVERED,
             `✅ Récupération: Plus de signings AMPD consécutifs manqués sur la chaîne ${chain} après réception d'un signing valide`,
-            'info'
+            'info',
+            chain
           );
         } else {
           console.log(`Chain ${chain}: Still in alert state, waiting for a valid signing`);
@@ -642,10 +643,11 @@ export class AlertManager extends EventEmitter {
   /**
    * Check if we can send an alert (cooldown period elapsed)
    */
-  private canSendAlert(type: AlertType, severity: 'info' | 'warning' | 'critical'): boolean {
+  private canSendAlert(type: AlertType, severity: 'info' | 'warning' | 'critical', chain?: string): boolean {
     const now = new Date();
-    const lastAlert = this.lastAlertTimestamps[type];
-    const lastSeverity = this.lastAlertSeverities[type];
+    const alertKey = chain ? `${type}_${chain}` : type;
+    const lastAlert = this.lastAlertTimestamps[alertKey];
+    const lastSeverity = this.lastAlertSeverities[alertKey];
 
     // Pas de cooldown pour les alertes info (retour à la normale)
     if (severity === 'info') {
@@ -665,15 +667,16 @@ export class AlertManager extends EventEmitter {
   /**
    * Create and send an alert
    */
-  private createAlert(type: AlertType, message: string, severity: 'info' | 'warning' | 'critical'): void {
+  private createAlert(type: AlertType, message: string, severity: 'info' | 'warning' | 'critical', chain?: string): void {
     // Check if we can send this alert type (cooldown)
-    if (!this.canSendAlert(type, severity)) {
+    if (!this.canSendAlert(type, severity, chain)) {
       return;
     }
     
     // Update last alert timestamp and severity
-    this.lastAlertTimestamps[type] = new Date();
-    this.lastAlertSeverities[type] = severity;
+    const alertKey = chain ? `${type}_${chain}` : type;
+    this.lastAlertTimestamps[alertKey] = new Date();
+    this.lastAlertSeverities[alertKey] = severity;
     
     // Create alert object
     const alert: Alert = {
@@ -682,7 +685,6 @@ export class AlertManager extends EventEmitter {
       timestamp: new Date(),
       metrics: {
         ...this.metrics,
-        // We intentionally exclude large arrays to keep alerts small
       },
       severity
     };

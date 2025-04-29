@@ -20,6 +20,7 @@ interface EvmVoteStatusProps {
 
 const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGlobalPollId, className = '' }) => {
   const [availableChains, setAvailableChains] = useState<string[]>([]);
+  const [displayLimit] = useState(35); // Display maximum number of votes
 
   useEffect(() => {
     if (evmVotes && Object.keys(evmVotes).length > 0) {
@@ -106,7 +107,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
                 </div>
                 <div className="grid grid-cols-35 gap-1 flex-1">
                   {chainVotes.length > 0 ? (
-                    chainVotes.map((vote, index) => (
+                    chainVotes.slice(0, displayLimit).map((vote, index) => (
                       <div 
                         key={`${vote.pollId}-${index}`} 
                         className={`w-4 h-4 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm`}
