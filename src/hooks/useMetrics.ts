@@ -28,6 +28,7 @@ export enum VoteStatusType {
 // Interface for an EVM poll
 export interface PollStatus {
   pollId: string;
+  contractAddress: string;
   result: string;
 }
 
