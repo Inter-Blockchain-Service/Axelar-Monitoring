@@ -1,21 +1,33 @@
 import React, { useEffect, useState } from 'react';
 import { SigningStatus } from '../server/ampd-manager';
 import { Socket } from 'socket.io-client';
-import { getAxelarscanUrl } from '../utils/urls';
 
 interface AmpdSigningProps {
   socket: Socket | null;
   chain?: string;
   className?: string;
+  chainId?: string;
 }
 
-const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = '' }) => {
+const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = '', chainId = '' }) => {
   const [signingData, setSigningData] = useState<Record<string, SigningStatus[]>>({});
   const [supportedChains, setSupportedChains] = useState<string[]>([]);
   const [displayLimit] = useState(35); // Display a maximum number of signatures
   const [isLoading, setIsLoading] = useState(true);
   const [selectedChain, setSelectedChain] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+
+  // Fonction pour obtenir l'URL en fonction du chainId
+  const getAxelarscanUrl = (): string => {
+    if (chainId === 'axelar-dojo-1') {
+      return 'https://axelarscan.io';
+    } else if (chainId === 'axelar-testnet-lisbon-3') {
+      return 'https://testnet.axelarscan.io';
+    } else {
+      // Par défaut, on retourne l'URL mainnet
+      return 'https://axelarscan.io';
+    }
+  };
 
   useEffect(() => {
     // Set up Socket.io event listeners

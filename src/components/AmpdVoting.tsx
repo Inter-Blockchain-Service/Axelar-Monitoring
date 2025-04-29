@@ -1,21 +1,33 @@
 import React, { useEffect, useState } from 'react';
 import { PollStatus } from '../server/ampd-manager';
 import { Socket } from 'socket.io-client';
-import { getAxelarscanUrl } from '../utils/urls';
 
 interface AmpdVotingProps {
   socket: Socket | null;
   chain?: string;
   className?: string;
+  chainId?: string;
 }
 
-const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '' }) => {
+const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', chainId = '' }) => {
   const [voteData, setVoteData] = useState<Record<string, PollStatus[]>>({});
   const [supportedChains, setSupportedChains] = useState<string[]>([]);
   const [displayLimit] = useState(35); // Display maximum number of votes
   const [isLoading, setIsLoading] = useState(true);
   const [selectedChain, setSelectedChain] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+
+  // Fonction pour obtenir l'URL en fonction du chainId
+  const getAxelarscanUrl = (): string => {
+    if (chainId === 'axelar-dojo-1') {
+      return 'https://axelarscan.io';
+    } else if (chainId === 'axelar-testnet-lisbon-3') {
+      return 'https://testnet.axelarscan.io';
+    } else {
+      // Par défaut, on retourne l'URL mainnet
+      return 'https://axelarscan.io';
+    }
+  };
 
   useEffect(() => {
     // Set up Socket.io event listeners

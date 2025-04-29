@@ -208,15 +208,16 @@ export default function Dashboard() {
                   enabled={metrics.evmVotesEnabled}
                   lastGlobalPollId={metrics.evmLastGlobalPollId}
                   className="h-full"
+                  chainId={metrics.chainId}
                 />
                 
                 {/* Right column: AMPD (Votes and Signatures stacked) */}
                 <div className="flex flex-col gap-4 h-full">
                   <div className="flex-1">
-                    <AmpdVoting socket={socket} className="h-full" />
+                    <AmpdVoting socket={socket} className="h-full" chainId={metrics.chainId} />
                   </div>
                   <div className="flex-1">
-                    <AmpdSigning socket={socket} className="h-full" />
+                    <AmpdSigning socket={socket} className="h-full" chainId={metrics.chainId} />
                   </div>
                 </div>
               </div>

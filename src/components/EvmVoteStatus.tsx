@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PollStatus } from '../server/ampd-manager';
-import { getAxelarscanUrl } from '../utils/urls';
+import { PollStatus } from '../hooks/useMetrics';
 
 interface ChainData {
   [chain: string]: {
@@ -13,13 +12,24 @@ interface EvmVoteStatusProps {
   enabled: boolean;
   lastGlobalPollId: number;
   className?: string;
+  chainId: string;
 }
 
-const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGlobalPollId, className = '' }) => {
+const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGlobalPollId, className = '', chainId }) => {
   const [availableChains, setAvailableChains] = useState<string[]>([]);
   const [displayLimit] = useState(35); // Display maximum number of votes
   const [selectedChain, setSelectedChain] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+
+  const getAxelarscanUrl = (): string => {
+    if (chainId === 'axelar-dojo-1') {
+      return 'https://axelarscan.io';
+    } else if (chainId === 'axelar-testnet-lisbon-3') {
+      return 'https://testnet.axelarscan.io';
+    } else {
+      return 'https://axelarscan.io';
+    }
+  };
 
   useEffect(() => {
     if (evmVotes && Object.keys(evmVotes).length > 0) {
