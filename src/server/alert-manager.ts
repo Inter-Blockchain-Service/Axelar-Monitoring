@@ -475,19 +475,18 @@ export class AlertManager extends EventEmitter {
       
       // Si le nombre total de votes manqués dépasse le seuil warning, envoyer une alerte warning
       if (totalMissed >= this.thresholds.consecutiveAmpdVotesMissed) {
-        if (!this.isMissingAmpdVotes) {
+        if (!this.ampdVotesConsecutiveMissedByChain[chain]) {
           // Premier dépassement du seuil
-          this.isMissingAmpdVotes = true;
-          this.lastAlertedAmpdVotesMissed = totalMissed;
+          this.ampdVotesConsecutiveMissedByChain[chain] = totalMissed;
           console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdVotesMissed}) exceeded, sending warning alert`);
           this.createAlert(
             AlertType.AMPD_VOTE_MISSED,
             `⚠️ ALERT: ${totalMissed} AMPD votes manqués sur la chaîne ${chain} (${invalidCount} invalid + ${unsubmitCount} unsubmit > 5min)`,
             'warning'
           );
-        } else if (totalMissed > this.lastAlertedAmpdVotesMissed) {
+        } else if (totalMissed > this.ampdVotesConsecutiveMissedByChain[chain]) {
           // Le nombre de votes manqués a augmenté
-          this.lastAlertedAmpdVotesMissed = totalMissed;
+          this.ampdVotesConsecutiveMissedByChain[chain] = totalMissed;
           console.log(`Chain ${chain}: Increased to ${totalMissed} missed votes, sending critical alert`);
           this.createAlert(
             AlertType.AMPD_VOTE_MISSED,
@@ -495,15 +494,27 @@ export class AlertManager extends EventEmitter {
             'critical'
           );
         }
-      } else if (this.isMissingAmpdVotes) {
-        // On est revenu en dessous du seuil
-        this.isMissingAmpdVotes = false;
-        console.log(`Chain ${chain}: Recovered from missed votes`);
-        this.createAlert(
-          AlertType.AMPD_VOTES_RECOVERED,
-          `✅ Récupération: Plus de votes AMPD manqués sur la chaîne ${chain}`,
-          'info'
+      } else if (this.ampdVotesConsecutiveMissedByChain[chain]) {
+        // Vérifier si nous avons reçu un nouveau vote valide
+        const hasNewValidVote = chainData.pollIds.some(vote => 
+          vote.result === 'signed' && 
+          vote.timestamp && 
+          new Date(vote.timestamp).getTime() > fiveMinutesAgo
         );
+
+        if (hasNewValidVote) {
+          // On a reçu un nouveau vote valide, on peut considérer la récupération
+          this.ampdVotesConsecutiveMissedByChain[chain] = 0;
+          console.log(`Chain ${chain}: Recovered from missed votes after receiving a valid vote`);
+          this.createAlert(
+            AlertType.AMPD_VOTES_RECOVERED,
+            `✅ Récupération: Plus de votes AMPD manqués sur la chaîne ${chain} après réception d'un vote valide`,
+            'info'
+          );
+        } else {
+          // On reste en alerte car il n'y a pas eu de nouveau vote valide
+          console.log(`Chain ${chain}: Still in alert state, waiting for a valid vote`);
+        }
       }
     });
   }
