@@ -357,73 +357,83 @@ export class AlertManager extends EventEmitter {
     
     // Loop through all EVM chains
     Object.entries(this.metrics.evmVotes).forEach(([chain, chainData]) => {
-      // If no votes or no pollIds, ignore
       if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0) return;
       
-      // On regarde tous les votes, pas seulement le plus récent
-      let invalidCount = 0;
-      let unsubmitCount = 0;
-      let invalidPollIds = [];
-      let unsubmitPollIds = [];
+      // On regarde uniquement les votes consécutifs manqués récents
+      let consecutiveMissed = 0;
+      let missedVoteIds = [];
       const fiveMinutesAgo = Date.now() - (5 * 60 * 1000); // 5 minutes en millisecondes
+      const maxVotesToCheck = 10; // Nombre maximum de votes à vérifier
       
-      // Comptons combien de votes sont invalides ou unsubmit depuis plus de 5 minutes
-      for (const poll of chainData.pollIds) {
-        if (poll.result === 'Invalid') {
-          invalidCount++;
-          invalidPollIds.push(poll.pollId || 'unknown');
-        } else if (poll.result === 'unsubmit' && poll.timestamp) {
-          const pollTime = new Date(poll.timestamp).getTime();
-          if (pollTime < fiveMinutesAgo) {
-            unsubmitCount++;
-            unsubmitPollIds.push(poll.pollId || 'unknown');
+      // Parcourir les votes du plus récent au plus ancien
+      for (let i = 0; i < Math.min(chainData.pollIds.length, maxVotesToCheck); i++) {
+        const vote = chainData.pollIds[i];
+        if (vote.result === 'Invalid') {
+          consecutiveMissed++;
+          missedVoteIds.push(vote.pollId || 'unknown');
+        } else if (vote.result === 'unsubmit' && vote.timestamp) {
+          const voteTime = new Date(vote.timestamp).getTime();
+          if (voteTime < fiveMinutesAgo) {
+            consecutiveMissed++;
+            missedVoteIds.push(vote.pollId || 'unknown');
+          } else {
+            // Le vote est unsubmit mais a moins de 5 minutes, on arrête de compter
+            break;
           }
+        } else if (vote.result === 'Validated') {
+          // On a trouvé un vote valide, on arrête de compter
+          break;
         }
       }
       
-      const totalMissed = invalidCount + unsubmitCount;
-      console.log(`Chain ${chain}: ${totalMissed}/${chainData.pollIds.length} missed votes (${invalidCount} invalid + ${unsubmitCount} unsubmit > 5min)`);
+      console.log(`Chain ${chain}: ${consecutiveMissed} votes consécutifs manqués sur les ${Math.min(chainData.pollIds.length, maxVotesToCheck)} derniers votes`);
       
-      if (totalMissed > 0) {
-        if (invalidCount > 0) {
-          console.log(`  Invalid poll IDs: ${invalidPollIds.slice(0, 5).join(', ')}${invalidPollIds.length > 5 ? '...' : ''}`);
-        }
-        if (unsubmitCount > 0) {
-          console.log(`  Unsubmit poll IDs: ${unsubmitPollIds.slice(0, 5).join(', ')}${unsubmitPollIds.length > 5 ? '...' : ''}`);
-        }
+      if (consecutiveMissed > 0) {
+        console.log(`  Missed vote IDs: ${missedVoteIds.slice(0, 5).join(', ')}${missedVoteIds.length > 5 ? '...' : ''}`);
       }
       
-      // Si le nombre total de votes manqués dépasse le seuil warning, envoyer une alerte warning
-      if (totalMissed >= this.thresholds.consecutiveEvmVotesMissed) {
-        if (!this.isMissingEvmVotes) {
+      // Si le nombre de votes manqués consécutifs dépasse le seuil warning, envoyer une alerte warning
+      if (consecutiveMissed >= this.thresholds.consecutiveEvmVotesMissed) {
+        if (!this.evmConsecutiveMissedByChain[chain]) {
           // Premier dépassement du seuil
-          this.isMissingEvmVotes = true;
-          this.lastAlertedEvmVotesMissed = totalMissed;
+          this.evmConsecutiveMissedByChain[chain] = consecutiveMissed;
           console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveEvmVotesMissed}) exceeded, sending warning alert`);
           this.createAlert(
             AlertType.EVM_VOTE_MISSED,
-            `⚠️ ALERT: ${totalMissed} EVM votes manqués sur la chaîne ${chain} (${invalidCount} invalid + ${unsubmitCount} unsubmit > 5min)`,
+            `⚠️ ALERT: ${consecutiveMissed} votes EVM consécutifs manqués sur la chaîne ${chain}`,
             'warning'
           );
-        } else if (totalMissed > this.lastAlertedEvmVotesMissed) {
+        } else if (consecutiveMissed > this.evmConsecutiveMissedByChain[chain]) {
           // Le nombre de votes manqués a augmenté
-          this.lastAlertedEvmVotesMissed = totalMissed;
-          console.log(`Chain ${chain}: Increased to ${totalMissed} missed votes, sending critical alert`);
+          this.evmConsecutiveMissedByChain[chain] = consecutiveMissed;
+          console.log(`Chain ${chain}: Increased to ${consecutiveMissed} missed votes, sending critical alert`);
           this.createAlert(
             AlertType.EVM_VOTE_MISSED,
-            `🚨 ALERT: ${totalMissed} EVM votes manqués en augmentation sur la chaîne ${chain} (${invalidCount} invalid + ${unsubmitCount} unsubmit > 5min)`,
+            `🚨 ALERT: ${consecutiveMissed} votes EVM consécutifs manqués en augmentation sur la chaîne ${chain}`,
             'critical'
           );
         }
-      } else if (this.isMissingEvmVotes) {
-        // On est revenu en dessous du seuil
-        this.isMissingEvmVotes = false;
-        console.log(`Chain ${chain}: Recovered from missed votes`);
-        this.createAlert(
-          AlertType.EVM_VOTES_RECOVERED,
-          `✅ Récupération: Plus de votes EVM manqués sur la chaîne ${chain}`,
-          'info'
+      } else if (this.evmConsecutiveMissedByChain[chain]) {
+        // Vérifier si nous avons reçu un nouveau vote valide
+        const hasNewValidVote = chainData.pollIds.some(vote => 
+          vote.result === 'Validated' && 
+          vote.timestamp && 
+          new Date(vote.timestamp).getTime() > fiveMinutesAgo
         );
+
+        if (hasNewValidVote) {
+          // On a reçu un nouveau vote valide, on peut considérer la récupération
+          this.evmConsecutiveMissedByChain[chain] = 0;
+          console.log(`Chain ${chain}: Recovered from missed votes after receiving a valid vote`);
+          this.createAlert(
+            AlertType.EVM_VOTES_RECOVERED,
+            `✅ Récupération: Plus de votes EVM consécutifs manqués sur la chaîne ${chain} après réception d'un vote valide`,
+            'info'
+          );
+        } else {
+          // On reste en alerte car il n'y a pas eu de nouveau vote valide
+          console.log(`Chain ${chain}: Still in alert state, waiting for a valid vote`);
+        }
       }
     });
   }
@@ -440,57 +450,57 @@ export class AlertManager extends EventEmitter {
     Object.entries(this.metrics.ampdVotes).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0) return;
       
-      // On regarde tous les votes, pas seulement le plus récent
-      let invalidCount = 0;
-      let unsubmitCount = 0;
-      let invalidVoteIds = [];
-      let unsubmitVoteIds = [];
-      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000); // 5 minutes en millisecondes
+      // On regarde uniquement les votes consécutifs manqués récents
+      let consecutiveMissed = 0;
+      let missedVoteIds = [];
+      const twoMinutesAgo = Date.now() - (2 * 60 * 1000); // 2 minutes en millisecondes
+      const maxVotesToCheck = 10; // Nombre maximum de votes à vérifier
       
-      // Comptons combien de votes sont invalides ou unsubmit depuis plus de 5 minutes
-      for (const vote of chainData.pollIds) {
+      // Parcourir les votes du plus récent au plus ancien
+      for (let i = 0; i < Math.min(chainData.pollIds.length, maxVotesToCheck); i++) {
+        const vote = chainData.pollIds[i];
         if (vote.result === 'not_found') {
-          invalidCount++;
-          invalidVoteIds.push(vote.pollId || 'unknown');
+          consecutiveMissed++;
+          missedVoteIds.push(vote.pollId || 'unknown');
         } else if (vote.result === 'unsubmit' && vote.timestamp) {
           const voteTime = new Date(vote.timestamp).getTime();
-          if (voteTime < fiveMinutesAgo) {
-            unsubmitCount++;
-            unsubmitVoteIds.push(vote.pollId || 'unknown');
+          if (voteTime < twoMinutesAgo) {
+            consecutiveMissed++;
+            missedVoteIds.push(vote.pollId || 'unknown');
+          } else {
+            // Le vote est unsubmit mais a moins de 2 minutes, on arrête de compter
+            break;
           }
+        } else if (vote.result === 'succeeded_on_chain') {
+          // On a trouvé un vote valide, on arrête de compter
+          break;
         }
       }
       
-      const totalMissed = invalidCount + unsubmitCount;
-      console.log(`Chain ${chain}: ${totalMissed}/${chainData.pollIds.length} missed votes (${invalidCount} invalid + ${unsubmitCount} unsubmit > 5min)`);
+      console.log(`Chain ${chain}: ${consecutiveMissed} votes consécutifs manqués sur les ${Math.min(chainData.pollIds.length, maxVotesToCheck)} derniers votes`);
       
-      if (totalMissed > 0) {
-        if (invalidCount > 0) {
-          console.log(`  Invalid vote IDs: ${invalidVoteIds.slice(0, 5).join(', ')}${invalidVoteIds.length > 5 ? '...' : ''}`);
-        }
-        if (unsubmitCount > 0) {
-          console.log(`  Unsubmit vote IDs: ${unsubmitVoteIds.slice(0, 5).join(', ')}${unsubmitVoteIds.length > 5 ? '...' : ''}`);
-        }
+      if (consecutiveMissed > 0) {
+        console.log(`  Missed vote IDs: ${missedVoteIds.slice(0, 5).join(', ')}${missedVoteIds.length > 5 ? '...' : ''}`);
       }
       
-      // Si le nombre total de votes manqués dépasse le seuil warning, envoyer une alerte warning
-      if (totalMissed >= this.thresholds.consecutiveAmpdVotesMissed) {
+      // Si le nombre de votes manqués consécutifs dépasse le seuil warning, envoyer une alerte warning
+      if (consecutiveMissed >= this.thresholds.consecutiveAmpdVotesMissed) {
         if (!this.ampdVotesConsecutiveMissedByChain[chain]) {
           // Premier dépassement du seuil
-          this.ampdVotesConsecutiveMissedByChain[chain] = totalMissed;
+          this.ampdVotesConsecutiveMissedByChain[chain] = consecutiveMissed;
           console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdVotesMissed}) exceeded, sending warning alert`);
           this.createAlert(
             AlertType.AMPD_VOTE_MISSED,
-            `⚠️ ALERT: ${totalMissed} AMPD votes manqués sur la chaîne ${chain} (${invalidCount} invalid + ${unsubmitCount} unsubmit > 5min)`,
+            `⚠️ ALERT: ${consecutiveMissed} votes AMPD consécutifs manqués sur la chaîne ${chain}`,
             'warning'
           );
-        } else if (totalMissed > this.ampdVotesConsecutiveMissedByChain[chain]) {
+        } else if (consecutiveMissed > this.ampdVotesConsecutiveMissedByChain[chain]) {
           // Le nombre de votes manqués a augmenté
-          this.ampdVotesConsecutiveMissedByChain[chain] = totalMissed;
-          console.log(`Chain ${chain}: Increased to ${totalMissed} missed votes, sending critical alert`);
+          this.ampdVotesConsecutiveMissedByChain[chain] = consecutiveMissed;
+          console.log(`Chain ${chain}: Increased to ${consecutiveMissed} missed votes, sending critical alert`);
           this.createAlert(
             AlertType.AMPD_VOTE_MISSED,
-            `🚨 ALERT: ${totalMissed} AMPD votes manqués en augmentation sur la chaîne ${chain} (${invalidCount} invalid + ${unsubmitCount} unsubmit > 5min)`,
+            `🚨 ALERT: ${consecutiveMissed} votes AMPD consécutifs manqués en augmentation sur la chaîne ${chain}`,
             'critical'
           );
         }
@@ -499,7 +509,7 @@ export class AlertManager extends EventEmitter {
         const hasNewValidVote = chainData.pollIds.some(vote => 
           vote.result === 'succeeded_on_chain' && 
           vote.timestamp && 
-          new Date(vote.timestamp).getTime() > fiveMinutesAgo
+          new Date(vote.timestamp).getTime() > twoMinutesAgo
         );
 
         if (hasNewValidVote) {
@@ -508,7 +518,7 @@ export class AlertManager extends EventEmitter {
           console.log(`Chain ${chain}: Recovered from missed votes after receiving a valid vote`);
           this.createAlert(
             AlertType.AMPD_VOTES_RECOVERED,
-            `✅ Récupération: Plus de votes AMPD manqués sur la chaîne ${chain} après réception d'un vote valide`,
+            `✅ Récupération: Plus de votes AMPD consécutifs manqués sur la chaîne ${chain} après réception d'un vote valide`,
             'info'
           );
         } else {
@@ -531,58 +541,78 @@ export class AlertManager extends EventEmitter {
     Object.entries(this.metrics.ampdSignings).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.signingIds || chainData.signingIds.length === 0) return;
       
-      // On regarde tous les signings, pas seulement le plus récent
-      let unsubmitCount = 0;
-      let unsubmitIds = [];
+      // On regarde uniquement les signings consécutifs manqués récents
+      let consecutiveMissed = 0;
+      let missedSigningIds = [];
       const twoMinutesAgo = Date.now() - (2 * 60 * 1000); // 2 minutes en millisecondes
+      const maxSigningsToCheck = 10; // Nombre maximum de signings à vérifier
       
-      // Comptons combien de signings sont manqués depuis plus de 2 minutes
-      for (const signing of chainData.signingIds) {
+      // Parcourir les signings du plus récent au plus ancien
+      for (let i = 0; i < Math.min(chainData.signingIds.length, maxSigningsToCheck); i++) {
+        const signing = chainData.signingIds[i];
         if (signing.result === 'unsubmit' && signing.timestamp) {
           const signingTime = new Date(signing.timestamp).getTime();
           if (signingTime < twoMinutesAgo) {
-            unsubmitCount++;
-            unsubmitIds.push(signing.signingId || 'unknown');
+            consecutiveMissed++;
+            missedSigningIds.push(signing.signingId || 'unknown');
+          } else {
+            // Le signing est unsubmit mais a moins de 2 minutes, on arrête de compter
+            break;
           }
+        } else if (signing.result === 'succeeded_on_chain') {
+          // On a trouvé un signing valide, on arrête de compter
+          break;
         }
       }
       
-      console.log(`Chain ${chain}: ${unsubmitCount}/${chainData.signingIds.length} unsubmit signings (plus de 2 minutes)`);
+      console.log(`Chain ${chain}: ${consecutiveMissed} signings consécutifs manqués sur les ${Math.min(chainData.signingIds.length, maxSigningsToCheck)} derniers signings`);
       
-      if (unsubmitCount > 0) {
-        console.log(`  Unsubmit signing IDs: ${unsubmitIds.slice(0, 5).join(', ')}${unsubmitIds.length > 5 ? '...' : ''}`);
+      if (consecutiveMissed > 0) {
+        console.log(`  Missed signing IDs: ${missedSigningIds.slice(0, 5).join(', ')}${missedSigningIds.length > 5 ? '...' : ''}`);
       }
       
-      // Si le nombre de signings manqués dépasse le seuil warning, envoyer une alerte warning
-      if (unsubmitCount >= this.thresholds.consecutiveAmpdSigningsMissed) {
+      // Si le nombre de signings manqués consécutifs dépasse le seuil warning, envoyer une alerte warning
+      if (consecutiveMissed >= this.thresholds.consecutiveAmpdSigningsMissed) {
         if (!this.ampdSigningsConsecutiveMissedByChain[chain]) {
           // Premier dépassement du seuil
-          this.ampdSigningsConsecutiveMissedByChain[chain] = unsubmitCount;
+          this.ampdSigningsConsecutiveMissedByChain[chain] = consecutiveMissed;
           console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdSigningsMissed}) exceeded, sending warning alert`);
           this.createAlert(
             AlertType.AMPD_SIGNING_MISSED,
-            `⚠️ ALERT: ${unsubmitCount} AMPD signings manqués depuis plus de 2 minutes sur la chaîne ${chain}`,
+            `⚠️ ALERT: ${consecutiveMissed} signings AMPD consécutifs manqués sur la chaîne ${chain}`,
             'warning'
           );
-        } else if (unsubmitCount > this.ampdSigningsConsecutiveMissedByChain[chain]) {
+        } else if (consecutiveMissed > this.ampdSigningsConsecutiveMissedByChain[chain]) {
           // Le nombre de signings manqués a augmenté
-          this.ampdSigningsConsecutiveMissedByChain[chain] = unsubmitCount;
-          console.log(`Chain ${chain}: Increased to ${unsubmitCount} missed signings, sending critical alert`);
+          this.ampdSigningsConsecutiveMissedByChain[chain] = consecutiveMissed;
+          console.log(`Chain ${chain}: Increased to ${consecutiveMissed} missed signings, sending critical alert`);
           this.createAlert(
             AlertType.AMPD_SIGNING_MISSED,
-            `🚨 ALERT: ${unsubmitCount} AMPD signings manqués en augmentation sur la chaîne ${chain}`,
+            `🚨 ALERT: ${consecutiveMissed} signings AMPD consécutifs manqués en augmentation sur la chaîne ${chain}`,
             'critical'
           );
         }
       } else if (this.ampdSigningsConsecutiveMissedByChain[chain]) {
-        // On est revenu en dessous du seuil
-        this.ampdSigningsConsecutiveMissedByChain[chain] = 0;
-        console.log(`Chain ${chain}: Recovered from missed signings`);
-        this.createAlert(
-          AlertType.AMPD_SIGNINGS_RECOVERED,
-          `✅ Récupération: Plus de signings AMPD manqués sur la chaîne ${chain}`,
-          'info'
+        // Vérifier si nous avons reçu un nouveau signing valide
+        const hasNewValidSigning = chainData.signingIds.some(signing => 
+          signing.result === 'succeeded_on_chain' && 
+          signing.timestamp && 
+          new Date(signing.timestamp).getTime() > twoMinutesAgo
         );
+
+        if (hasNewValidSigning) {
+          // On a reçu un nouveau signing valide, on peut considérer la récupération
+          this.ampdSigningsConsecutiveMissedByChain[chain] = 0;
+          console.log(`Chain ${chain}: Recovered from missed signings after receiving a valid signing`);
+          this.createAlert(
+            AlertType.AMPD_SIGNINGS_RECOVERED,
+            `✅ Récupération: Plus de signings AMPD consécutifs manqués sur la chaîne ${chain} après réception d'un signing valide`,
+            'info'
+          );
+        } else {
+          // On reste en alerte car il n'y a pas eu de nouveau signing valide
+          console.log(`Chain ${chain}: Still in alert state, waiting for a valid signing`);
+        }
       }
     });
   }
