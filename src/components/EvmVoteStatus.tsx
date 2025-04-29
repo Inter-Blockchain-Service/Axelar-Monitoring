@@ -121,7 +121,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
                   {chainVotes.length > 0 ? (
                     chainVotes.slice(0, displayLimit).map((vote, index) => (
                       <a
-                        href={`${getAxelarscanUrl(chain)}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
+                        href={`${getAxelarscanUrl()}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         key={`${vote.pollId}-${index}`}
@@ -158,7 +158,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGl
             <div className="grid grid-cols-20 gap-1">
               {evmVotes[selectedChain]?.pollIds.map((vote, index) => (
                 <a
-                  href={`${getAxelarscanUrl(selectedChain)}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
+                  href={`${getAxelarscanUrl()}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   key={`${vote.pollId}-${index}`}

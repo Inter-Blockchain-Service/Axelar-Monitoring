@@ -7,10 +7,9 @@ interface AmpdVotingProps {
   socket: Socket | null;
   chain?: string;
   className?: string;
-  chainId: string;
 }
 
-const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', chainId }) => {
+const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '' }) => {
   const [voteData, setVoteData] = useState<Record<string, PollStatus[]>>({});
   const [supportedChains, setSupportedChains] = useState<string[]>([]);
   const [displayLimit] = useState(35); // Display maximum number of votes
@@ -156,7 +155,7 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
                   {votesToDisplay.length > 0 ? (
                     votesToDisplay.map((vote, index) => (
                       <a
-                        href={`${getAxelarscanUrl(chainId)}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
+                        href={`${getAxelarscanUrl()}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         key={`${vote.pollId}-${index}`}
@@ -193,7 +192,7 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
             <div className="grid grid-cols-20 gap-1">
               {voteData[selectedChain]?.map((vote, index) => (
                 <a
-                  href={`${getAxelarscanUrl(chainId)}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
+                  href={`${getAxelarscanUrl()}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   key={`${vote.pollId}-${index}`}
