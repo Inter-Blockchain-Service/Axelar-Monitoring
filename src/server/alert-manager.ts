@@ -453,7 +453,7 @@ export class AlertManager extends EventEmitter {
       // On regarde uniquement les votes consécutifs manqués récents
       let consecutiveMissed = 0;
       let missedVoteIds = [];
-      const oneMinuteAgo = Date.now() - (1 * 60 * 1000); // 1 minute en millisecondes
+      const twoMinutesAgo = Date.now() - (1 * 60 * 1000); // 1 minute en millisecondes
       const maxVotesToCheck = 10; // Nombre maximum de votes à vérifier
       
       // Parcourir les votes du plus récent au plus ancien
@@ -544,7 +544,7 @@ export class AlertManager extends EventEmitter {
       // On regarde uniquement les signings consécutifs manqués récents
       let consecutiveMissed = 0;
       let missedSigningIds = [];
-      const oneMinuteAgo = Date.now() - (1 * 60 * 1000); // 1 minute en millisecondes
+      const twoMinutesAgo = Date.now() - (1 * 60 * 1000); // 1 minute en millisecondes
       const maxSigningsToCheck = 10; // Nombre maximum de signings à vérifier
       
       // Parcourir les signings du plus récent au plus ancien
