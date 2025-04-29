@@ -154,7 +154,7 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '' }
                   {votesToDisplay.length > 0 ? (
                     votesToDisplay.map((vote, index) => (
                       <a
-                        href={`https://axelarscan.io/amplifier-poll/${vote.pollId}`}
+                        href={`https://axelarscan.io/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         key={`${vote.pollId}-${index}`}
@@ -191,7 +191,7 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '' }
             <div className="grid grid-cols-20 gap-1">
               {voteData[selectedChain]?.map((vote, index) => (
                 <a
-                  href={`https://axelarscan.io/amplifier-poll/${vote.pollId}`}
+                  href={`https://axelarscan.io/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   key={`${vote.pollId}-${index}`}
