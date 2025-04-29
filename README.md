@@ -55,7 +55,7 @@ The `.env` file contains all the necessary configuration for the monitoring syst
 - `VALIDATOR_MONIKER`: Your validator's display name
 - `CHAIN_ID`: The Axelar chain ID (e.g., "axelar-dojo-1")
 
-### Node Configuration
+### RPC Node Configuration
 - `RPC_ENDPOINT`: Your Axelar node's RPC endpoint
 - `AXELAR_API_ENDPOINT`: API endpoint for EVM vote queries
 
