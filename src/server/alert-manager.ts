@@ -497,7 +497,7 @@ export class AlertManager extends EventEmitter {
       } else if (this.ampdVotesConsecutiveMissedByChain[chain]) {
         // Vérifier si nous avons reçu un nouveau vote valide
         const hasNewValidVote = chainData.pollIds.some(vote => 
-          vote.result === 'signed' && 
+          vote.result === 'succeeded_on_chain' && 
           vote.timestamp && 
           new Date(vote.timestamp).getTime() > fiveMinutesAgo
         );
