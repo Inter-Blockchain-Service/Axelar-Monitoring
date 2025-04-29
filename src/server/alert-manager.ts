@@ -376,10 +376,8 @@ export class AlertManager extends EventEmitter {
           if (voteTime < fiveMinutesAgo) {
             consecutiveMissed++;
             missedVoteIds.push(vote.pollId || 'unknown');
-          } else {
-            // Le vote est unsubmit mais a moins de 5 minutes, on arrête de compter
-            break;
           }
+          // On continue à chercher même si le vote est unsubmit de moins de 5 minutes
         } else if (vote.result === 'Validated') {
           // On a trouvé un vote valide, on arrête de compter
           break;
@@ -467,10 +465,8 @@ export class AlertManager extends EventEmitter {
           if (voteTime < twoMinutesAgo) {
             consecutiveMissed++;
             missedVoteIds.push(vote.pollId || 'unknown');
-          } else {
-            // Le vote est unsubmit mais a moins de 2 minutes, on arrête de compter
-            break;
           }
+          // On continue à chercher même si le vote est unsubmit de moins de 2 minutes
         } else if (vote.result === 'succeeded_on_chain') {
           // On a trouvé un vote valide, on arrête de compter
           break;
@@ -555,10 +551,8 @@ export class AlertManager extends EventEmitter {
           if (signingTime < twoMinutesAgo) {
             consecutiveMissed++;
             missedSigningIds.push(signing.signingId || 'unknown');
-          } else {
-            // Le signing est unsubmit mais a moins de 2 minutes, on arrête de compter
-            break;
           }
+          // On continue à chercher même si le signing est unsubmit de moins de 2 minutes
         } else if (signing.result === 'succeeded_on_chain') {
           // On a trouvé un signing valide, on arrête de compter
           break;
