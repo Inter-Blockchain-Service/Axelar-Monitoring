@@ -108,6 +108,10 @@ export class AlertManager extends EventEmitter {
   
   private isNoNewBlockAlerted: boolean = false;
   private lastBlockHeight: number = 0;
+  private lastReconnectAttempt: number = 0;
+  private readonly RECONNECT_COOLDOWN: number = 30 * 1000; // 30 secondes entre les tentatives de reconnexion
+  private readonly QUICK_RECONNECT_DELAY: number = 10 * 1000; // 10 secondes avant la première tentative de reconnexion
+  private readonly ALERT_DELAY: number = 2 * 60 * 1000; // 2 minutes avant l'alerte
   
   constructor(metrics: ValidatorMetrics, reconnectToNode?: () => Promise<void>) {
     super();
@@ -193,10 +197,21 @@ export class AlertManager extends EventEmitter {
     // Check for no new blocks
     if (this.metrics.lastBlock === this.lastBlockHeight) {
       const timeSinceLastBlock = Date.now() - this.metrics.lastBlockTime.getTime();
-      const alertDelayMinutes = parseInt(process.env.ALERT_NO_NEW_BLOCK_DELAY || '2', 10);
-      const alertDelayMs = alertDelayMinutes * 60 * 1000; // Convertir les minutes en millisecondes
       
-      if (timeSinceLastBlock > alertDelayMs) {
+      // Si pas de nouveau bloc depuis 10 secondes et pas de tentative de reconnexion récente
+      if (timeSinceLastBlock > this.QUICK_RECONNECT_DELAY && 
+          (Date.now() - this.lastReconnectAttempt) > this.RECONNECT_COOLDOWN) {
+        if (this.reconnectToNode) {
+          console.log('No new block detected for 10 seconds, attempting quick reconnect...');
+          this.lastReconnectAttempt = Date.now();
+          this.reconnectToNode().catch(err => {
+            console.error('Quick reconnect failed:', err);
+          });
+        }
+      }
+      
+      // Si toujours pas de nouveau bloc après 2 minutes
+      if (timeSinceLastBlock > this.ALERT_DELAY) {
         if (!this.isNoNewBlockAlerted) {
           this.isNoNewBlockAlerted = true;
           this.createAlert(
@@ -204,14 +219,6 @@ export class AlertManager extends EventEmitter {
             `⚠️ ALERT: No new block detected for ${Math.floor(timeSinceLastBlock / 1000 / 60)} minutes`,
             'warning'
           );
-          
-          // Tenter une reconnexion si la fonction est disponible
-          if (this.reconnectToNode) {
-            console.log('Attempting to reconnect due to no new blocks...');
-            this.reconnectToNode().catch(err => {
-              console.error('Failed to reconnect:', err);
-            });
-          }
         }
       }
     } else {
