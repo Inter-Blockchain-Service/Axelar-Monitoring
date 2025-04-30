@@ -79,7 +79,7 @@ export default function HeartBeatStatus({ statusList, className = '', lastPeriod
   });
   
   return (
-    <div className={`bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
+    <div className={`bg-[#292524] p-4 rounded-lg shadow-md ${className}`}>
       <div className="flex flex-col gap-2 mb-3">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold text-gray-200">

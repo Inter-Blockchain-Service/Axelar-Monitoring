@@ -138,7 +138,7 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
   };
 
   return (
-    <div className={`bg-[#333333] p-4 rounded-lg shadow-md flex flex-col h-full ${className}`}>
+    <div className={`bg-[#292524] p-4 rounded-lg shadow-md flex flex-col h-full ${className}`}>
       <div className="mb-3">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold text-gray-200">
@@ -195,7 +195,7 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
 
       {showModal && selectedChain && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-[#333333] p-6 rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+          <div className="bg-[#292524] p-6 rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-semibold text-white">
                 Amplifier History Signings - {selectedChain.toUpperCase()}
