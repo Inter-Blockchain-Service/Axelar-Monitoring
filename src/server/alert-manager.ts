@@ -421,14 +421,14 @@ export class AlertManager extends EventEmitter {
       // Parcourir les votes du plus récent au plus ancien
       for (let i = 0; i < chainData.pollIds.length; i++) {
         const vote = chainData.pollIds[i];
-        if (vote.result === 'Invalid') {
+        if (vote.result === 'invalid') {
           consecutiveMissed++;
-        } else if (vote.result === 'unsubmit' && vote.timestamp) {
+        } else if (vote.result === 'unsubmitted' && vote.timestamp) {
           const voteTime = new Date(vote.timestamp).getTime();
           if (voteTime < fiveMinutesAgo) {
             consecutiveMissed++;
           }
-        } else if (vote.result === 'Validated') {
+        } else if (vote.result === 'validated') {
           break;
         }
       }
