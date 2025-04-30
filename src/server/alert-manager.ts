@@ -80,6 +80,7 @@ export class AlertManager extends EventEmitter {
   private thresholds: AlertThresholds;
   private notificationConfig: NotificationConfig;
   private cooldownPeriod: number = 5 * 60 * 1000; // 5 minutes in milliseconds by default
+  private reconnectToNode: (() => Promise<void>) | null = null;
   
   // État pour suivre les blocs manqués
   private isMissingBlocks: boolean = false;
@@ -108,9 +109,10 @@ export class AlertManager extends EventEmitter {
   private isNoNewBlockAlerted: boolean = false;
   private lastBlockHeight: number = 0;
   
-  constructor(metrics: ValidatorMetrics) {
+  constructor(metrics: ValidatorMetrics, reconnectToNode?: () => Promise<void>) {
     super();
     this.metrics = metrics;
+    this.reconnectToNode = reconnectToNode || null;
     
     // Load configuration from environment variables
     this.thresholds = {
@@ -202,6 +204,14 @@ export class AlertManager extends EventEmitter {
             `⚠️ ALERT: No new block detected for ${Math.floor(timeSinceLastBlock / 1000 / 60)} minutes`,
             'warning'
           );
+          
+          // Tenter une reconnexion si la fonction est disponible
+          if (this.reconnectToNode) {
+            console.log('Attempting to reconnect due to no new blocks...');
+            this.reconnectToNode().catch(err => {
+              console.error('Failed to reconnect:', err);
+            });
+          }
         }
       }
     } else {

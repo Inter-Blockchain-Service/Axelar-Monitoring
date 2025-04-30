@@ -77,11 +77,11 @@ if (metrics.ampdEnabled) {
   metrics.ampdSupportedChains = tendermintClient.getAmpdSupportedChains() || [];
 }
 
-// Initialize alert manager
-const alertManager = new AlertManager(metrics);
-
 // Create reconnection function
 const reconnectToNode = createReconnectionHandler(tendermintClient, metrics, rpcEndpoint);
+
+// Initialize alert manager
+const alertManager = new AlertManager(metrics, reconnectToNode);
 
 // Configure WebSockets
 setupWebSockets(server, metrics, tendermintClient, rpcEndpoint, validatorAddress, broadcasterAddress);
@@ -128,7 +128,7 @@ server.listen(Number(PORT), '0.0.0.0', async () => {
   }
   
   // Start periodic alert checks (every 5 seconds)
-  alertManager.startPeriodicChecks(5000);
+  alertManager.startPeriodicChecks(10000);
   console.log('Alert system started with periodic checks every 5 seconds');
   
   // Connect to RPC node after checking its status
