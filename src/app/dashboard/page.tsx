@@ -62,12 +62,15 @@ export default function Dashboard() {
       <header className="mb-8">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-foreground">
-            Validator Monitoring {metrics.moniker}
+            Axelar Monitoring  
           </h1>
           <ConnectionStatus isConnected={isConnected} />
         </div>
         <p className="text-foreground/70">
-          Real-time validator monitoring via WebSocket
+          Validator : {metrics.moniker}
+        </p>
+        <p className="text-foreground/70">
+          Chain ID: {metrics.chainId}
         </p>
       </header>
 
