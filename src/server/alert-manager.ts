@@ -462,7 +462,7 @@ export class AlertManager extends EventEmitter {
             const voteTime = new Date(vote.timestamp).getTime();
             if (voteTime > fiveMinutesAgo) return false;
           }
-          return vote.result === 'Validated' && 
+          return vote.result === 'validated' && 
                  vote.timestamp && 
                  new Date(vote.timestamp).getTime() > fiveMinutesAgo;
         });
@@ -683,7 +683,7 @@ export class AlertManager extends EventEmitter {
         // On ne compte que les votes matures (plus de 5 minutes)
         if (voteTime < fiveMinutesAgo) {
           totalVotes++;
-          if (vote.result === 'Validated') {
+          if (vote.result === 'validated') {
             validVotes++;
           }
         }
@@ -1045,9 +1045,9 @@ export class AlertManager extends EventEmitter {
           let invalidCount = 0;
           
           polls.forEach(poll => {
-            if (poll.result === 'Invalid') {
+            if (poll.result === 'invalid') {
               invalidCount++;
-            } else if (poll.result === 'Validated') {
+            } else if (poll.result === 'validated') {
               validCount++;
             }
           });
