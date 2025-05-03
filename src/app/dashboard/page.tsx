@@ -70,7 +70,7 @@ export default function Dashboard() {
           Validator : {metrics.moniker}
         </p>
         <p className="text-foreground/70">
-          Chain ID: {metrics.chainId}
+          Chain ID : {metrics.chainId}
         </p>
       </header>
 
