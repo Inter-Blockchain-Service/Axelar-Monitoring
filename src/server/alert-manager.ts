@@ -1096,9 +1096,9 @@ export class AlertManager extends EventEmitter {
           let invalidCount = 0;
           
           votes.forEach(vote => {
-            if (vote.result === 'invalid') {
+            if (vote.result === 'not_found') {
               invalidCount++;
-            } else if (vote.result === 'validated') {
+            } else if (vote.result === 'succeeded_on_chain') {
               validCount++;
             }
           });
@@ -1149,7 +1149,7 @@ export class AlertManager extends EventEmitter {
           signings.forEach(signing => {
             if (signing.result === 'unsubmit') {
               unsubmitCount++;
-            } else if (signing.result === 'validated') {
+            } else if (signing.result === 'signed') {
               validCount++;
             }
           });
