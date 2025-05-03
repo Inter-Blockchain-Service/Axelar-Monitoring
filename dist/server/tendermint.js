@@ -108,8 +108,16 @@ class TendermintClient extends events_1.EventEmitter {
                 this.connected = true;
                 this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
                 this.emit('connect');
-                // Subscribe to events
-                this.subscribeToEvents();
+                // Attendre un court délai avant de souscrire aux événements
+                setTimeout(() => {
+                    if (this.ws && this.ws.readyState === ws_1.default.OPEN) {
+                        this.subscribeToEvents();
+                    }
+                    else {
+                        console.warn('WebSocket not ready for subscription, will retry...');
+                        this.attemptReconnect();
+                    }
+                }, 1000);
             });
             this.ws.on('close', () => {
                 console.log('WebSocket disconnected');
@@ -195,32 +203,41 @@ class TendermintClient extends events_1.EventEmitter {
         }, this.reconnectDelay);
     }
     subscribeToEvents() {
-        if (!this.ws || !this.connected)
+        if (!this.ws || this.ws.readyState !== ws_1.default.OPEN) {
+            console.warn('Cannot subscribe to events: WebSocket not ready');
             return;
-        // Subscribe to new blocks
-        const subscribeNewBlock = {
-            jsonrpc: "2.0",
-            method: "subscribe",
-            id: 1,
-            params: { query: QUERY_NEW_BLOCK }
-        };
-        // Subscribe to votes
-        const subscribeVotes = {
-            jsonrpc: "2.0",
-            method: "subscribe",
-            id: 2,
-            params: { query: QUERY_VOTE }
-        };
-        // Subscribe to transactions (for heartbeats)
-        const subscribeTx = {
-            jsonrpc: "2.0",
-            method: "subscribe",
-            id: 3,
-            params: { query: QUERY_TX }
-        };
-        this.ws.send(JSON.stringify(subscribeNewBlock));
-        this.ws.send(JSON.stringify(subscribeVotes));
-        this.ws.send(JSON.stringify(subscribeTx));
+        }
+        try {
+            // Subscribe to new blocks
+            const subscribeNewBlock = {
+                jsonrpc: "2.0",
+                method: "subscribe",
+                id: 1,
+                params: { query: QUERY_NEW_BLOCK }
+            };
+            // Subscribe to votes
+            const subscribeVotes = {
+                jsonrpc: "2.0",
+                method: "subscribe",
+                id: 2,
+                params: { query: QUERY_VOTE }
+            };
+            // Subscribe to transactions (for heartbeats)
+            const subscribeTx = {
+                jsonrpc: "2.0",
+                method: "subscribe",
+                id: 3,
+                params: { query: QUERY_TX }
+            };
+            this.ws.send(JSON.stringify(subscribeNewBlock));
+            this.ws.send(JSON.stringify(subscribeVotes));
+            this.ws.send(JSON.stringify(subscribeTx));
+            console.log('Successfully subscribed to all events');
+        }
+        catch (error) {
+            console.error('Error subscribing to events:', error);
+            this.attemptReconnect();
+        }
     }
     handleMessage(reply) {
         if (!reply.result || !reply.result.data) {

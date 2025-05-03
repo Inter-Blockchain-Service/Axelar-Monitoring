@@ -23,6 +23,7 @@ var AlertType;
     AlertType["AMPD_VOTE_MISSED"] = "ampd_vote_missed";
     AlertType["AMPD_SIGNING_MISSED"] = "ampd_signing_missed";
     AlertType["NODE_SYNC_ISSUE"] = "node_sync_issue";
+    AlertType["NO_NEW_BLOCK"] = "no_new_block";
     // Nouveaux types d'alertes pour les retours à la normale
     AlertType["EVM_VOTES_RECOVERED"] = "evm_votes_recovered";
     AlertType["AMPD_VOTES_RECOVERED"] = "ampd_votes_recovered";
@@ -33,12 +34,13 @@ var AlertType;
     AlertType["AMPD_SIGNING_RATE_LOW"] = "ampd_signing_rate_low";
 })(AlertType || (exports.AlertType = AlertType = {}));
 class AlertManager extends events_1.EventEmitter {
-    constructor(metrics) {
+    constructor(metrics, reconnectToNode) {
         super();
         this.previousMetrics = {};
         this.lastAlertTimestamps = {};
         this.lastAlertSeverities = {};
         this.cooldownPeriod = 5 * 60 * 1000; // 5 minutes in milliseconds by default
+        this.reconnectToNode = null;
         // État pour suivre les blocs manqués
         this.isMissingBlocks = false;
         this.lastAlertedConsecutiveMissed = 0;
@@ -50,11 +52,22 @@ class AlertManager extends events_1.EventEmitter {
         this.isLowHeartbeatRate = false;
         this.lastAlertedSignRate = 0;
         this.lastAlertedHeartbeatRate = 0;
+        // État pour suivre les taux bas des votes et signatures
+        this.evmVoteRateByChain = {};
+        this.ampdVoteRateByChain = {};
+        this.ampdSigningRateByChain = {};
         // Counters for consecutive missed votes and signatures
         this.evmConsecutiveMissedByChain = {};
         this.ampdVotesConsecutiveMissedByChain = {};
         this.ampdSigningsConsecutiveMissedByChain = {};
+        this.isNoNewBlockAlerted = false;
+        this.lastBlockHeight = 0;
+        this.lastReconnectAttempt = 0;
+        this.RECONNECT_COOLDOWN = 30 * 1000; // 30 secondes entre les tentatives de reconnexion
+        this.QUICK_RECONNECT_DELAY = 10 * 1000; // 10 secondes avant la première tentative de reconnexion
+        this.ALERT_DELAY = 2 * 60 * 1000; // 2 minutes avant l'alerte
         this.metrics = metrics;
+        this.reconnectToNode = reconnectToNode || null;
         // Load configuration from environment variables
         this.thresholds = {
             consecutiveBlocksMissed: parseInt(process.env.ALERT_CONSECUTIVE_BLOCKS_THRESHOLD || '3', 10),
@@ -113,6 +126,35 @@ class AlertManager extends events_1.EventEmitter {
         if (prevMetrics.connected === false && this.metrics.connected === true) {
             console.log('Node reconnected detected in checkMetrics');
             this.createAlert(AlertType.NODE_RECONNECTED, `🟢 INFO: Node reconnected successfully!`, 'info');
+        }
+        // Check for no new blocks
+        if (this.metrics.lastBlock === this.lastBlockHeight) {
+            const timeSinceLastBlock = Date.now() - this.metrics.lastBlockTime.getTime();
+            // Si pas de nouveau bloc depuis 10 secondes et pas de tentative de reconnexion récente
+            if (timeSinceLastBlock > this.QUICK_RECONNECT_DELAY &&
+                (Date.now() - this.lastReconnectAttempt) > this.RECONNECT_COOLDOWN) {
+                if (this.reconnectToNode) {
+                    console.log('No new block detected for 10 seconds, attempting quick reconnect...');
+                    this.lastReconnectAttempt = Date.now();
+                    this.reconnectToNode().catch(err => {
+                        console.error('Quick reconnect failed:', err);
+                    });
+                }
+            }
+            // Si toujours pas de nouveau bloc après 2 minutes
+            if (timeSinceLastBlock > this.ALERT_DELAY) {
+                if (!this.isNoNewBlockAlerted) {
+                    this.isNoNewBlockAlerted = true;
+                    this.createAlert(AlertType.NO_NEW_BLOCK, `⚠️ ALERT: No new block detected for ${Math.floor(timeSinceLastBlock / 1000 / 60)} minutes`, 'warning');
+                }
+            }
+        }
+        else {
+            this.lastBlockHeight = this.metrics.lastBlock;
+            if (this.isNoNewBlockAlerted) {
+                this.isNoNewBlockAlerted = false;
+                this.createAlert(AlertType.NO_NEW_BLOCK, `✅ Récupération: New blocks are being received again`, 'info');
+            }
         }
         // Vérifier les blocs manqués consécutifs en utilisant signStatus
         if (this.metrics.signStatus && this.metrics.signStatus.length > 0) {
@@ -250,16 +292,16 @@ class AlertManager extends events_1.EventEmitter {
             // Parcourir les votes du plus récent au plus ancien
             for (let i = 0; i < chainData.pollIds.length; i++) {
                 const vote = chainData.pollIds[i];
-                if (vote.result === 'Invalid') {
+                if (vote.result === 'invalid') {
                     consecutiveMissed++;
                 }
-                else if (vote.result === 'unsubmit' && vote.timestamp) {
+                else if (vote.result === 'unsubmitted' && vote.timestamp) {
                     const voteTime = new Date(vote.timestamp).getTime();
                     if (voteTime < fiveMinutesAgo) {
                         consecutiveMissed++;
                     }
                 }
-                else if (vote.result === 'Validated') {
+                else if (vote.result === 'validated') {
                     break;
                 }
             }
@@ -284,7 +326,7 @@ class AlertManager extends events_1.EventEmitter {
                         if (voteTime > fiveMinutesAgo)
                             return false;
                     }
-                    return vote.result === 'Validated' &&
+                    return vote.result === 'validated' &&
                         vote.timestamp &&
                         new Date(vote.timestamp).getTime() > fiveMinutesAgo;
                 });
@@ -466,7 +508,7 @@ class AlertManager extends events_1.EventEmitter {
                 // On ne compte que les votes matures (plus de 5 minutes)
                 if (voteTime < fiveMinutesAgo) {
                     totalVotes++;
-                    if (vote.result === 'Validated') {
+                    if (vote.result === 'validated') {
                         validVotes++;
                     }
                 }
@@ -536,8 +578,27 @@ class AlertManager extends events_1.EventEmitter {
         if (this.metrics.evmVotesEnabled && this.metrics.evmVotes) {
             Object.keys(this.metrics.evmVotes).forEach(chain => {
                 const rate = this.calculateEvmVoteRate(chain);
+                // Initialiser l'état si nécessaire
+                if (!this.evmVoteRateByChain[chain]) {
+                    this.evmVoteRateByChain[chain] = { isLow: false, lastRate: rate };
+                }
                 if (rate < this.thresholds.evmVoteRateThreshold) {
-                    this.createAlert(AlertType.EVM_VOTE_RATE_LOW, `⚠️ ALERT: Taux de votes EVM bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`, 'warning', chain);
+                    if (!this.evmVoteRateByChain[chain].isLow) {
+                        // Premier dépassement du seuil
+                        this.evmVoteRateByChain[chain].isLow = true;
+                        this.evmVoteRateByChain[chain].lastRate = rate;
+                        this.createAlert(AlertType.EVM_VOTE_RATE_LOW, `⚠️ ALERT: Taux de votes EVM bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`, 'warning', chain);
+                    }
+                    else if (rate < this.evmVoteRateByChain[chain].lastRate) {
+                        // Le taux a baissé
+                        this.evmVoteRateByChain[chain].lastRate = rate;
+                        this.createAlert(AlertType.EVM_VOTE_RATE_LOW, `🚨 ALERT: Taux de votes EVM en baisse (${rate.toFixed(2)}%) sur la chaîne ${chain}`, 'critical', chain);
+                    }
+                }
+                else if (this.evmVoteRateByChain[chain].isLow) {
+                    // On est revenu au-dessus du seuil
+                    this.evmVoteRateByChain[chain].isLow = false;
+                    this.createAlert(AlertType.EVM_VOTE_RATE_LOW, `✅ Récupération: Taux de votes EVM normal (${rate.toFixed(2)}%) sur la chaîne ${chain}`, 'info', chain);
                 }
             });
         }
@@ -545,8 +606,27 @@ class AlertManager extends events_1.EventEmitter {
         if (this.metrics.ampdEnabled && this.metrics.ampdVotes) {
             Object.keys(this.metrics.ampdVotes).forEach(chain => {
                 const rate = this.calculateAmpdVoteRate(chain);
+                // Initialiser l'état si nécessaire
+                if (!this.ampdVoteRateByChain[chain]) {
+                    this.ampdVoteRateByChain[chain] = { isLow: false, lastRate: rate };
+                }
                 if (rate < this.thresholds.ampdVoteRateThreshold) {
-                    this.createAlert(AlertType.AMPD_VOTE_RATE_LOW, `⚠️ ALERT: Taux de votes AMPD bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`, 'warning', chain);
+                    if (!this.ampdVoteRateByChain[chain].isLow) {
+                        // Premier dépassement du seuil
+                        this.ampdVoteRateByChain[chain].isLow = true;
+                        this.ampdVoteRateByChain[chain].lastRate = rate;
+                        this.createAlert(AlertType.AMPD_VOTE_RATE_LOW, `⚠️ ALERT: Taux de votes AMPD bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`, 'warning', chain);
+                    }
+                    else if (rate < this.ampdVoteRateByChain[chain].lastRate) {
+                        // Le taux a baissé
+                        this.ampdVoteRateByChain[chain].lastRate = rate;
+                        this.createAlert(AlertType.AMPD_VOTE_RATE_LOW, `🚨 ALERT: Taux de votes AMPD en baisse (${rate.toFixed(2)}%) sur la chaîne ${chain}`, 'critical', chain);
+                    }
+                }
+                else if (this.ampdVoteRateByChain[chain].isLow) {
+                    // On est revenu au-dessus du seuil
+                    this.ampdVoteRateByChain[chain].isLow = false;
+                    this.createAlert(AlertType.AMPD_VOTE_RATE_LOW, `✅ Récupération: Taux de votes AMPD normal (${rate.toFixed(2)}%) sur la chaîne ${chain}`, 'info', chain);
                 }
             });
         }
@@ -554,8 +634,27 @@ class AlertManager extends events_1.EventEmitter {
         if (this.metrics.ampdEnabled && this.metrics.ampdSignings) {
             Object.keys(this.metrics.ampdSignings).forEach(chain => {
                 const rate = this.calculateAmpdSigningRate(chain);
+                // Initialiser l'état si nécessaire
+                if (!this.ampdSigningRateByChain[chain]) {
+                    this.ampdSigningRateByChain[chain] = { isLow: false, lastRate: rate };
+                }
                 if (rate < this.thresholds.ampdSigningRateThreshold) {
-                    this.createAlert(AlertType.AMPD_SIGNING_RATE_LOW, `⚠️ ALERT: Taux de signatures AMPD bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`, 'warning', chain);
+                    if (!this.ampdSigningRateByChain[chain].isLow) {
+                        // Premier dépassement du seuil
+                        this.ampdSigningRateByChain[chain].isLow = true;
+                        this.ampdSigningRateByChain[chain].lastRate = rate;
+                        this.createAlert(AlertType.AMPD_SIGNING_RATE_LOW, `⚠️ ALERT: Taux de signatures AMPD bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`, 'warning', chain);
+                    }
+                    else if (rate < this.ampdSigningRateByChain[chain].lastRate) {
+                        // Le taux a baissé
+                        this.ampdSigningRateByChain[chain].lastRate = rate;
+                        this.createAlert(AlertType.AMPD_SIGNING_RATE_LOW, `🚨 ALERT: Taux de signatures AMPD en baisse (${rate.toFixed(2)}%) sur la chaîne ${chain}`, 'critical', chain);
+                    }
+                }
+                else if (this.ampdSigningRateByChain[chain].isLow) {
+                    // On est revenu au-dessus du seuil
+                    this.ampdSigningRateByChain[chain].isLow = false;
+                    this.createAlert(AlertType.AMPD_SIGNING_RATE_LOW, `✅ Récupération: Taux de signatures AMPD normal (${rate.toFixed(2)}%) sur la chaîne ${chain}`, 'info', chain);
                 }
             });
         }
@@ -689,10 +788,10 @@ class AlertManager extends events_1.EventEmitter {
                     let validCount = 0;
                     let invalidCount = 0;
                     polls.forEach(poll => {
-                        if (poll.result === 'Invalid') {
+                        if (poll.result === 'invalid') {
                             invalidCount++;
                         }
-                        else if (poll.result === 'Validated') {
+                        else if (poll.result === 'validated') {
                             validCount++;
                         }
                     });
@@ -731,10 +830,10 @@ class AlertManager extends events_1.EventEmitter {
                     let validCount = 0;
                     let invalidCount = 0;
                     votes.forEach(vote => {
-                        if (vote.result === 'invalid') {
+                        if (vote.result === 'not_found') {
                             invalidCount++;
                         }
-                        else if (vote.result === 'validated') {
+                        else if (vote.result === 'succeeded_on_chain') {
                             validCount++;
                         }
                     });
@@ -776,7 +875,7 @@ class AlertManager extends events_1.EventEmitter {
                         if (signing.result === 'unsubmit') {
                             unsubmitCount++;
                         }
-                        else if (signing.result === 'validated') {
+                        else if (signing.result === 'signed') {
                             validCount++;
                         }
                     });

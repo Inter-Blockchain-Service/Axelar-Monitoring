@@ -15,7 +15,7 @@ class AmpdManager extends events_1.EventEmitter {
         // Separate data structures for votes and signings
         this.voteData = {};
         this.signingData = {};
-        this.maxPollHistory = 100;
+        this.maxPollHistory = 200;
         this.ampdAddress = ampdAddress;
         this.axelarApiEndpoint = axelarApiEndpoint;
         this.supportedChains = supportedChains.map(chain => chain.toLowerCase());

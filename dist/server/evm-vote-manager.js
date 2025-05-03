@@ -25,7 +25,7 @@ const SUPPORTED_CHAINS = process.env.EVM_SUPPORTED_CHAINS
         'blast'
     ]; // Default values if not defined in .env
 // Maximum number of poll_ids to store per chain
-const MAX_POLL_HISTORY = 100;
+const MAX_POLL_HISTORY = 200;
 // Vote status type
 var VoteStatusType;
 (function (VoteStatusType) {

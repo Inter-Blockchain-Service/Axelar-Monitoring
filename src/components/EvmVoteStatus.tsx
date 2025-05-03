@@ -10,12 +10,11 @@ interface ChainData {
 interface EvmVoteStatusProps {
   evmVotes: ChainData;
   enabled: boolean;
-  lastGlobalPollId: number;
   className?: string;
   chainId: string;
 }
 
-const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, lastGlobalPollId, className = '', chainId }) => {
+const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, className = '', chainId }) => {
   const [availableChains, setAvailableChains] = useState<string[]>([]);
   const [displayLimit] = useState(35); // Display maximum number of votes
   const [selectedChain, setSelectedChain] = useState<string | null>(null);

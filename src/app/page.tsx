@@ -1,9 +1,16 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Home() {
   return (
     <div className="grid grid-rows-[20px_1fr_20px] justify-items-center min-h-screen p-2 pt-0 pb-20 gap-8 sm:p-4 font-[family-name:var(--font-geist-sans)]">
-      <img src="/IBS-logo-horiz-blanc-24-ssfond-medium.png" alt="Logo Inter Blockchain Services" className="w-auto h-26 mb-2 mx-auto" />
+      <Image 
+        src="/IBS-logo-horiz-blanc-24-ssfond-medium.png" 
+        alt="Logo Inter Blockchain Services" 
+        width={300}
+        height={100}
+        className="w-auto h-26 mb-2 mx-auto" 
+      />
       <main className="flex flex-col gap-6 row-start-2 items-center justify-center w-full max-w-4xl mx-auto mt-0">
         <div className="flex flex-col items-center gap-4 w-full">
           <h1 className="text-3xl font-bold text-center">Axelar Monitoring</h1>

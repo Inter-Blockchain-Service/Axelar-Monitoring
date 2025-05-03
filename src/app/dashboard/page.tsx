@@ -209,7 +209,6 @@ export default function Dashboard() {
                 <EvmVoteStatus 
                   evmVotes={metrics.evmVotes}
                   enabled={metrics.evmVotesEnabled}
-                  lastGlobalPollId={metrics.evmLastGlobalPollId}
                   className="h-full"
                   chainId={metrics.chainId}
                 />
