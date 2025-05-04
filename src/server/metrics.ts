@@ -21,7 +21,7 @@ export interface ValidatorMetrics {
   lastError: string;
   // Heartbeat metrics
   heartbeatStatus: number[];
-  heartbeatBlocks: (number | undefined)[]; // Modified to accept undefined
+  heartbeatBlocks: (number | undefined)[]; 
   heartbeatsMissed: number;
   heartbeatsSigned: number;
   heartbeatsConsecutiveMissed: number;
@@ -42,15 +42,15 @@ export interface ValidatorMetrics {
 
 // Create initial metrics with default values
 export const createInitialMetrics = (
-  chainId: string = 'axelar',
-  moniker: string = 'My Validator'
+  chainId: string,
+  moniker: string
 ): ValidatorMetrics => {
   return {
     chainId,
     moniker,
     lastBlock: 0,
     lastBlockTime: new Date(),
-    signStatus: Array(BLOCKS_HISTORY_SIZE).fill(-1), // History for the complete signature period
+    signStatus: Array(BLOCKS_HISTORY_SIZE).fill(-1), 
     totalMissed: 0,
     totalSigned: 0,
     totalProposed: 0,

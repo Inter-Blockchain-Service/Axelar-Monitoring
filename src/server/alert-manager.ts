@@ -6,27 +6,23 @@ import { HeartbeatStatusType } from '../hooks/useMetrics';
 
 // Alert types
 export enum AlertType {
-  BLOCK_SIGNATURE_MISSED = 'block_signature_missed',
-  CONSECUTIVE_BLOCKS_MISSED = 'consecutive_blocks_missed',
-  HEARTBEAT_MISSED = 'heartbeat_missed',
-  CONSECUTIVE_HEARTBEATS_MISSED = 'consecutive_heartbeats_missed',
-  NODE_DISCONNECTED = 'node_disconnected',
-  NODE_RECONNECTED = 'node_reconnected',
-  SIGN_RATE_LOW = 'sign_rate_low',
-  HEARTBEAT_RATE_LOW = 'heartbeat_rate_low',
-  EVM_VOTE_MISSED = 'evm_vote_missed',
-  AMPD_VOTE_MISSED = 'ampd_vote_missed',
-  AMPD_SIGNING_MISSED = 'ampd_signing_missed',
   NODE_SYNC_ISSUE = 'node_sync_issue',
   NO_NEW_BLOCK = 'no_new_block',
-  // Nouveaux types d'alertes pour les retours à la normale
-  EVM_VOTES_RECOVERED = 'evm_votes_recovered',
-  AMPD_VOTES_RECOVERED = 'ampd_votes_recovered',
-  AMPD_SIGNINGS_RECOVERED = 'ampd_signings_recovered',
-  // Nouveaux types d'alertes pour les taux bas
+  NODE_DISCONNECTED = 'node_disconnected',
+  NODE_RECONNECTED = 'node_reconnected',
+  CONSECUTIVE_BLOCKS_MISSED = 'consecutive_blocks_missed',
+  SIGN_RATE_LOW = 'sign_rate_low',
+  CONSECUTIVE_HEARTBEATS_MISSED = 'consecutive_heartbeats_missed',
+  HEARTBEAT_RATE_LOW = 'heartbeat_rate_low',
+  EVM_VOTE_MISSED = 'evm_vote_missed',
   EVM_VOTE_RATE_LOW = 'evm_vote_rate_low',
+  EVM_VOTES_RECOVERED = 'evm_votes_recovered',
+  AMPD_VOTE_MISSED = 'ampd_vote_missed',
   AMPD_VOTE_RATE_LOW = 'ampd_vote_rate_low',
-  AMPD_SIGNING_RATE_LOW = 'ampd_signing_rate_low'
+  AMPD_VOTES_RECOVERED = 'ampd_votes_recovered',
+  AMPD_SIGNING_MISSED = 'ampd_signing_missed',
+  AMPD_SIGNING_RATE_LOW = 'ampd_signing_rate_low',
+  AMPD_SIGNINGS_RECOVERED = 'ampd_signings_recovered',
 }
 
 // Interface for AMPD signings
@@ -53,7 +49,6 @@ interface AlertThresholds {
   consecutiveEvmVotesMissed: number;
   consecutiveAmpdVotesMissed: number;
   consecutiveAmpdSigningsMissed: number;
-  // Nouveaux seuils pour les taux
   evmVoteRateThreshold: number;
   ampdVoteRateThreshold: number;
   ampdSigningRateThreshold: number;
@@ -82,21 +77,21 @@ export class AlertManager extends EventEmitter {
   private cooldownPeriod: number = 5 * 60 * 1000; // 5 minutes in milliseconds by default
   private reconnectToNode: (() => Promise<void>) | null = null;
   
-  // État pour suivre les blocs manqués
+  // State to track missed blocks
   private isMissingBlocks: boolean = false;
   private lastAlertedConsecutiveMissed: number = 0;
   
-  // État pour suivre les heartbeats manqués
+  // State to track missed heartbeats
   private isMissingHeartbeats: boolean = false;
   private lastAlertedConsecutiveHeartbeatsMissed: number = 0;
   
-  // État pour suivre les taux bas
+  // State to track low rates
   private isLowSignRate: boolean = false;
   private isLowHeartbeatRate: boolean = false;
   private lastAlertedSignRate: number = 0;
   private lastAlertedHeartbeatRate: number = 0;
   
-  // État pour suivre les taux bas des votes et signatures
+  // State to track low vote and signing rates
   private evmVoteRateByChain: Record<string, { isLow: boolean; lastRate: number }> = {};
   private ampdVoteRateByChain: Record<string, { isLow: boolean; lastRate: number }> = {};
   private ampdSigningRateByChain: Record<string, { isLow: boolean; lastRate: number }> = {};
@@ -109,9 +104,9 @@ export class AlertManager extends EventEmitter {
   private isNoNewBlockAlerted: boolean = false;
   private lastBlockHeight: number = 0;
   private lastReconnectAttempt: number = 0;
-  private readonly RECONNECT_COOLDOWN: number = 30 * 1000; // 30 secondes entre les tentatives de reconnexion
-  private readonly QUICK_RECONNECT_DELAY: number = 10 * 1000; // 10 secondes avant la première tentative de reconnexion
-  private readonly ALERT_DELAY: number = 2 * 60 * 1000; // 2 minutes avant l'alerte
+  private readonly RECONNECT_COOLDOWN: number = 30 * 1000; // 30 seconds between reconnection attempts
+  private readonly QUICK_RECONNECT_DELAY: number = 10 * 1000; // 10 seconds before first reconnection attempt
+  private readonly ALERT_DELAY: number = 2 * 60 * 1000; // 2 minutes before alert
   
   constructor(metrics: ValidatorMetrics, reconnectToNode?: () => Promise<void>) {
     super();
@@ -198,7 +193,7 @@ export class AlertManager extends EventEmitter {
     if (this.metrics.lastBlock === this.lastBlockHeight) {
       const timeSinceLastBlock = Date.now() - this.metrics.lastBlockTime.getTime();
       
-      // Si pas de nouveau bloc depuis 10 secondes et pas de tentative de reconnexion récente
+      // If no new block for 10 seconds and no recent reconnection attempt
       if (timeSinceLastBlock > this.QUICK_RECONNECT_DELAY && 
           (Date.now() - this.lastReconnectAttempt) > this.RECONNECT_COOLDOWN) {
         if (this.reconnectToNode) {
@@ -210,7 +205,7 @@ export class AlertManager extends EventEmitter {
         }
       }
       
-      // Si toujours pas de nouveau bloc après 2 minutes
+      // If still no new block after 2 minutes
       if (timeSinceLastBlock > this.ALERT_DELAY) {
         if (!this.isNoNewBlockAlerted) {
           this.isNoNewBlockAlerted = true;
@@ -233,37 +228,37 @@ export class AlertManager extends EventEmitter {
       }
     }
     
-    // Vérifier les blocs manqués consécutifs en utilisant signStatus
+    // Check consecutive missed blocks using signStatus
     if (this.metrics.signStatus && this.metrics.signStatus.length > 0) {
       let consecutiveMissed = 0;
       
-      // On ne regarde que les premiers blocs jusqu'à ce qu'on trouve un bloc signé
+      // We only look at the first blocks until we find a signed block
       for (const status of this.metrics.signStatus) {
         if (status === StatusType.Missed) {
           consecutiveMissed++;
         } else {
-          // Dès qu'on trouve un bloc signé, on arrête de compter
+          // As soon as we find a signed block, we stop counting
           break;
         }
       }
       
-      // Vérifier si on dépasse le seuil
+      // Check if we exceed the threshold
       if (consecutiveMissed >= this.thresholds.consecutiveBlocksMissed) {
         if (!this.isMissingBlocks) {
-          // Premier dépassement du seuil
+          // First threshold exceedance
           this.isMissingBlocks = true;
           this.lastAlertedConsecutiveMissed = consecutiveMissed;
           this.createAlert(
             AlertType.CONSECUTIVE_BLOCKS_MISSED,
-            `⚠️ ALERT: ${consecutiveMissed} blocs manqués`,
+            `⚠️ ALERT: ${consecutiveMissed} blocks missed`,
             'warning'
           );
         } else if (consecutiveMissed > this.lastAlertedConsecutiveMissed) {
-          // Le nombre de blocs manqués a augmenté
+          // The number of missed blocks has increased
           this.lastAlertedConsecutiveMissed = consecutiveMissed;
           this.createAlert(
             AlertType.CONSECUTIVE_BLOCKS_MISSED,
-            `🚨 ALERT: ${consecutiveMissed} blocs manqués en augmentation`,
+            `🚨 ALERT: ${consecutiveMissed} blocks missed in increase`,
             'critical'
           );
         }
@@ -272,43 +267,43 @@ export class AlertManager extends EventEmitter {
         this.isMissingBlocks = false;
         this.createAlert(
           AlertType.CONSECUTIVE_BLOCKS_MISSED,
-          `✅ Récupération: Plus de blocs manqués`,
+          `✅ Récupération: No more blocks missed`,
           'info'
         );
       }
     }
     
-    // Vérifier les heartbeats manqués consécutifs en utilisant heartbeatStatus
+    // Check consecutive missed heartbeats using heartbeatStatus
     if (this.metrics.heartbeatStatus && this.metrics.heartbeatStatus.length > 0) {
       let consecutiveHeartbeatsMissed = 0;
       
-      // On ne regarde que les premiers heartbeats jusqu'à ce qu'on trouve un heartbeat signé
+      // We only look at the first heartbeats until we find a signed heartbeat
       for (const status of this.metrics.heartbeatStatus) {
         if (status === HeartbeatStatusType.Missed) {
           consecutiveHeartbeatsMissed++;
         } else {
-          // Dès qu'on trouve un heartbeat signé, on arrête de compter
+          // As soon as we find a signed heartbeat, we stop counting
           break;
         }
       }
       
-      // Vérifier si on dépasse le seuil
+      // Check if we exceed the threshold
       if (consecutiveHeartbeatsMissed >= this.thresholds.consecutiveHeartbeatsMissed) {
         if (!this.isMissingHeartbeats) {
-          // Premier dépassement du seuil
+          // First threshold exceedance
           this.isMissingHeartbeats = true;
           this.lastAlertedConsecutiveHeartbeatsMissed = consecutiveHeartbeatsMissed;
           this.createAlert(
             AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
-            `⚠️ ALERT: ${consecutiveHeartbeatsMissed} heartbeats manqués`,
+            `⚠️ ALERT: ${consecutiveHeartbeatsMissed} heartbeats missed`,
             'warning'
           );
         } else if (consecutiveHeartbeatsMissed > this.lastAlertedConsecutiveHeartbeatsMissed) {
-          // Le nombre de heartbeats manqués a augmenté
+          // The number of missed heartbeats has increased
           this.lastAlertedConsecutiveHeartbeatsMissed = consecutiveHeartbeatsMissed;
           this.createAlert(
             AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
-            `🚨 ALERT: ${consecutiveHeartbeatsMissed} heartbeats manqués en augmentation`,
+            `🚨 ALERT: ${consecutiveHeartbeatsMissed} heartbeats missed in increase`,
             'critical'
           );
         }
@@ -317,7 +312,7 @@ export class AlertManager extends EventEmitter {
         this.isMissingHeartbeats = false;
         this.createAlert(
           AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
-          `✅ Récupération: Plus de heartbeats manqués`,
+          `✅ Récupération: New heartbeats received`,
           'info'
         );
       }
@@ -327,23 +322,23 @@ export class AlertManager extends EventEmitter {
     const signRate = this.calculateSignRate();
     const heartbeatRate = this.calculateHeartbeatRate();
     
-    // Vérifier le taux de signature
+    // Check signature rate
     if (signRate < this.thresholds.signRateThreshold) {
       if (!this.isLowSignRate) {
-        // Premier dépassement du seuil
+        // First threshold exceedance
         this.isLowSignRate = true;
         this.lastAlertedSignRate = signRate;
         this.createAlert(
           AlertType.SIGN_RATE_LOW,
-          `⚠️ ALERT: Taux de signature bas (${signRate.toFixed(2)}%)`,
+          `⚠️ ALERT: Low signature rate (${signRate.toFixed(2)}%)`,
           'warning'
         );
       } else if (signRate < this.lastAlertedSignRate) {
-        // Le taux a baissé
+        // The rate has decreased
         this.lastAlertedSignRate = signRate;
         this.createAlert(
           AlertType.SIGN_RATE_LOW,
-          `🚨 ALERT: Taux de signature en baisse (${signRate.toFixed(2)}%)`,
+          `🚨 ALERT: Signature rate in decrease (${signRate.toFixed(2)}%)`,
           'critical'
         );
       }
@@ -352,28 +347,28 @@ export class AlertManager extends EventEmitter {
       this.isLowSignRate = false;
       this.createAlert(
         AlertType.SIGN_RATE_LOW,
-        `✅ Récupération: Taux de signature normal (${signRate.toFixed(2)}%)`,
+        `✅ Récupération: Normal signature rate (${signRate.toFixed(2)}%)`,
         'info'
       );
     }
     
-    // Vérifier le taux de heartbeat
+    // Check heartbeat rate
     if (heartbeatRate < this.thresholds.heartbeatRateThreshold) {
       if (!this.isLowHeartbeatRate) {
-        // Premier dépassement du seuil
+        // First threshold exceedance
         this.isLowHeartbeatRate = true;
         this.lastAlertedHeartbeatRate = heartbeatRate;
         this.createAlert(
           AlertType.HEARTBEAT_RATE_LOW,
-          `⚠️ ALERT: Taux de heartbeat bas (${heartbeatRate.toFixed(2)}%)`,
+          `⚠️ ALERT: Low heartbeat rate (${heartbeatRate.toFixed(2)}%)`,
           'warning'
         );
       } else if (heartbeatRate < this.lastAlertedHeartbeatRate) {
-        // Le taux a baissé
+        // The rate has decreased
         this.lastAlertedHeartbeatRate = heartbeatRate;
         this.createAlert(
           AlertType.HEARTBEAT_RATE_LOW,
-          `🚨 ALERT: Taux de heartbeat en baisse (${heartbeatRate.toFixed(2)}%)`,
+          `🚨 ALERT: Heartbeat rate in decrease (${heartbeatRate.toFixed(2)}%)`,
           'critical'
         );
       }
@@ -382,7 +377,7 @@ export class AlertManager extends EventEmitter {
       this.isLowHeartbeatRate = false;
       this.createAlert(
         AlertType.HEARTBEAT_RATE_LOW,
-        `✅ Récupération: Taux de heartbeat normal (${heartbeatRate.toFixed(2)}%)`,
+        `✅ Récupération: Normal heartbeat rate (${heartbeatRate.toFixed(2)}%)`,
         'info'
       );
     }
@@ -408,17 +403,17 @@ export class AlertManager extends EventEmitter {
   private checkEvmVotes(): void {
     if (!this.metrics.evmVotes) return;
     
-    console.log(`EVM votes check: chains=${Object.keys(this.metrics.evmVotes).join(',')}`);
+    // console.log(`EVM votes check: chains=${Object.keys(this.metrics.evmVotes).join(',')}`);
     
     // Loop through all EVM chains
     Object.entries(this.metrics.evmVotes).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0) return;
       
-      // On regarde uniquement les votes consécutifs manqués récents
+      // We only look at recent consecutive missed votes
       let consecutiveMissed = 0;
-      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000); // 5 minutes en millisecondes
+      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000); // 5 minutes in milliseconds
       
-      // Parcourir les votes du plus récent au plus ancien
+      // Go through votes from newest to oldest
       for (let i = 0; i < chainData.pollIds.length; i++) {
         const vote = chainData.pollIds[i];
         if (vote.result === 'invalid') {
@@ -433,16 +428,16 @@ export class AlertManager extends EventEmitter {
         }
       }
       
-      console.log(`Chain ${chain}: ${consecutiveMissed} votes consécutifs manqués sur les ${chainData.pollIds.length} derniers votes`);
+      // console.log(`Chain ${chain}: ${consecutiveMissed} consecutive missed votes on ${chainData.pollIds.length} recent votes`);
       
-      // Si le nombre de votes manqués consécutifs dépasse le seuil warning, envoyer une alerte warning
+      // If the number of consecutive missed votes exceeds the warning threshold, send a warning alert
       if (consecutiveMissed >= this.thresholds.consecutiveEvmVotesMissed) {
         if (!this.evmConsecutiveMissedByChain[chain]) {
           this.evmConsecutiveMissedByChain[chain] = consecutiveMissed;
           console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveEvmVotesMissed}) exceeded, sending warning alert`);
           this.createAlert(
             AlertType.EVM_VOTE_MISSED,
-            `⚠️ ALERT: ${consecutiveMissed} votes EVM consécutifs manqués sur la chaîne ${chain}`,
+            `⚠️ ALERT: ${consecutiveMissed} consecutive missed EVM votes on chain ${chain}`,
             'warning',
             chain
           );
@@ -451,7 +446,7 @@ export class AlertManager extends EventEmitter {
           console.log(`Chain ${chain}: Increased to ${consecutiveMissed} missed votes, sending critical alert`);
           this.createAlert(
             AlertType.EVM_VOTE_MISSED,
-            `🚨 ALERT: ${consecutiveMissed} votes EVM consécutifs manqués en augmentation sur la chaîne ${chain}`,
+            `🚨 ALERT: ${consecutiveMissed} consecutive missed EVM votes in increase on chain ${chain}`,
             'critical',
             chain
           );
@@ -472,7 +467,7 @@ export class AlertManager extends EventEmitter {
           console.log(`Chain ${chain}: Recovered from missed votes after receiving a valid vote`);
           this.createAlert(
             AlertType.EVM_VOTES_RECOVERED,
-            `✅ Récupération: Plus de votes EVM consécutifs manqués sur la chaîne ${chain} après réception d'un vote valide`,
+            `✅ Récupération: No more consecutive missed EVM votes on chain ${chain} after receiving a valid vote`,
             'info',
             chain
           );
@@ -489,17 +484,17 @@ export class AlertManager extends EventEmitter {
   private checkAmpdVotes(): void {
     if (!this.metrics.ampdVotes) return;
     
-    console.log(`AMPD votes check: chains=${Object.keys(this.metrics.ampdVotes).join(',')}`);
+    // console.log(`AMPD votes check: chains=${Object.keys(this.metrics.ampdVotes).join(',')}`);
     
     // Loop through all AMPD chains
     Object.entries(this.metrics.ampdVotes).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0) return;
       
-      // On regarde uniquement les votes consécutifs manqués récents
+      // We only look at recent consecutive missed votes
       let consecutiveMissed = 0;
-      const twoMinutesAgo = Date.now() - (1 * 60 * 1000); // 1 minute en millisecondes
+      const twoMinutesAgo = Date.now() - (1 * 60 * 1000); // 1 minute in milliseconds
       
-      // Parcourir les votes du plus récent au plus ancien
+      // Go through votes from newest to oldest
       for (let i = 0; i < chainData.pollIds.length; i++) {
         const vote = chainData.pollIds[i];
         if (vote.result === 'not_found') {
@@ -514,16 +509,16 @@ export class AlertManager extends EventEmitter {
         }
       }
       
-      console.log(`Chain ${chain}: ${consecutiveMissed} votes consécutifs manqués sur les ${chainData.pollIds.length} derniers votes`);
+      // console.log(`Chain ${chain}: ${consecutiveMissed} consecutive missed votes on ${chainData.pollIds.length} recent votes`);
       
-      // Si le nombre de votes manqués consécutifs dépasse le seuil warning, envoyer une alerte warning
+      // If the number of consecutive missed votes exceeds the warning threshold, send a warning alert
       if (consecutiveMissed >= this.thresholds.consecutiveAmpdVotesMissed) {
         if (!this.ampdVotesConsecutiveMissedByChain[chain]) {
           this.ampdVotesConsecutiveMissedByChain[chain] = consecutiveMissed;
           console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdVotesMissed}) exceeded, sending warning alert`);
           this.createAlert(
             AlertType.AMPD_VOTE_MISSED,
-            `⚠️ ALERT: ${consecutiveMissed} votes AMPD consécutifs manqués sur la chaîne ${chain}`,
+            `⚠️ ALERT: ${consecutiveMissed} consecutive missed AMPD votes on chain ${chain}`,
             'warning',
             chain
           );
@@ -532,7 +527,7 @@ export class AlertManager extends EventEmitter {
           console.log(`Chain ${chain}: Increased to ${consecutiveMissed} missed votes, sending critical alert`);
           this.createAlert(
             AlertType.AMPD_VOTE_MISSED,
-            `🚨 ALERT: ${consecutiveMissed} votes AMPD consécutifs manqués en augmentation sur la chaîne ${chain}`,
+            `🚨 ALERT: ${consecutiveMissed} consecutive missed AMPD votes in increase on chain ${chain}`,
             'critical',
             chain
           );
@@ -553,7 +548,7 @@ export class AlertManager extends EventEmitter {
           console.log(`Chain ${chain}: Recovered from missed votes after receiving a valid vote`);
           this.createAlert(
             AlertType.AMPD_VOTES_RECOVERED,
-            `✅ Récupération: Plus de votes AMPD consécutifs manqués sur la chaîne ${chain} après réception d'un vote valide`,
+            `✅ Récupération: No more consecutive missed AMPD votes on chain ${chain} after receiving a valid vote`,
             'info',
             chain
           );
@@ -570,17 +565,17 @@ export class AlertManager extends EventEmitter {
   private checkAmpdSignings(): void {
     if (!this.metrics.ampdSignings) return;
     
-    console.log(`AMPD signings check: chains=${Object.keys(this.metrics.ampdSignings).join(',')}`);
+    // console.log(`AMPD signings check: chains=${Object.keys(this.metrics.ampdSignings).join(',')}`);
     
     // Loop through all AMPD chains
     Object.entries(this.metrics.ampdSignings).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.signingIds || chainData.signingIds.length === 0) return;
       
-      // On regarde uniquement les signings consécutifs manqués récents
+      // We only look at recent consecutive missed signings
       let consecutiveMissed = 0;
-      const twoMinutesAgo = Date.now() - (1 * 60 * 1000); // 1 minute en millisecondes
+      const twoMinutesAgo = Date.now() - (1 * 60 * 1000); // 1 minute in milliseconds
       
-      // Parcourir les signings du plus récent au plus ancien
+      // Go through signings from newest to oldest
       for (let i = 0; i < chainData.signingIds.length; i++) {
         const signing = chainData.signingIds[i];
         if (signing.result === 'unsubmit' && signing.timestamp) {
@@ -593,16 +588,16 @@ export class AlertManager extends EventEmitter {
         }
       }
       
-      console.log(`Chain ${chain}: ${consecutiveMissed} signings consécutifs manqués sur les ${chainData.signingIds.length} derniers signings`);
+      // console.log(`Chain ${chain}: ${consecutiveMissed} consecutive missed signings on ${chainData.signingIds.length} recent signings`);
       
-      // Si le nombre de signings manqués consécutifs dépasse le seuil warning, envoyer une alerte warning
+      // If the number of consecutive missed signings exceeds the warning threshold, send a warning alert
       if (consecutiveMissed >= this.thresholds.consecutiveAmpdSigningsMissed) {
         if (!this.ampdSigningsConsecutiveMissedByChain[chain]) {
           this.ampdSigningsConsecutiveMissedByChain[chain] = consecutiveMissed;
           console.log(`Chain ${chain}: Threshold (${this.thresholds.consecutiveAmpdSigningsMissed}) exceeded, sending warning alert`);
           this.createAlert(
             AlertType.AMPD_SIGNING_MISSED,
-            `⚠️ ALERT: ${consecutiveMissed} signings AMPD consécutifs manqués sur la chaîne ${chain}`,
+            `⚠️ ALERT: ${consecutiveMissed} consecutive missed AMPD signings on chain ${chain}`,
             'warning',
             chain
           );
@@ -611,7 +606,7 @@ export class AlertManager extends EventEmitter {
           console.log(`Chain ${chain}: Increased to ${consecutiveMissed} missed signings, sending critical alert`);
           this.createAlert(
             AlertType.AMPD_SIGNING_MISSED,
-            `🚨 ALERT: ${consecutiveMissed} signings AMPD consécutifs manqués en augmentation sur la chaîne ${chain}`,
+            `🚨 ALERT: ${consecutiveMissed} consecutive missed AMPD signings in increase on chain ${chain}`,
             'critical',
             chain
           );
@@ -632,7 +627,7 @@ export class AlertManager extends EventEmitter {
           console.log(`Chain ${chain}: Recovered from missed signings after receiving a valid signing`);
           this.createAlert(
             AlertType.AMPD_SIGNINGS_RECOVERED,
-            `✅ Récupération: Plus de signings AMPD consécutifs manqués sur la chaîne ${chain} après réception d'un signing valide`,
+            `✅ Récupération: No more consecutive missed AMPD signings on chain ${chain} after receiving a valid signing`,
             'info',
             chain
           );
@@ -761,28 +756,28 @@ export class AlertManager extends EventEmitter {
       Object.keys(this.metrics.evmVotes).forEach(chain => {
         const rate = this.calculateEvmVoteRate(chain);
         
-        // Initialiser l'état si nécessaire
+        // Initialize state if necessary
         if (!this.evmVoteRateByChain[chain]) {
           this.evmVoteRateByChain[chain] = { isLow: false, lastRate: rate };
         }
         
         if (rate < this.thresholds.evmVoteRateThreshold) {
           if (!this.evmVoteRateByChain[chain].isLow) {
-            // Premier dépassement du seuil
+            // First threshold exceedance
             this.evmVoteRateByChain[chain].isLow = true;
             this.evmVoteRateByChain[chain].lastRate = rate;
             this.createAlert(
               AlertType.EVM_VOTE_RATE_LOW,
-              `⚠️ ALERT: Taux de votes EVM bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+              `⚠️ ALERT: Low EVM vote rate (${rate.toFixed(2)}%) on chain ${chain}`,
               'warning',
               chain
             );
           } else if (rate < this.evmVoteRateByChain[chain].lastRate) {
-            // Le taux a baissé
+            // The rate has decreased
             this.evmVoteRateByChain[chain].lastRate = rate;
             this.createAlert(
               AlertType.EVM_VOTE_RATE_LOW,
-              `🚨 ALERT: Taux de votes EVM en baisse (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+              `🚨 ALERT: EVM vote rate in decrease (${rate.toFixed(2)}%) on chain ${chain}`,
               'critical',
               chain
             );
@@ -792,7 +787,7 @@ export class AlertManager extends EventEmitter {
           this.evmVoteRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.EVM_VOTE_RATE_LOW,
-            `✅ Récupération: Taux de votes EVM normal (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+            `✅ Récupération: Normal EVM vote rate (${rate.toFixed(2)}%) on chain ${chain}`,
             'info',
             chain
           );
@@ -805,28 +800,28 @@ export class AlertManager extends EventEmitter {
       Object.keys(this.metrics.ampdVotes).forEach(chain => {
         const rate = this.calculateAmpdVoteRate(chain);
         
-        // Initialiser l'état si nécessaire
+        // Initialize state if necessary
         if (!this.ampdVoteRateByChain[chain]) {
           this.ampdVoteRateByChain[chain] = { isLow: false, lastRate: rate };
         }
         
         if (rate < this.thresholds.ampdVoteRateThreshold) {
           if (!this.ampdVoteRateByChain[chain].isLow) {
-            // Premier dépassement du seuil
+            // First threshold exceedance
             this.ampdVoteRateByChain[chain].isLow = true;
             this.ampdVoteRateByChain[chain].lastRate = rate;
             this.createAlert(
               AlertType.AMPD_VOTE_RATE_LOW,
-              `⚠️ ALERT: Taux de votes AMPD bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+              `⚠️ ALERT: Low AMPD vote rate (${rate.toFixed(2)}%) on chain ${chain}`,
               'warning',
               chain
             );
           } else if (rate < this.ampdVoteRateByChain[chain].lastRate) {
-            // Le taux a baissé
+            // The rate has decreased
             this.ampdVoteRateByChain[chain].lastRate = rate;
             this.createAlert(
               AlertType.AMPD_VOTE_RATE_LOW,
-              `🚨 ALERT: Taux de votes AMPD en baisse (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+              `🚨 ALERT: AMPD vote rate in decrease (${rate.toFixed(2)}%) on chain ${chain}`,
               'critical',
               chain
             );
@@ -836,7 +831,7 @@ export class AlertManager extends EventEmitter {
           this.ampdVoteRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.AMPD_VOTE_RATE_LOW,
-            `✅ Récupération: Taux de votes AMPD normal (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+            `✅ Récupération: Normal AMPD vote rate (${rate.toFixed(2)}%) on chain ${chain}`,
             'info',
             chain
           );
@@ -849,28 +844,28 @@ export class AlertManager extends EventEmitter {
       Object.keys(this.metrics.ampdSignings).forEach(chain => {
         const rate = this.calculateAmpdSigningRate(chain);
         
-        // Initialiser l'état si nécessaire
+        // Initialize state if necessary
         if (!this.ampdSigningRateByChain[chain]) {
           this.ampdSigningRateByChain[chain] = { isLow: false, lastRate: rate };
         }
         
         if (rate < this.thresholds.ampdSigningRateThreshold) {
           if (!this.ampdSigningRateByChain[chain].isLow) {
-            // Premier dépassement du seuil
+            // First threshold exceedance
             this.ampdSigningRateByChain[chain].isLow = true;
             this.ampdSigningRateByChain[chain].lastRate = rate;
             this.createAlert(
               AlertType.AMPD_SIGNING_RATE_LOW,
-              `⚠️ ALERT: Taux de signatures AMPD bas (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+              `⚠️ ALERT: Low AMPD signing rate (${rate.toFixed(2)}%) on chain ${chain}`,
               'warning',
               chain
             );
           } else if (rate < this.ampdSigningRateByChain[chain].lastRate) {
-            // Le taux a baissé
+            // The rate has decreased
             this.ampdSigningRateByChain[chain].lastRate = rate;
             this.createAlert(
               AlertType.AMPD_SIGNING_RATE_LOW,
-              `🚨 ALERT: Taux de signatures AMPD en baisse (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+              `🚨 ALERT: AMPD signing rate in decrease (${rate.toFixed(2)}%) on chain ${chain}`,
               'critical',
               chain
             );
@@ -880,7 +875,7 @@ export class AlertManager extends EventEmitter {
           this.ampdSigningRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.AMPD_SIGNING_RATE_LOW,
-            `✅ Récupération: Taux de signatures AMPD normal (${rate.toFixed(2)}%) sur la chaîne ${chain}`,
+            `✅ Récupération: Normal AMPD signing rate (${rate.toFixed(2)}%) on chain ${chain}`,
             'info',
             chain
           );
@@ -898,17 +893,17 @@ export class AlertManager extends EventEmitter {
     const lastAlert = this.lastAlertTimestamps[alertKey];
     const lastSeverity = this.lastAlertSeverities[alertKey];
 
-    // Pas de cooldown pour les alertes info (retour à la normale)
+    // No cooldown for info alerts (return to normal)
     if (severity === 'info') {
       return true;
     }
 
-    // Si c'est la première alerte de ce type ou si la sévérité a changé
+    // If it's the first alert of this type or if severity has changed
     if (!lastAlert || lastSeverity !== severity) {
       return true;
     }
 
-    // Vérifier le cooldown en fonction de la sévérité
+    // Check cooldown based on severity
     const cooldown = severity === 'critical' ? this.cooldownPeriod : this.cooldownPeriod * 2;
     return (now.getTime() - lastAlert.getTime()) > cooldown;
   }
@@ -946,7 +941,7 @@ export class AlertManager extends EventEmitter {
     // Emit event for clients
     this.emit('alert', alert);
     
-    console.log(`Alert created: ${message}`);
+    // console.log(`Alert created: ${message}`);
   }
   
   /**
@@ -1034,13 +1029,13 @@ export class AlertManager extends EventEmitter {
           
           const polls = metrics.evmVotes[evmChain].pollIds;
           
-          // Afficher les polls récents pour contexte
+          // Show recent polls for context
           message += `\nRecent Polls (5):\n`;
           polls.slice(0, 5).forEach((poll) => {
             message += `- ${poll.pollId || 'Unknown'}: ${poll.result || 'Unknown'}\n`;
           });
           
-          // Afficher un résumé des statuts
+          // Show status summary
           let validCount = 0;
           let invalidCount = 0;
           
@@ -1066,7 +1061,7 @@ export class AlertManager extends EventEmitter {
         if (evmRecoveredChain && metrics.evmVotes && metrics.evmVotes[evmRecoveredChain]) {
           message += `\nEVM Votes have recovered on chain ${evmRecoveredChain}\n`;
           
-          // Afficher les 5 polls les plus récents pour contexte
+          // Show the 5 most recent polls for context
           message += `\nRecent Polls:\n`;
           const recentPolls = metrics.evmVotes[evmRecoveredChain].pollIds.slice(0, 5);
           recentPolls.forEach((poll) => {
@@ -1085,13 +1080,13 @@ export class AlertManager extends EventEmitter {
           
           const votes = metrics.ampdVotes[ampdVoteChain].pollIds;
           
-          // Afficher les votes récents pour contexte
+          // Show recent votes for context
           message += `\nRecent Votes (5):\n`;
           votes.slice(0, 5).forEach((vote) => {
             message += `- ${vote.pollId || 'Unknown'}: ${vote.result || 'Unknown'}\n`;
           });
           
-          // Afficher un résumé des statuts
+          // Show status summary
           let validCount = 0;
           let invalidCount = 0;
           
@@ -1117,7 +1112,7 @@ export class AlertManager extends EventEmitter {
         if (ampdVotesRecoveredChain && metrics.ampdVotes && metrics.ampdVotes[ampdVotesRecoveredChain]) {
           message += `\nAMPD Votes have recovered on chain ${ampdVotesRecoveredChain}\n`;
           
-          // Afficher les 5 votes les plus récents pour contexte
+          // Show the 5 most recent votes for context
           message += `\nRecent Votes:\n`;
           const recentVotes = metrics.ampdVotes[ampdVotesRecoveredChain].pollIds.slice(0, 5);
           recentVotes.forEach((vote) => {
@@ -1136,13 +1131,13 @@ export class AlertManager extends EventEmitter {
           
           const signings = metrics.ampdSignings[ampdSigningChain].signingIds;
           
-          // Afficher les signings récents pour contexte
+          // Show recent signings for context
           message += `\nRecent Signings (5):\n`;
           signings.slice(0, 5).forEach((signing) => {
             message += `- ${signing.signingId || 'Unknown'}: ${signing.result || 'Unknown'}\n`;
           });
           
-          // Afficher un résumé des statuts
+          // Show status summary
           let validCount = 0;
           let unsubmitCount = 0;
           
@@ -1168,10 +1163,10 @@ export class AlertManager extends EventEmitter {
         if (ampdSigningsRecoveredChain) {
           message += `\nAMPD Signings have recovered on chain ${ampdSigningsRecoveredChain}\n`;
           
-          // Rechercher la chaîne dans ampdSignings, en essayant d'abord le nom exact extrait
+          // Rechercher la chain in ampdSignings, trying exact name first, then alternative possibilities
           const chainData = metrics.ampdSignings && (
             metrics.ampdSignings[ampdSigningsRecoveredChain] || 
-            // Si on ne trouve pas la chaîne exacte, on essaie les alternatives possibles
+            // If exact chain not found, try alternative possibilities
             Object.entries(metrics.ampdSignings).find(([key]) => 
               key === ampdSigningsRecoveredChain || 
               ampdSigningsRecoveredChain.includes(key) || 
@@ -1180,7 +1175,7 @@ export class AlertManager extends EventEmitter {
           );
           
           if (chainData && chainData.signingIds) {
-            // Afficher les 5 signings les plus récents pour contexte
+            // Show the 5 most recent signings for context
             message += `\nRecent Signings:\n`;
             const recentSignings = chainData.signingIds.slice(0, 5);
             recentSignings.forEach((signing: AmpdSigning) => {
