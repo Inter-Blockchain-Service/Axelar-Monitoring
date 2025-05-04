@@ -1,7 +1,13 @@
 import axios from 'axios';
 import { TendermintClient } from './tendermint';
 import { ValidatorMetrics } from './metrics';
-import { broadcastMetricsUpdate } from './websockets';
+import { Broadcasters } from './websockets-client';
+import { 
+  updateConnectionStatus, 
+  logNodeStatus, 
+  connectTendermintClient,
+  getErrorMessage
+} from './utils';
 
 /**
  * Checks if the RPC node is available and synchronized
@@ -33,7 +39,7 @@ export async function checkNodeStatus(rpcEndpoint: string): Promise<{ available:
     return { available: true, synced: false, error: 'Unexpected response format' };
   } catch (error: unknown) {
     console.error('Error checking node status:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = getErrorMessage(error, 'Unknown error');
     return { available: false, synced: false, error: errorMessage };
   }
 }
@@ -57,18 +63,11 @@ export async function waitForNodeToBeSynced(
     const elapsedMinutes = Math.floor((Date.now() - startTime) / 60000);
     const status = await checkNodeStatus(rpcEndpoint);
     
-    if (status.available && status.synced) {
-      console.log(`Node is ready and synced at block height: ${status.blockHeight}`);
-      return true;
-    }
+    // Log node status based on availability and sync state
+    logNodeStatus(status, attempts, elapsedMinutes, interval);
     
-    if (status.available && !status.synced) {
-      console.log(`Node is available but still syncing (attempt ${attempts}, waiting for ${elapsedMinutes} min). Waiting ${interval/1000}s before retrying...`);
-      if (status.blockHeight) {
-        console.log(`Current block height: ${status.blockHeight}`);
-      }
-    } else {
-      console.log(`Node is not available (attempt ${attempts}, waiting for ${elapsedMinutes} min). Waiting ${interval/1000}s before retrying...`);
+    if (status.available && status.synced) {
+      return true;
     }
     
     // Wait for the specified interval
@@ -81,12 +80,14 @@ export async function waitForNodeToBeSynced(
  * @param tendermintClient Tendermint client
  * @param metrics Validator metrics
  * @param rpcEndpoint RPC node URL
+ * @param broadcasters Optional broadcasters for WebSocket updates
  * @returns Reconnection function
  */
 export function createReconnectionHandler(
   tendermintClient: TendermintClient,
   metrics: ValidatorMetrics,
-  rpcEndpoint: string
+  rpcEndpoint: string,
+  broadcasters?: Broadcasters
 ): () => Promise<void> {
   return async function reconnectToNode(): Promise<void> {
     console.log("Attempting to reconnect to node...");
@@ -95,10 +96,12 @@ export function createReconnectionHandler(
     tendermintClient.disconnect();
     
     // Update metrics to reflect disconnected state
-    metrics.connected = false;
-    metrics.heartbeatConnected = false;
-    metrics.lastError = "Node disconnected. Attempting to reconnect...";
-    broadcastMetricsUpdate(metrics);
+    updateConnectionStatus(
+      metrics,
+      false,
+      "Node disconnected. Attempting to reconnect...",
+      broadcasters
+    );
     
     try {
       // Wait for the node to be available and synced again
@@ -107,8 +110,7 @@ export function createReconnectionHandler(
       
       if (isNodeReady) {
         // Connect the Tendermint client if the node is ready
-        console.log('Node is ready again. Reconnecting Tendermint client...');
-        tendermintClient.connect();
+        connectTendermintClient(tendermintClient, 'Node is ready again. Reconnecting Tendermint client...');
       }
     } catch (error: unknown) {
       console.error('Error during node reconnection:', error);
@@ -136,15 +138,13 @@ export async function connectToNode(
     
     if (isNodeReady) {
       // Connect the Tendermint client if the node is ready
-      console.log('Node is ready. Connecting Tendermint client...');
-      tendermintClient.connect();
+      connectTendermintClient(tendermintClient, 'Node is ready. Connecting Tendermint client...');
     } else {
       // This code should never be reached since the function waits indefinitely
       console.warn('WARNING: Node is not ready or synced. Starting anyway, but expect issues.');
       
       // Update metrics with error message
-      metrics.connected = false;
-      metrics.lastError = "Node is not available or not synced.";
+      updateConnectionStatus(metrics, false, "Node is not available or not synced.");
       
       // Connect anyway to allow future attempts
       tendermintClient.connect();

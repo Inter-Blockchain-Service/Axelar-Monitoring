@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 import { EventEmitter } from 'events';
 import { ValidatorSignatureManager } from './validator-signature-manager';
-import { HeartbeatManager, HeartbeatStatusType } from './heartbeat_manager';
+import { HeartbeatManager, HeartbeatStatusType } from './heartbeat-manager';
 import { EvmVoteManager, PollStatus as EvmPollStatus, EvmVoteData } from './evm-vote-manager';
 import { 
   AmpdManager, 
@@ -203,7 +203,7 @@ export class TendermintClient extends EventEmitter {
         this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
         this.emit('connect');
         
-        // Attendre un court délai avant de souscrire aux événements
+        // Wait a short delay before subscribing to events
         setTimeout(() => {
           if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.subscribeToEvents();

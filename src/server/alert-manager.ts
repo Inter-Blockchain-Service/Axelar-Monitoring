@@ -492,7 +492,7 @@ export class AlertManager extends EventEmitter {
       
       // We only look at recent consecutive missed votes
       let consecutiveMissed = 0;
-      const twoMinutesAgo = Date.now() - (1 * 60 * 1000); // 1 minute in milliseconds
+      const twoMinutesAgo = Date.now() - (2 * 60 * 1000); // 1 minute in milliseconds
       
       // Go through votes from newest to oldest
       for (let i = 0; i < chainData.pollIds.length; i++) {
@@ -573,7 +573,7 @@ export class AlertManager extends EventEmitter {
       
       // We only look at recent consecutive missed signings
       let consecutiveMissed = 0;
-      const twoMinutesAgo = Date.now() - (1 * 60 * 1000); // 1 minute in milliseconds
+      const twoMinutesAgo = Date.now() - (2 * 60 * 1000); // 1 minute in milliseconds
       
       // Go through signings from newest to oldest
       for (let i = 0; i < chainData.signingIds.length; i++) {

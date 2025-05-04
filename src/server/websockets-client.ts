@@ -2,9 +2,8 @@ import { Server, Socket } from 'socket.io';
 import http from 'http';
 import { ValidatorMetrics } from './metrics';
 import { TendermintClient } from './tendermint';
-
-// Export the io instance to be used in other modules
-export let io: Server;
+import { EvmVoteData } from './evm-vote-manager';
+import { PollStatus as AmpdPollStatus, SigningStatus } from './ampd-manager';
 
 /**
  * Configure the WebSocket server and connection handlers
@@ -18,7 +17,7 @@ export const setupWebSockets = (
   broadcasterAddress: string
 ): Server => {
   // Configure Socket.io with CORS
-  io = new Server(server, {
+  const io = new Server(server, {
     cors: {
       origin: '*',
       methods: ['GET', 'POST']
@@ -77,10 +76,54 @@ export const setupWebSockets = (
 };
 
 /**
- * Broadcast metrics update to all clients
+ * Interface for broadcaster functions
  */
-export const broadcastMetricsUpdate = (metrics: ValidatorMetrics): void => {
-  if (io) {
-    io.emit('metrics-update', metrics);
-  }
+export interface Broadcasters {
+  broadcastMetricsUpdate: (metrics: ValidatorMetrics) => void;
+  broadcastEvmVotesUpdate: (votes: EvmVoteData) => void;
+  broadcastAmpdVotesUpdate: (chain: string, votes: AmpdPollStatus[] | null) => void;
+  broadcastAmpdSigningsUpdate: (chain: string, signings: SigningStatus[] | null) => void;
+}
+
+/**
+ * Creates functions to broadcast updates to clients
+ */
+export const createBroadcasters = (io: Server): Broadcasters => {
+  return {
+    /**
+     * Broadcast metrics update to all clients
+     */
+    broadcastMetricsUpdate: (metrics: ValidatorMetrics): void => {
+      if (io) {
+        io.emit('metrics-update', metrics);
+      }
+    },
+    
+    /**
+     * Broadcast EVM votes update to all clients
+     */
+    broadcastEvmVotesUpdate: (votes: EvmVoteData): void => {
+      if (io) {
+        io.emit('evm-votes-update', votes);
+      }
+    },
+    
+    /**
+     * Broadcast AMPD votes update to all clients
+     */
+    broadcastAmpdVotesUpdate: (chain: string, votes: AmpdPollStatus[] | null): void => {
+      if (io) {
+        io.emit('ampd-votes', { chain, votes });
+      }
+    },
+    
+    /**
+     * Broadcast AMPD signings update to all clients
+     */
+    broadcastAmpdSigningsUpdate: (chain: string, signings: SigningStatus[] | null): void => {
+      if (io) {
+        io.emit('ampd-signings', { chain, signings });
+      }
+    }
+  };
 }; 

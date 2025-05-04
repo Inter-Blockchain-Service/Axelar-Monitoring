@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import { TendermintClient } from './tendermint';
 import { createInitialMetrics } from './metrics';
 import { setupApiRoutes } from './api';
-import { setupWebSockets } from './websockets';
+import { setupWebSockets, createBroadcasters } from './websockets-client';
 import { setupEventHandlers } from './events';
 import { connectToNode, createReconnectionHandler } from './node-manager';
 import { AlertManager } from './alert-manager';
@@ -77,17 +77,20 @@ if (metrics.ampdEnabled) {
   metrics.ampdSupportedChains = tendermintClient.getAmpdSupportedChains() || [];
 }
 
-// Create reconnection function
-const reconnectToNode = createReconnectionHandler(tendermintClient, metrics, rpcEndpoint);
+// Configure WebSockets
+const io = setupWebSockets(server, metrics, tendermintClient, rpcEndpoint, validatorAddress, broadcasterAddress);
+
+// Create broadcaster functions
+const broadcasters = createBroadcasters(io);
+
+// Create reconnection function with broadcasters
+const reconnectToNode = createReconnectionHandler(tendermintClient, metrics, rpcEndpoint, broadcasters);
 
 // Initialize alert manager
 const alertManager = new AlertManager(metrics, reconnectToNode);
 
-// Configure WebSockets
-setupWebSockets(server, metrics, tendermintClient, rpcEndpoint, validatorAddress, broadcasterAddress);
-
-// Configure event handlers with reconnection function
-setupEventHandlers(tendermintClient, metrics, reconnectToNode);
+// Configure event handlers with reconnection function and broadcasters
+setupEventHandlers(tendermintClient, metrics, reconnectToNode, broadcasters);
 
 // Configure API routes
 setupApiRoutes(app, metrics, tendermintClient);

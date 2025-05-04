@@ -17,14 +17,14 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
   const [selectedChain, setSelectedChain] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  // Fonction pour obtenir l'URL en fonction du chainId
+  // Function to get URL based on chainId
   const getAxelarscanUrl = (): string => {
     if (chainId === 'axelar-dojo-1') {
       return 'https://axelarscan.io';
     } else if (chainId === 'axelar-testnet-lisbon-3') {
       return 'https://testnet.axelarscan.io';
     } else {
-      // Par défaut, on retourne l'URL mainnet
+      // Default to mainnet URL
       return 'https://axelarscan.io';
     }
   };

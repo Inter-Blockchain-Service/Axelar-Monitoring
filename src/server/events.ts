@@ -1,8 +1,9 @@
 import { TendermintClient, StatusUpdate, StatusType } from './tendermint';
 import { ValidatorMetrics, recalculateStats, recalculateHeartbeatStats } from './metrics';
-import { HeartbeatUpdate, HeartbeatStatusType } from './heartbeat_manager';
-import { io, broadcastMetricsUpdate } from './websockets';
+import { HeartbeatUpdate, HeartbeatStatusType } from './heartbeat-manager';
+import { Broadcasters } from './websockets-client';
 import { PollStatus } from './ampd-manager';
+import { updateConnectionStatus, updateAndBroadcastMetrics, updateStatusArray } from './utils';
 
 // Interface for EVM event updates
 interface EvmVoteUpdate {
@@ -30,7 +31,8 @@ interface AmpdSigningUpdate {
 export const setupEventHandlers = (
   tendermintClient: TendermintClient,
   metrics: ValidatorMetrics,
-  onPermanentDisconnect?: () => Promise<void>
+  onPermanentDisconnect?: () => Promise<void>,
+  broadcasters?: Broadcasters
 ): void => {
   // Block status update handler
   tendermintClient.on('status-update', (update: StatusUpdate) => {
@@ -40,16 +42,19 @@ export const setupEventHandlers = (
       metrics.lastBlock = update.height;
       metrics.lastBlockTime = new Date();
       
-      // Update signature status (shift and add new status)
-      metrics.signStatus = [update.status, ...metrics.signStatus.slice(0, metrics.signStatus.length - 1)];
+      // Update signature status using the helper function
+      metrics.signStatus = updateStatusArray(metrics.signStatus, update.status);
       
       // Recalculate all statistics based on complete history
       const updatedMetrics = recalculateStats(metrics);
       Object.assign(metrics, updatedMetrics);
       
-      // Emit updated metrics to all connected clients
-      broadcastMetricsUpdate(metrics);
-      console.log(`Block ${update.height}: ${StatusType[update.status]}`);
+      // Broadcast and log
+      updateAndBroadcastMetrics(
+        metrics,
+        broadcasters,
+        `Block ${update.height}: ${StatusType[update.status]}`
+      );
     }
   });
   
@@ -61,16 +66,19 @@ export const setupEventHandlers = (
       metrics.lastHeartbeatPeriod = update.period;
       metrics.lastHeartbeatTime = new Date();
       
-      // Update heartbeat status (shift and add new status)
-      metrics.heartbeatStatus = [update.status, ...metrics.heartbeatStatus.slice(0, metrics.heartbeatStatus.length - 1)];
+      // Update heartbeat status using the helper function
+      metrics.heartbeatStatus = updateStatusArray(metrics.heartbeatStatus, update.status);
       
       // Recalculate all heartbeat statistics
       const updatedMetrics = recalculateHeartbeatStats(metrics);
       Object.assign(metrics, updatedMetrics);
       
-      // Emit updated metrics to all connected clients
-      broadcastMetricsUpdate(metrics);
-      console.log(`HeartBeat period ${update.period} (${update.periodStart}-${update.periodEnd}): ${HeartbeatStatusType[update.status]}`);
+      // Broadcast and log
+      updateAndBroadcastMetrics(
+        metrics,
+        broadcasters,
+        `HeartBeat period ${update.period} (${update.periodStart}-${update.periodEnd}): ${HeartbeatStatusType[update.status]}`
+      );
     }
     
     // Update metrics object with heartbeat block heights
@@ -79,19 +87,15 @@ export const setupEventHandlers = (
   
   // EVM vote update handler
   tendermintClient.on('vote-update', (update: EvmVoteUpdate) => {
-    if (metrics.evmVotesEnabled) {
-      // Update votes for the specific chain
-      if (update.chain && update.pollIds) {
-        // Update EVM vote data
-        metrics.evmVotes = tendermintClient.getAllEvmVotes() || {};
-        metrics.evmLastGlobalPollId = update.lastGlobalPollId || metrics.evmLastGlobalPollId;
-        
-        // Emit updated metrics to connected clients
-        broadcastMetricsUpdate(metrics);
-        io.emit('evm-votes-update', metrics.evmVotes);
-        
-        // Debug log
-        console.log(`Updated EVM votes for ${update.chain}, last Poll ID: ${metrics.evmLastGlobalPollId}`);
+    if (metrics.evmVotesEnabled && update.chain && update.pollIds) {
+      // Update EVM vote data
+      metrics.evmVotes = tendermintClient.getAllEvmVotes() || {};
+      metrics.evmLastGlobalPollId = update.lastGlobalPollId || metrics.evmLastGlobalPollId;
+      
+      // Broadcast updates
+      if (broadcasters) {
+        broadcasters.broadcastMetricsUpdate(metrics);
+        broadcasters.broadcastEvmVotesUpdate(metrics.evmVotes);
       }
     }
   });
@@ -102,11 +106,13 @@ export const setupEventHandlers = (
       // Update complete data
       metrics.ampdVotes = tendermintClient.getAllAmpdVotes() || {};
       
-      // Emit updated data to all connected clients
-      io.emit('ampd-votes', { 
-        chain: update.chain, 
-        votes: tendermintClient.getAmpdChainVotes(update.chain) 
-      });
+      // Broadcast updates
+      if (broadcasters) {
+        broadcasters.broadcastAmpdVotesUpdate(
+          update.chain, 
+          tendermintClient.getAmpdChainVotes(update.chain)
+        );
+      }
     }
   });
   
@@ -116,21 +122,25 @@ export const setupEventHandlers = (
       // Update complete data
       metrics.ampdSignings = tendermintClient.getAllAmpdSignings() || {};
       
-      // Emit updated data to all connected clients
-      io.emit('ampd-signings', { 
-        chain: update.chain, 
-        signings: tendermintClient.getAmpdChainSignings(update.chain) 
-      });
+      // Broadcast updates
+      if (broadcasters) {
+        broadcasters.broadcastAmpdSigningsUpdate(
+          update.chain, 
+          tendermintClient.getAmpdChainSignings(update.chain)
+        );
+      }
     }
   });
   
   // Permanent disconnect handler
   tendermintClient.on('permanent-disconnect', async () => {
-    metrics.connected = false;
-    metrics.heartbeatConnected = false;
-    metrics.lastError = "Unable to connect to RPC node after multiple attempts.";
-    metrics.heartbeatLastError = "Unable to connect to WebSocket after multiple attempts.";
-    broadcastMetricsUpdate(metrics);
+    // Update connection status
+    updateConnectionStatus(
+      metrics, 
+      false, 
+      "Unable to connect to RPC node after multiple attempts.",
+      broadcasters
+    );
     
     // If a reconnection function is provided, call it
     if (onPermanentDisconnect) {
@@ -141,10 +151,12 @@ export const setupEventHandlers = (
 
   // WebSocket disconnect handler
   tendermintClient.on('disconnect', () => {
-    metrics.connected = false;
-    metrics.heartbeatConnected = false;
-    metrics.lastError = "WebSocket connection lost. Attempting to reconnect...";
-    metrics.heartbeatLastError = "WebSocket connection lost. Attempting to reconnect...";
-    broadcastMetricsUpdate(metrics);
+    // Update connection status
+    updateConnectionStatus(
+      metrics, 
+      false, 
+      "WebSocket connection lost. Attempting to reconnect...",
+      broadcasters
+    );
   });
 }; 

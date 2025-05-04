@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { StatusType, StatusUpdate } from './tendermint';
 
-// Définir les interfaces pour les structures de données
+// Define interfaces for data structures
 interface BlockHeader {
   height: string;
   proposer_address: string;

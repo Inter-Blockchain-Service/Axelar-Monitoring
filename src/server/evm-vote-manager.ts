@@ -47,7 +47,7 @@ export interface EvmVoteData {
   }
 }
 
-// Définir des interfaces pour les types complexes
+// Define interfaces for complex types
 interface TxResult {
   events: Record<string, string[]>;
   height?: string;
@@ -108,8 +108,6 @@ export class EvmVoteManager extends EventEmitter {
 
   // Function to process transactions
   public handleTransaction(txResult: TxResult): void {
-    // Suppression de la variable height non utilisée
-
     // Check if txResult.events contains vote information for our validator
     if (txResult.events && 
         txResult.events['axelar.vote.v1beta1.Voted.voter'] &&
@@ -140,10 +138,8 @@ export class EvmVoteManager extends EventEmitter {
                 const batchMessages = messages[0].messages;
                 
                 if (batchMessages && batchMessages.length > 0) {
-                  console.log(`📝 Processing ${batchMessages.length} messages in batch`);
                   // Process each message in the batch
-                  batchMessages.forEach((batchMsg: TxMessage, index: number) => {
-                    console.log(`📝 Processing message ${index + 1}/${batchMessages.length} from batch`);
+                  batchMessages.forEach((batchMsg: TxMessage) => {
                     this.processVoteMessage(batchMsg);
                   });
                 } else {
@@ -151,7 +147,6 @@ export class EvmVoteManager extends EventEmitter {
                 }
               } else {
                 // Case of a single message
-                console.log(`📝 Processing direct message of type ${messages[0]["@type"]}`);
                 this.processVoteMessage(messages[0]);
               }
             } catch (error) {
@@ -220,7 +215,7 @@ export class EvmVoteManager extends EventEmitter {
                             }
                           } catch (error) {
                             // If parsing fails, log the error and look for poll_id by regex
-                            console.debug("Failed to parse poll_mappings JSON, trying regex:", error);
+                            console.log("Failed to parse poll mappings JSON, falling back to regex:", error);
                             const pollIdMatch = pollMappings.match(/"poll_id"\s*:\s*"(\d+)"/);
                             if (pollIdMatch && pollIdMatch[1]) {
                               pollId = pollIdMatch[1];
@@ -274,15 +269,6 @@ export class EvmVoteManager extends EventEmitter {
       
       // Convert poll_id to number for validation
       const numericPollId = parseInt(pollId, 10);
-      
-      // Check if poll_id increments by 1 from last global poll
-      if (this.lastGlobalPollId > 0 && numericPollId !== this.lastGlobalPollId + 1) {
-        console.log(`\n⚠️ ALERT - NON-SEQUENTIAL GLOBAL POLL ID`);
-        console.log(`   Last global Poll ID: ${this.lastGlobalPollId}`);
-        console.log(`   New Poll ID: ${numericPollId}`);
-        console.log(`   Gap: ${numericPollId - this.lastGlobalPollId}`);
-        console.log(`   Chain: ${normalizedChain.toUpperCase()}`);
-      }
       
       // Update last known global poll_id
       if (!isNaN(numericPollId)) {

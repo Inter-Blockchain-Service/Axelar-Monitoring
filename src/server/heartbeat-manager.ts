@@ -21,7 +21,7 @@ export interface HeartbeatUpdate {
   final: boolean;      // Indicates if status is final
 }
 
-// Interfaces pour les transactions et blocs
+// Interfaces for transactions and blocks
 interface TxResult {
   height: string;
   tx?: string;
