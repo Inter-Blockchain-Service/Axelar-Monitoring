@@ -18,7 +18,10 @@ class AmpdManager extends events_1.EventEmitter {
         this.maxPollHistory = 200;
         this.ampdAddress = ampdAddress;
         this.axelarApiEndpoint = axelarApiEndpoint;
-        this.supportedChains = supportedChains.map(chain => chain.toLowerCase());
+        // Use provided supported chains or default list if empty
+        this.supportedChains = supportedChains.length > 0 ? supportedChains.map(chain => chain.toLowerCase()) : [
+            'flow', 'stellar', 'sui', 'xrpl', 'xrpl-evm'
+        ];
         // Initialize data structure for each chain
         this.initializeData();
     }

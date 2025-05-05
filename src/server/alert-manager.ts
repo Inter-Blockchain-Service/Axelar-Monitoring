@@ -452,14 +452,15 @@ export class AlertManager extends EventEmitter {
           );
         }
       } else if (this.evmConsecutiveMissedByChain[chain]) {
+        // Check for valid votes in the most recent polls
         const hasNewValidVote = chainData.pollIds.some(vote => {
-          if (vote.result === 'unsubmit' && vote.timestamp) {
+          if (vote.result === 'unsubmitted' && vote.timestamp) {
             const voteTime = new Date(vote.timestamp).getTime();
             if (voteTime > fiveMinutesAgo) return false;
           }
-          return vote.result === 'validated' && 
-                 vote.timestamp && 
-                 new Date(vote.timestamp).getTime() > fiveMinutesAgo;
+          // Nous considérons comme validés tous les votes avec le statut 'validated'
+          // même si leur timestamp est plus ancien que fiveMinutesAgo
+          return vote.result === 'validated';
         });
 
         if (hasNewValidVote) {
@@ -538,9 +539,9 @@ export class AlertManager extends EventEmitter {
             const voteTime = new Date(vote.timestamp).getTime();
             if (voteTime > twoMinutesAgo) return false;
           }
-          return vote.result === 'succeeded_on_chain' && 
-                 vote.timestamp && 
-                 new Date(vote.timestamp).getTime() > twoMinutesAgo;
+          // Nous considérons comme validés tous les votes avec le statut 'succeeded_on_chain'
+          // même si leur timestamp est plus ancien que twoMinutesAgo
+          return vote.result === 'succeeded_on_chain';
         });
 
         if (hasNewValidVote) {
@@ -617,9 +618,9 @@ export class AlertManager extends EventEmitter {
             const signingTime = new Date(signing.timestamp).getTime();
             if (signingTime > twoMinutesAgo) return false;
           }
-          return signing.result === 'signed' && 
-                 signing.timestamp && 
-                 new Date(signing.timestamp).getTime() > twoMinutesAgo;
+          // Nous considérons comme validés toutes les signatures avec le statut 'signed'
+          // même si leur timestamp est plus ancien que twoMinutesAgo
+          return signing.result === 'signed';
         });
 
         if (hasNewValidSigning) {

@@ -37,13 +37,16 @@ if (!validatorAddress) {
 // Get supported AMPD chains from environment variables
 const ampdSupportedChainsEnv = process.env.AMPD_SUPPORTED_CHAINS || '';
 const ampdSupportedChains = ampdSupportedChainsEnv.split(',').filter(chain => chain.trim() !== '');
+// Get supported EVM chains from environment variables
+const evmSupportedChainsEnv = process.env.EVM_SUPPORTED_CHAINS || '';
+const evmSupportedChains = evmSupportedChainsEnv.split(',').filter(chain => chain.trim() !== '');
 // Create Tendermint client
-const tendermintClient = new tendermint_1.TendermintClient(rpcEndpoint, validatorAddress, broadcasterAddress, constants_1.HEARTBEAT_HISTORY_SIZE, axelarApiEndpoint, ampdSupportedChains, ampdAddress, rpcEndpoint);
+const tendermintClient = new tendermint_1.TendermintClient(rpcEndpoint, axelarApiEndpoint, validatorAddress, broadcasterAddress, ampdAddress, constants_1.HEARTBEAT_HISTORY_SIZE, evmSupportedChains, ampdSupportedChains);
 // Check if EVM votes manager is enabled
 metrics.evmVotesEnabled = tendermintClient.hasEvmVoteManager();
 // If EVM votes manager is enabled, get initial votes
 if (metrics.evmVotesEnabled) {
-    console.log(`EVM votes monitoring enabled with API endpoint: ${axelarApiEndpoint}`);
+    console.log(`EVM monitoring enabled for chains: ${evmSupportedChains.join(', ')}`);
     // Initialize EVM votes
     metrics.evmVotes = tendermintClient.getAllEvmVotes() || {};
 }
@@ -95,6 +98,7 @@ server.listen(Number(PORT), '0.0.0.0', async () => {
     console.log(`Heartbeat monitoring set to ${constants_1.HEARTBEAT_HISTORY_SIZE} periods (1 period = ${constants_1.HEARTBEAT_PERIOD} blocks)`);
     if (metrics.evmVotesEnabled) {
         console.log(`EVM votes monitoring enabled with API endpoint: ${axelarApiEndpoint}`);
+        console.log(`EVM monitoring enabled for chains: ${evmSupportedChains.join(', ')}`);
     }
     if (metrics.ampdEnabled) {
         console.log(`AMPD monitoring enabled for chains: ${metrics.ampdSupportedChains.join(', ')}`);

@@ -105,14 +105,14 @@ export class TendermintClient extends EventEmitter {
   private rpcUrl: string;
   
   constructor(
-    endpoint: string, 
-    validatorAddress: string, 
-    broadcasterAddress: string = '', 
-    historySize: number = 700, 
-    axelarApiEndpoint: string = '', 
-    ampdSupportedChains: string[] = [],
+    endpoint: string,
+    axelarApiEndpoint: string = '',
+    validatorAddress: string,
+    broadcasterAddress: string = '',
     ampdAddress: string = '',
-    rpcUrl: string = ''
+    historySize: number = 700,
+    evmSupportedChains: string[] = [],
+    ampdSupportedChains: string[] = []
   ) {
     super();
     this.endpoint = this.normalizeEndpoint(endpoint);
@@ -121,10 +121,10 @@ export class TendermintClient extends EventEmitter {
     this.ampdAddress = ampdAddress || this.broadcasterAddress;
     this.signatureManager = new ValidatorSignatureManager(validatorAddress);
     this.heartbeatManager = new HeartbeatManager(this.broadcasterAddress, historySize);
-    this.rpcUrl = rpcUrl || this.endpoint;
+    this.rpcUrl = endpoint.trim().replace(/\/websocket$/, ''); // Convertir l'endpoint en URL RPC
     
     if (axelarApiEndpoint) {
-      this.evmVoteManager = new EvmVoteManager(this.broadcasterAddress, axelarApiEndpoint);
+      this.evmVoteManager = new EvmVoteManager(this.broadcasterAddress, axelarApiEndpoint, evmSupportedChains);
       
       // Forward events from the EVM vote manager
       this.evmVoteManager.on('vote-update', (update) => {

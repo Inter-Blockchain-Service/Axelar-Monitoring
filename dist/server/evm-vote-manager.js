@@ -9,21 +9,6 @@ const axios_1 = __importDefault(require("axios"));
 const dotenv_1 = __importDefault(require("dotenv"));
 // Load environment variables
 dotenv_1.default.config();
-// List of supported chains from the .env file
-const SUPPORTED_CHAINS = process.env.EVM_SUPPORTED_CHAINS
-    ? process.env.EVM_SUPPORTED_CHAINS.split(',').map(chain => chain.trim())
-    : [
-        'ethereum', 'binance',
-        'polygon', 'avalanche',
-        'fantom', 'moonbeam',
-        'arbitrum', 'optimism',
-        'base', 'mantle',
-        'celo', 'kava',
-        'filecoin', 'linea',
-        'centrifuge', 'scroll',
-        'immutable', 'fraxtal',
-        'blast'
-    ]; // Default values if not defined in .env
 // Maximum number of poll_ids to store per chain
 const MAX_POLL_HISTORY = 200;
 // Vote status type
@@ -35,14 +20,28 @@ var VoteStatusType;
     VoteStatusType["Invalid"] = "invalid";
 })(VoteStatusType || (exports.VoteStatusType = VoteStatusType = {}));
 class EvmVoteManager extends events_1.EventEmitter {
-    constructor(validatorAddress, apiEndpoint) {
+    constructor(validatorAddress, apiEndpoint, supportedChains = []) {
         super();
         this.chainData = {};
         this.lastGlobalPollId = 0;
+        this.supportedChains = [];
         this.validatorAddress = validatorAddress;
         this.apiEndpoint = apiEndpoint;
+        // Use provided supported chains or default list if empty
+        this.supportedChains = supportedChains.length > 0 ? supportedChains : [
+            'ethereum', 'binance',
+            'polygon', 'avalanche',
+            'fantom', 'moonbeam',
+            'arbitrum', 'optimism',
+            'base', 'mantle',
+            'celo', 'kava',
+            'filecoin', 'linea',
+            'centrifuge', 'scroll',
+            'immutable', 'fraxtal',
+            'blast'
+        ];
         // Initialize data structure for each chain
-        SUPPORTED_CHAINS.forEach(chain => {
+        this.supportedChains.forEach(chain => {
             this.chainData[chain.toLowerCase()] = {
                 pollIds: Array(MAX_POLL_HISTORY).fill(undefined).map(() => ({
                     pollId: "unknown",
@@ -334,7 +333,7 @@ class EvmVoteManager extends events_1.EventEmitter {
             }
         }
         // If no update was made or no chain is specified, search in all chains
-        for (const chainName of SUPPORTED_CHAINS) {
+        for (const chainName of this.supportedChains) {
             const normalizedChain = chainName.toLowerCase();
             const chain = this.chainData[normalizedChain];
             if (chain) {
