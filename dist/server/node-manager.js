@@ -5,10 +5,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkNodeStatus = checkNodeStatus;
 exports.waitForNodeToBeSynced = waitForNodeToBeSynced;
+exports.canAttemptReconnection = canAttemptReconnection;
 exports.createReconnectionHandler = createReconnectionHandler;
 exports.connectToNode = connectToNode;
 const axios_1 = __importDefault(require("axios"));
 const utils_1 = require("./utils");
+// Variable globale pour suivre l'état de reconnexion
+let isReconnectionInProgress = false;
+let lastReconnectionAttempt = 0;
+const RECONNECTION_COOLDOWN = 10000; // 10 secondes entre les tentatives de reconnexion
 /**
  * Checks if the RPC node is available and synchronized
  * @param rpcEndpoint RPC node URL
@@ -63,6 +68,22 @@ async function waitForNodeToBeSynced(rpcEndpoint, interval = 10000) {
     }
 }
 /**
+ * Vérifie si une reconnexion peut être tentée en fonction du temps écoulé
+ * depuis la dernière tentative et de l'état actuel
+ */
+function canAttemptReconnection() {
+    const now = Date.now();
+    // Si une reconnexion est déjà en cours, ne pas en démarrer une nouvelle
+    if (isReconnectionInProgress) {
+        return false;
+    }
+    // Vérifier si le délai de refroidissement est passé
+    if (now - lastReconnectionAttempt < RECONNECTION_COOLDOWN) {
+        return false;
+    }
+    return true;
+}
+/**
  * Creates a function to reconnect to the RPC node
  * @param tendermintClient Tendermint client
  * @param metrics Validator metrics
@@ -72,6 +93,14 @@ async function waitForNodeToBeSynced(rpcEndpoint, interval = 10000) {
  */
 function createReconnectionHandler(tendermintClient, metrics, rpcEndpoint, broadcasters) {
     return async function reconnectToNode() {
+        // Vérifier si on peut tenter une reconnexion
+        if (!canAttemptReconnection()) {
+            console.log("Reconnection already in progress or cooldown period not elapsed, skipping...");
+            return;
+        }
+        // Marquer le début d'une tentative de reconnexion
+        isReconnectionInProgress = true;
+        lastReconnectionAttempt = Date.now();
         console.log("Attempting to reconnect to node...");
         // First, disconnect the existing client
         tendermintClient.disconnect();
@@ -89,6 +118,10 @@ function createReconnectionHandler(tendermintClient, metrics, rpcEndpoint, broad
         catch (error) {
             console.error('Error during node reconnection:', error);
             console.warn('Failed to reconnect. Will retry on next permanent disconnect event.');
+        }
+        finally {
+            // Réinitialiser l'état de reconnexion une fois terminé
+            isReconnectionInProgress = false;
         }
     };
 }

@@ -9,6 +9,11 @@ import {
   getErrorMessage
 } from './utils';
 
+// Variable globale pour suivre l'état de reconnexion
+let isReconnectionInProgress = false;
+let lastReconnectionAttempt = 0;
+const RECONNECTION_COOLDOWN = 10000; // 10 secondes entre les tentatives de reconnexion
+
 /**
  * Checks if the RPC node is available and synchronized
  * @param rpcEndpoint RPC node URL
@@ -22,7 +27,8 @@ export async function checkNodeStatus(rpcEndpoint: string): Promise<{ available:
     
     console.log(`Checking node status at: ${statusUrl}`);
     
-    const response = await axios.get(statusUrl);
+    // Ajouter un timeout de 5 secondes pour éviter les requêtes bloquées indéfiniment
+    const response = await axios.get(statusUrl, { timeout: 5000 });
     
     if (response.data && response.data.result) {
       const syncInfo = response.data.result.sync_info;
@@ -76,6 +82,26 @@ export async function waitForNodeToBeSynced(
 }
 
 /**
+ * Vérifie si une reconnexion peut être tentée en fonction du temps écoulé
+ * depuis la dernière tentative et de l'état actuel
+ */
+export function canAttemptReconnection(): boolean {
+  const now = Date.now();
+  
+  // Si une reconnexion est déjà en cours, ne pas en démarrer une nouvelle
+  if (isReconnectionInProgress) {
+    return false;
+  }
+  
+  // Vérifier si le délai de refroidissement est passé
+  if (now - lastReconnectionAttempt < RECONNECTION_COOLDOWN) {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
  * Creates a function to reconnect to the RPC node
  * @param tendermintClient Tendermint client
  * @param metrics Validator metrics
@@ -90,6 +116,16 @@ export function createReconnectionHandler(
   broadcasters?: Broadcasters
 ): () => Promise<void> {
   return async function reconnectToNode(): Promise<void> {
+    // Vérifier si on peut tenter une reconnexion
+    if (!canAttemptReconnection()) {
+      console.log("Reconnection already in progress or cooldown period not elapsed, skipping...");
+      return;
+    }
+    
+    // Marquer le début d'une tentative de reconnexion
+    isReconnectionInProgress = true;
+    lastReconnectionAttempt = Date.now();
+    
     console.log("Attempting to reconnect to node...");
     
     // First, disconnect the existing client
@@ -115,6 +151,9 @@ export function createReconnectionHandler(
     } catch (error: unknown) {
       console.error('Error during node reconnection:', error);
       console.warn('Failed to reconnect. Will retry on next permanent disconnect event.');
+    } finally {
+      // Réinitialiser l'état de reconnexion une fois terminé
+      isReconnectionInProgress = false;
     }
   };
 }

@@ -28,13 +28,12 @@ class TendermintClient extends events_1.EventEmitter {
         super();
         this.ws = null;
         this.connected = false;
-        this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 10;
         this.reconnectInterval = 5000;
         this.evmVoteManager = null;
         this.ampdManager = null;
         this.reconnectTimeout = null;
         this.reconnectDelay = 5000;
+        this.isReconnecting = false; // Drapeau pour suivre l'état de reconnexion
         this.endpoint = this.normalizeEndpoint(endpoint);
         this.validatorAddress = validatorAddress.toUpperCase();
         this.broadcasterAddress = broadcasterAddress || validatorAddress;
@@ -106,7 +105,7 @@ class TendermintClient extends events_1.EventEmitter {
             this.ws.on('open', () => {
                 console.log('WebSocket connected');
                 this.connected = true;
-                this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
+                this.isReconnecting = false; // Réinitialiser le drapeau de reconnexion
                 this.emit('connect');
                 // Wait a short delay before subscribing to events
                 setTimeout(() => {
@@ -164,22 +163,27 @@ class TendermintClient extends events_1.EventEmitter {
         }
     }
     attemptReconnect() {
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            console.error('Max reconnection attempts reached');
-            this.emit('permanentDisconnect');
+        // Éviter les tentatives de reconnexion multiples
+        if (this.isReconnecting) {
+            console.log('Reconnection already in progress, skipping new attempt');
             return;
         }
+        // Nous supprimons la vérification du nombre maximum de tentatives
+        // pour permettre des tentatives infinies jusqu'à ce que le nœud revienne en ligne
+        // Définir le drapeau de reconnexion
+        this.isReconnecting = true;
+        // Annuler tout timeout de reconnexion existant
         if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
         }
         this.reconnectTimeout = setTimeout(async () => {
             try {
-                console.log(`Attempting to reconnect (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+                console.log('Attempting to reconnect to node...');
                 // Check if node is available and synced before reconnecting
                 const isAvailable = await this.checkNodeAvailability();
                 if (!isAvailable) {
                     console.error('Node is not available, will retry later');
-                    this.reconnectAttempts++;
+                    this.isReconnecting = false; // Réinitialiser le drapeau pour permettre de futures tentatives
                     this.attemptReconnect();
                     return;
                 }
@@ -191,13 +195,12 @@ class TendermintClient extends events_1.EventEmitter {
                 }
                 // Reset state
                 this.connected = false;
-                this.reconnectAttempts++;
                 // Attempt new connection
                 this.setupWebSocket();
             }
             catch (error) {
                 console.error('Error during reconnection attempt:', error);
-                this.reconnectAttempts++;
+                this.isReconnecting = false; // Réinitialiser le drapeau même en cas d'erreur
                 this.attemptReconnect();
             }
         }, this.reconnectDelay);
@@ -299,6 +302,14 @@ class TendermintClient extends events_1.EventEmitter {
         }
     }
     disconnect() {
+        // Annuler tout timeout de reconnexion existant
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+        // Réinitialiser le drapeau de reconnexion
+        this.isReconnecting = false;
+        // Fermer la connexion WebSocket
         if (this.ws) {
             this.ws.terminate();
             this.ws = null;
@@ -307,6 +318,10 @@ class TendermintClient extends events_1.EventEmitter {
     }
     isConnected() {
         return this.connected;
+    }
+    // Méthode pour vérifier si une reconnexion est en cours
+    isReconnectionInProgress() {
+        return this.isReconnecting;
     }
     /**
      * Gets the heartbeat status history

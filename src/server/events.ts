@@ -132,23 +132,6 @@ export const setupEventHandlers = (
     }
   });
   
-  // Permanent disconnect handler
-  tendermintClient.on('permanent-disconnect', async () => {
-    // Update connection status
-    updateConnectionStatus(
-      metrics, 
-      false, 
-      "Unable to connect to RPC node after multiple attempts.",
-      broadcasters
-    );
-    
-    // If a reconnection function is provided, call it
-    if (onPermanentDisconnect) {
-      console.log("Node disconnected permanently. Attempting to reconnect...");
-      await onPermanentDisconnect();
-    }
-  });
-
   // WebSocket disconnect handler
   tendermintClient.on('disconnect', () => {
     // Update connection status
@@ -158,5 +141,15 @@ export const setupEventHandlers = (
       "WebSocket connection lost. Attempting to reconnect...",
       broadcasters
     );
+    
+    // Si une fonction de reconnexion est fournie, l'appeler après un délai
+    // pour éviter des appels trop fréquents
+    if (onPermanentDisconnect) {
+      console.log("Node disconnected. Attempting to reconnect...");
+      // Utiliser setTimeout pour éviter d'appeler la fonction de reconnexion trop fréquemment
+      setTimeout(async () => {
+        await onPermanentDisconnect();
+      }, 1000);
+    }
   });
 }; 

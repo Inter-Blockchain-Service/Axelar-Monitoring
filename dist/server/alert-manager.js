@@ -126,16 +126,13 @@ class AlertManager extends events_1.EventEmitter {
         // Check for no new blocks
         if (this.metrics.lastBlock === this.lastBlockHeight) {
             const timeSinceLastBlock = Date.now() - this.metrics.lastBlockTime.getTime();
-            // If no new block for 10 seconds and no recent reconnection attempt
-            if (timeSinceLastBlock > this.QUICK_RECONNECT_DELAY &&
-                (Date.now() - this.lastReconnectAttempt) > this.RECONNECT_COOLDOWN) {
-                if (this.reconnectToNode) {
-                    console.log('No new block detected for 10 seconds, attempting quick reconnect...');
-                    this.lastReconnectAttempt = Date.now();
-                    this.reconnectToNode().catch(err => {
-                        console.error('Quick reconnect failed:', err);
-                    });
-                }
+            // If no new block for 10 seconds, attempt reconnect using centralized system
+            if (timeSinceLastBlock > this.QUICK_RECONNECT_DELAY && this.reconnectToNode) {
+                console.log('No new block detected for 10 seconds, attempting quick reconnect...');
+                // Pas besoin de gérer l'état de reconnexion ici, c'est géré par node-manager.ts
+                this.reconnectToNode().catch(err => {
+                    console.error('Quick reconnect failed:', err);
+                });
             }
             // If still no new block after 2 minutes
             if (timeSinceLastBlock > this.ALERT_DELAY) {
@@ -316,15 +313,16 @@ class AlertManager extends events_1.EventEmitter {
                 }
             }
             else if (this.evmConsecutiveMissedByChain[chain]) {
+                // Check for valid votes in the most recent polls
                 const hasNewValidVote = chainData.pollIds.some(vote => {
-                    if (vote.result === 'unsubmit' && vote.timestamp) {
+                    if (vote.result === 'unsubmitted' && vote.timestamp) {
                         const voteTime = new Date(vote.timestamp).getTime();
                         if (voteTime > fiveMinutesAgo)
                             return false;
                     }
-                    return vote.result === 'validated' &&
-                        vote.timestamp &&
-                        new Date(vote.timestamp).getTime() > fiveMinutesAgo;
+                    // Nous considérons comme validés tous les votes avec le statut 'validated'
+                    // même si leur timestamp est plus ancien que fiveMinutesAgo
+                    return vote.result === 'validated';
                 });
                 if (hasNewValidVote) {
                     this.evmConsecutiveMissedByChain[chain] = 0;
@@ -388,9 +386,9 @@ class AlertManager extends events_1.EventEmitter {
                         if (voteTime > twoMinutesAgo)
                             return false;
                     }
-                    return vote.result === 'succeeded_on_chain' &&
-                        vote.timestamp &&
-                        new Date(vote.timestamp).getTime() > twoMinutesAgo;
+                    // Nous considérons comme validés tous les votes avec le statut 'succeeded_on_chain'
+                    // même si leur timestamp est plus ancien que twoMinutesAgo
+                    return vote.result === 'succeeded_on_chain';
                 });
                 if (hasNewValidVote) {
                     this.ampdVotesConsecutiveMissedByChain[chain] = 0;
@@ -451,9 +449,9 @@ class AlertManager extends events_1.EventEmitter {
                         if (signingTime > twoMinutesAgo)
                             return false;
                     }
-                    return signing.result === 'signed' &&
-                        signing.timestamp &&
-                        new Date(signing.timestamp).getTime() > twoMinutesAgo;
+                    // Nous considérons comme validés toutes les signatures avec le statut 'signed'
+                    // même si leur timestamp est plus ancien que twoMinutesAgo
+                    return signing.result === 'signed';
                 });
                 if (hasNewValidSigning) {
                     this.ampdSigningsConsecutiveMissedByChain[chain] = 0;
