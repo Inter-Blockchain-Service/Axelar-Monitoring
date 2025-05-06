@@ -25,7 +25,8 @@ async function checkNodeStatus(rpcEndpoint) {
         const endpoint = rpcEndpoint.replace(/\/websocket$/, '');
         const statusUrl = `${endpoint}/status`;
         console.log(`Checking node status at: ${statusUrl}`);
-        const response = await axios_1.default.get(statusUrl);
+        // Ajouter un timeout de 5 secondes pour éviter les requêtes bloquées indéfiniment
+        const response = await axios_1.default.get(statusUrl, { timeout: 5000 });
         if (response.data && response.data.result) {
             const syncInfo = response.data.result.sync_info;
             const isSynced = syncInfo && syncInfo.catching_up === false;

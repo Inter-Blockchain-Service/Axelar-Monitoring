@@ -9,7 +9,8 @@
     "start": "concurrently \"next start\" \"npm run server\"",
     "lint": "next lint",
     "server": "node dist/server/index.js",
-    "server:dev": "tsx src/server/index.ts"
+    "server:dev": "tsx src/server/index.ts",
+    "clean": "rimraf dist && rimraf .next"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -41,6 +42,7 @@
     "dotenv": "^16.5.0",
     "eslint": "^9",
     "eslint-config-next": "15.3.0",
+    "rimraf": "^6.0.1",
     "tailwindcss": "^4",
     "tsx": "^4.19.3",
     "typescript": "^5"
