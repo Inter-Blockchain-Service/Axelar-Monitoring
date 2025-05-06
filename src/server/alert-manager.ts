@@ -103,8 +103,6 @@ export class AlertManager extends EventEmitter {
   
   private isNoNewBlockAlerted: boolean = false;
   private lastBlockHeight: number = 0;
-  private lastReconnectAttempt: number = 0;
-  private readonly RECONNECT_COOLDOWN: number = 30 * 1000; // 30 seconds between reconnection attempts
   private readonly QUICK_RECONNECT_DELAY: number = 10 * 1000; // 10 seconds before first reconnection attempt
   private readonly ALERT_DELAY: number = 2 * 60 * 1000; // 2 minutes before alert
   
@@ -195,8 +193,8 @@ export class AlertManager extends EventEmitter {
       
       // If no new block for 10 seconds, attempt reconnect using centralized system
       if (timeSinceLastBlock > this.QUICK_RECONNECT_DELAY && this.reconnectToNode) {
+        // Utiliser le système centralisé de reconnexion, qui gère déjà le "cooldown"
         console.log('No new block detected for 10 seconds, attempting quick reconnect...');
-        // Pas besoin de gérer l'état de reconnexion ici, c'est géré par node-manager.ts
         this.reconnectToNode().catch(err => {
           console.error('Quick reconnect failed:', err);
         });
