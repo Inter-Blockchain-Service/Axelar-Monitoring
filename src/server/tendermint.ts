@@ -281,7 +281,7 @@ export class TendermintClient extends EventEmitter {
     
     const eventType = reply.result.data.type;
     const value = reply.result.data.value;
-    console.log('Received event:', eventType);
+    // console.log('Received event:', eventType);
     switch (eventType) {
       case 'tendermint/event/NewBlock':
         // Type assertion to indicate that value is of type BlockData
