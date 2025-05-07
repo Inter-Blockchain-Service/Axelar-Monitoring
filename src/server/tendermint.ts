@@ -93,15 +93,11 @@ export class TendermintClient extends EventEmitter {
   private validatorAddress: string;
   private broadcasterAddress: string;
   private ampdAddress: string;
-  private reconnectInterval: number = 5000;
   private signatureManager: ValidatorSignatureManager;
   private heartbeatManager: HeartbeatManager;
   private evmVoteManager: EvmVoteManager | null = null;
   private ampdManager: AmpdManager | null = null;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
-  private reconnectDelay: number = 5000;
   private rpcUrl: string;
-  private isReconnecting: boolean = false; // Drapeau pour suivre l'état de reconnexion
   
   constructor(
     endpoint: string,
@@ -120,7 +116,7 @@ export class TendermintClient extends EventEmitter {
     this.ampdAddress = ampdAddress || this.broadcasterAddress;
     this.signatureManager = new ValidatorSignatureManager(validatorAddress);
     this.heartbeatManager = new HeartbeatManager(this.broadcasterAddress, historySize);
-    this.rpcUrl = endpoint.trim().replace(/\/websocket$/, ''); // Convertir l'endpoint en URL RPC
+    this.rpcUrl = endpoint.trim().replace(/\/websocket$/, '');
     
     if (axelarApiEndpoint) {
       this.evmVoteManager = new EvmVoteManager(this.broadcasterAddress, axelarApiEndpoint, evmSupportedChains);
@@ -181,15 +177,15 @@ export class TendermintClient extends EventEmitter {
     return url;
   }
   
-  // Connect to WebSocket
+  // Méthode pour être notifié de la reconnexion par le NodeManager
+  public handleReconnection(): void {
+    this.setupWebSocket();
+  }
+
+  // Méthode pour la connexion initiale
   public connect(): void {
-    try {
-      console.log(`Connecting to ${this.endpoint}`);
-      this.setupWebSocket();
-    } catch (error) {
-      console.error('Connection error:', error);
-      this.attemptReconnect();
-    }
+    console.log(`Connecting to ${this.endpoint}`);
+    this.setupWebSocket();
   }
   
   private setupWebSocket(): void {
@@ -199,32 +195,20 @@ export class TendermintClient extends EventEmitter {
       this.ws.on('open', () => {
         console.log('WebSocket connected');
         this.connected = true;
-        this.isReconnecting = false; // Réinitialiser le drapeau de reconnexion
         this.emit('connect');
-        
-        // Wait a short delay before subscribing to events
-        setTimeout(() => {
-          if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.subscribeToEvents();
-          } else {
-            console.warn('WebSocket not ready for subscription, will retry...');
-            this.attemptReconnect();
-          }
-        }, 1000);
+        this.subscribeToEvents();
       });
       
       this.ws.on('close', () => {
         console.log('WebSocket disconnected');
         this.connected = false;
         this.emit('disconnect');
-        this.attemptReconnect(); // Trigger reconnection on close
       });
       
       this.ws.on('error', (error) => {
         console.error('WebSocket error:', error);
         this.connected = false;
         this.emit('disconnect');
-        this.attemptReconnect(); // Trigger reconnection on error
       });
       
       this.ws.on('message', (data) => {
@@ -239,74 +223,7 @@ export class TendermintClient extends EventEmitter {
       console.error('Error setting up WebSocket:', error);
       this.connected = false;
       this.emit('disconnect');
-      this.attemptReconnect();
     }
-  }
-  
-  private async checkNodeAvailability(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.rpcUrl}/status`);
-      if (!response.ok) {
-        return false;
-      }
-
-      const data = await response.json();
-      return data.result?.sync_info?.catching_up === false;
-    } catch (error) {
-      console.error('Error checking node availability:', error);
-      return false;
-    }
-  }
-  
-  private attemptReconnect(): void {
-    // Éviter les tentatives de reconnexion multiples
-    if (this.isReconnecting) {
-      console.log('Reconnection already in progress, skipping new attempt');
-      return;
-    }
-    
-    // Nous supprimons la vérification du nombre maximum de tentatives
-    // pour permettre des tentatives infinies jusqu'à ce que le nœud revienne en ligne
-    
-    // Définir le drapeau de reconnexion
-    this.isReconnecting = true;
-    
-    // Annuler tout timeout de reconnexion existant
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-    }
-
-    this.reconnectTimeout = setTimeout(async () => {
-      try {
-        console.log('Attempting to reconnect to node...');
-        
-        // Check if node is available and synced before reconnecting
-        const isAvailable = await this.checkNodeAvailability();
-        if (!isAvailable) {
-          console.error('Node is not available, will retry later');
-          this.isReconnecting = false; // Réinitialiser le drapeau pour permettre de futures tentatives
-          this.attemptReconnect();
-          return;
-        }
-
-        // Clean up existing connection
-        if (this.ws) {
-          this.ws.removeAllListeners();
-          this.ws.terminate();
-          this.ws = null;
-        }
-
-        // Reset state
-        this.connected = false;
-        
-        // Attempt new connection
-        this.setupWebSocket();
-      } catch (error) {
-        console.error('Error during reconnection attempt:', error);
-        this.isReconnecting = false; // Réinitialiser le drapeau même en cas d'erreur
-        this.attemptReconnect();
-      }
-    }, this.reconnectDelay);
   }
   
   private subscribeToEvents(): void {
@@ -346,7 +263,7 @@ export class TendermintClient extends EventEmitter {
       console.log('Successfully subscribed to all events');
     } catch (error) {
       console.error('Error subscribing to events:', error);
-      this.attemptReconnect();
+      this.emit('disconnect');
     }
   }
   
@@ -414,16 +331,6 @@ export class TendermintClient extends EventEmitter {
   }
   
   public disconnect(): void {
-    // Annuler tout timeout de reconnexion existant
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
-    
-    // Réinitialiser le drapeau de reconnexion
-    this.isReconnecting = false;
-    
-    // Fermer la connexion WebSocket
     if (this.ws) {
       this.ws.terminate();
       this.ws = null;
@@ -433,11 +340,6 @@ export class TendermintClient extends EventEmitter {
   
   public isConnected(): boolean {
     return this.connected;
-  }
-  
-  // Méthode pour vérifier si une reconnexion est en cours
-  public isReconnectionInProgress(): boolean {
-    return this.isReconnecting;
   }
 
   /**

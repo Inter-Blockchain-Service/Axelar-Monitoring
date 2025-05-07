@@ -58,8 +58,6 @@ class AlertManager extends events_1.EventEmitter {
         this.ampdSigningsConsecutiveMissedByChain = {};
         this.isNoNewBlockAlerted = false;
         this.lastBlockHeight = 0;
-        this.lastReconnectAttempt = 0;
-        this.RECONNECT_COOLDOWN = 30 * 1000; // 30 seconds between reconnection attempts
         this.QUICK_RECONNECT_DELAY = 10 * 1000; // 10 seconds before first reconnection attempt
         this.ALERT_DELAY = 2 * 60 * 1000; // 2 minutes before alert
         this.metrics = metrics;
@@ -126,14 +124,6 @@ class AlertManager extends events_1.EventEmitter {
         // Check for no new blocks
         if (this.metrics.lastBlock === this.lastBlockHeight) {
             const timeSinceLastBlock = Date.now() - this.metrics.lastBlockTime.getTime();
-            // If no new block for 10 seconds, attempt reconnect using centralized system
-            if (timeSinceLastBlock > this.QUICK_RECONNECT_DELAY && this.reconnectToNode) {
-                console.log('No new block detected for 10 seconds, attempting quick reconnect...');
-                // Pas besoin de gérer l'état de reconnexion ici, c'est géré par node-manager.ts
-                this.reconnectToNode().catch(err => {
-                    console.error('Quick reconnect failed:', err);
-                });
-            }
             // If still no new block after 2 minutes
             if (timeSinceLastBlock > this.ALERT_DELAY) {
                 if (!this.isNoNewBlockAlerted) {

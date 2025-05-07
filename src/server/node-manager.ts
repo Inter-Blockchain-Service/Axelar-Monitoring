@@ -115,7 +115,12 @@ export function createReconnectionHandler(
   rpcEndpoint: string,
   broadcasters?: Broadcasters
 ): () => Promise<void> {
-  return async function reconnectToNode(): Promise<void> {
+  let lastBlockHeight: number = 0;
+  let lastBlockTime: Date = new Date();
+  const QUICK_RECONNECT_DELAY = 10 * 1000; // 10 secondes
+
+  // Déclarer la fonction de reconnexion
+  const reconnectToNode = async (): Promise<void> => {
     // Vérifier si on peut tenter une reconnexion
     if (!canAttemptReconnection()) {
       console.log("Reconnection already in progress or cooldown period not elapsed, skipping...");
@@ -146,16 +151,50 @@ export function createReconnectionHandler(
       
       if (isNodeReady) {
         // Connect the Tendermint client if the node is ready
-        connectTendermintClient(tendermintClient, 'Node is ready again. Reconnecting Tendermint client...');
+        tendermintClient.handleReconnection();
+        updateConnectionStatus(
+          metrics,
+          true,
+          "Node reconnected successfully",
+          broadcasters
+        );
       }
     } catch (error: unknown) {
       console.error('Error during node reconnection:', error);
-      console.warn('Failed to reconnect. Will retry on next permanent disconnect event.');
+      updateConnectionStatus(
+        metrics,
+        false,
+        "Failed to reconnect to node",
+        broadcasters
+      );
     } finally {
       // Réinitialiser l'état de reconnexion une fois terminé
       isReconnectionInProgress = false;
     }
   };
+
+  // Fonction pour vérifier les nouveaux blocs
+  const checkNewBlocks = () => {
+    if (metrics.lastBlock === lastBlockHeight) {
+      const timeSinceLastBlock = Date.now() - lastBlockTime.getTime();
+      
+      // Si pas de nouveau bloc depuis 10 secondes, tenter une reconnexion rapide
+      if (timeSinceLastBlock > QUICK_RECONNECT_DELAY) {
+        console.log('No new block detected for 10 seconds, attempting quick reconnect...');
+        reconnectToNode().catch((error: Error) => {
+          console.error('Quick reconnect failed:', error);
+        });
+      }
+    } else {
+      lastBlockHeight = metrics.lastBlock;
+      lastBlockTime = new Date();
+    }
+  };
+
+  // Démarrer la vérification périodique des nouveaux blocs
+  setInterval(checkNewBlocks, 5000); // Vérifier toutes les 5 secondes
+
+  return reconnectToNode;
 }
 
 /**

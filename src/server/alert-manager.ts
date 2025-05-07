@@ -191,15 +191,6 @@ export class AlertManager extends EventEmitter {
     if (this.metrics.lastBlock === this.lastBlockHeight) {
       const timeSinceLastBlock = Date.now() - this.metrics.lastBlockTime.getTime();
       
-      // If no new block for 10 seconds, attempt reconnect using centralized system
-      if (timeSinceLastBlock > this.QUICK_RECONNECT_DELAY && this.reconnectToNode) {
-        // Utiliser le système centralisé de reconnexion, qui gère déjà le "cooldown"
-        console.log('No new block detected for 10 seconds, attempting quick reconnect...');
-        this.reconnectToNode().catch(err => {
-          console.error('Quick reconnect failed:', err);
-        });
-      }
-      
       // If still no new block after 2 minutes
       if (timeSinceLastBlock > this.ALERT_DELAY) {
         if (!this.isNoNewBlockAlerted) {
