@@ -25,12 +25,6 @@ export enum AlertType {
   AMPD_SIGNINGS_RECOVERED = 'ampd_signings_recovered',
 }
 
-// Interface for AMPD signings
-interface AmpdSigning {
-  signingId: string;
-  result: string;
-}
-
 // Interface for an alert
 interface Alert {
   type: AlertType;
