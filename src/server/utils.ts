@@ -1,6 +1,5 @@
 import { ValidatorMetrics } from './metrics';
 import { Broadcasters } from './websockets-client';
-import { TendermintClient } from './tendermint';
 
 /**
  * Updates connection metrics and broadcasts if needed
@@ -84,19 +83,6 @@ export const logNodeStatus = (
   } else {
     console.log(`Node is not available (attempt ${attempts}, waiting for ${elapsedMinutes} min). Waiting ${interval/1000}s before retrying...`);
   }
-};
-
-/**
- * Helper to connect Tendermint client and log result
- * @param tendermintClient Client to connect
- * @param message Message to log
- */
-export const connectTendermintClient = (
-  tendermintClient: TendermintClient,
-  message: string = 'Connecting Tendermint client...'
-): void => {
-  console.log(message);
-  tendermintClient.connect();
 };
 
 /**

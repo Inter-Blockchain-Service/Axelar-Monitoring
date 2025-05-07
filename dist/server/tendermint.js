@@ -100,16 +100,7 @@ class TendermintClient extends events_1.EventEmitter {
                 console.log('WebSocket connected');
                 this.connected = true;
                 this.emit('connect');
-                // Wait a short delay before subscribing to events
-                setTimeout(() => {
-                    if (this.ws && this.ws.readyState === ws_1.default.OPEN) {
-                        this.subscribeToEvents();
-                    }
-                    else {
-                        console.warn('WebSocket not ready for subscription, will retry...');
-                        this.emit('disconnect');
-                    }
-                }, 1000);
+                this.subscribeToEvents();
             });
             this.ws.on('close', () => {
                 console.log('WebSocket disconnected');

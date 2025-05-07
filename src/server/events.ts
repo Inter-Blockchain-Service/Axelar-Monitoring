@@ -138,18 +138,13 @@ export const setupEventHandlers = (
     updateConnectionStatus(
       metrics, 
       false, 
-      "WebSocket connection lost. Attempting to reconnect...",
+      "WebSocket connection lost. Waiting for reconnection...",
       broadcasters
     );
     
-    // Si une fonction de reconnexion est fournie, l'appeler après un délai
-    // pour éviter des appels trop fréquents
+    // Laisser node-manager.ts gérer la reconnexion
     if (onPermanentDisconnect) {
-      console.log("Node disconnected. Attempting to reconnect...");
-      // Utiliser setTimeout pour éviter d'appeler la fonction de reconnexion trop fréquemment
-      setTimeout(async () => {
-        await onPermanentDisconnect();
-      }, 1000);
+      onPermanentDisconnect();
     }
   });
 }; 

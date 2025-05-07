@@ -1,9 +1,7 @@
-import express from 'express';
 import http from 'http';
 import dotenv from 'dotenv';
 import { TendermintClient } from './tendermint';
 import { createInitialMetrics } from './metrics';
-import { setupApiRoutes } from './api';
 import { setupWebSockets, createBroadcasters } from './websockets-client';
 import { setupEventHandlers } from './events';
 import { connectToNode, createReconnectionHandler } from './node-manager';
@@ -17,9 +15,8 @@ dotenv.config();
 const DEFAULT_RPC_ENDPOINT = 'http://localhost:26657';
 const DEFAULT_VALIDATOR_ADDRESS = '';
 
-// Create Express application
-const app = express();
-const server = http.createServer(app);
+// Create HTTP server
+const server = http.createServer();
 
 // Initialize metrics
 const metrics = createInitialMetrics(
@@ -95,27 +92,6 @@ const alertManager = new AlertManager(metrics, reconnectToNode);
 
 // Configure event handlers with reconnection function and broadcasters
 setupEventHandlers(tendermintClient, metrics, reconnectToNode, broadcasters);
-
-// Configure API routes
-setupApiRoutes(app, metrics, tendermintClient);
-
-// Add API routes for alerts
-app.get('/api/alerts/status', (req, res) => {
-  const status = {
-    enabled: true,
-    thresholds: {
-      consecutiveBlocksMissed: parseInt(process.env.ALERT_CONSECUTIVE_BLOCKS_THRESHOLD || '3', 10),
-      consecutiveHeartbeatsMissed: parseInt(process.env.ALERT_CONSECUTIVE_HEARTBEATS_THRESHOLD || '2', 10),
-      signRateThreshold: parseFloat(process.env.ALERT_SIGN_RATE_THRESHOLD || '98.5'),
-      heartbeatRateThreshold: parseFloat(process.env.ALERT_HEARTBEAT_RATE_THRESHOLD || '98.0')
-    },
-    notifications: {
-      discord: process.env.DISCORD_ALERTS_ENABLED === 'true',
-      telegram: process.env.TELEGRAM_ALERTS_ENABLED === 'true'
-    }
-  };
-  res.json(status);
-});
 
 // Start server and connect to RPC node
 const PORT = process.env.PORT || 3001;

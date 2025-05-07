@@ -5,14 +5,16 @@ import { Broadcasters } from './websockets-client';
 import { 
   updateConnectionStatus, 
   logNodeStatus, 
-  connectTendermintClient,
   getErrorMessage
 } from './utils';
 
-// Variable globale pour suivre l'état de reconnexion
+// Constantes pour la gestion des reconnexions
+const RECONNECTION_COOLDOWN = 10000; // 10 secondes entre les tentatives de reconnexion
+const QUICK_RECONNECT_DELAY = 10 * 1000; // 10 secondes
+
+// Variables globales pour le contrôle
 let isReconnectionInProgress = false;
 let lastReconnectionAttempt = 0;
-const RECONNECTION_COOLDOWN = 10000; // 10 secondes entre les tentatives de reconnexion
 
 /**
  * Checks if the RPC node is available and synchronized
@@ -117,26 +119,22 @@ export function createReconnectionHandler(
 ): () => Promise<void> {
   let lastBlockHeight: number = 0;
   let lastBlockTime: Date = new Date();
-  const QUICK_RECONNECT_DELAY = 10 * 1000; // 10 secondes
 
-  // Déclarer la fonction de reconnexion
   const reconnectToNode = async (): Promise<void> => {
-    // Vérifier si on peut tenter une reconnexion
     if (!canAttemptReconnection()) {
       console.log("Reconnection already in progress or cooldown period not elapsed, skipping...");
       return;
     }
     
-    // Marquer le début d'une tentative de reconnexion
     isReconnectionInProgress = true;
     lastReconnectionAttempt = Date.now();
     
     console.log("Attempting to reconnect to node...");
     
-    // First, disconnect the existing client
+    // Déconnecter le client existant
     tendermintClient.disconnect();
     
-    // Update metrics to reflect disconnected state
+    // Mettre à jour le statut
     updateConnectionStatus(
       metrics,
       false,
@@ -145,13 +143,14 @@ export function createReconnectionHandler(
     );
     
     try {
-      // Wait for the node to be available and synced again
+      // Vérifier si le nœud est prêt
       console.log(`Checking if node ${rpcEndpoint} is available and synced...`);
       const isNodeReady = await waitForNodeToBeSynced(rpcEndpoint);
       
       if (isNodeReady) {
-        // Connect the Tendermint client if the node is ready
+        // Reconnecter le client
         tendermintClient.handleReconnection();
+        
         updateConnectionStatus(
           metrics,
           true,
@@ -159,7 +158,7 @@ export function createReconnectionHandler(
           broadcasters
         );
       }
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('Error during node reconnection:', error);
       updateConnectionStatus(
         metrics,
@@ -168,7 +167,6 @@ export function createReconnectionHandler(
         broadcasters
       );
     } finally {
-      // Réinitialiser l'état de reconnexion une fois terminé
       isReconnectionInProgress = false;
     }
   };
@@ -194,6 +192,11 @@ export function createReconnectionHandler(
   // Démarrer la vérification périodique des nouveaux blocs
   setInterval(checkNewBlocks, 5000); // Vérifier toutes les 5 secondes
 
+  // Configurer le gestionnaire d'événements de déconnexion
+  tendermintClient.on('disconnect', () => {
+    reconnectToNode();
+  });
+
   return reconnectToNode;
 }
 
@@ -216,7 +219,8 @@ export async function connectToNode(
     
     if (isNodeReady) {
       // Connect the Tendermint client if the node is ready
-      connectTendermintClient(tendermintClient, 'Node is ready. Connecting Tendermint client...');
+      console.log('Node is ready. Connecting Tendermint client...');
+      tendermintClient.connect();
     } else {
       // This code should never be reached since the function waits indefinitely
       console.warn('WARNING: Node is not ready or synced. Starting anyway, but expect issues.');
