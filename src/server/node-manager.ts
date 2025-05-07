@@ -232,15 +232,15 @@ export async function connectToNode(
   rpcEndpoint: string
 ): Promise<void> {
   try {
-    // On attend que le nœud soit prêt
+    // Wait for the node to be ready
     await waitForNodeToBeSynced(rpcEndpoint);
     
-    // Si on arrive ici, c'est que le nœud est prêt
+    // If we reach this point, the node is ready
     console.log('Node is ready. Connecting Tendermint client...');
     tendermintClient.connect();
     
   } catch (error) {
     console.error('Error during node status check:', error);
-    throw error; // On propage l'erreur plutôt que de continuer
+    throw error; // Propagate the error instead of continuing
   }
 } 

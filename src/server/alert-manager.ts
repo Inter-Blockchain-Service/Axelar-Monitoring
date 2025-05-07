@@ -389,8 +389,6 @@ export class AlertManager extends EventEmitter {
   private checkEvmVotes(): void {
     if (!this.metrics.evmVotes) return;
     
-    // console.log(`EVM votes check: chains=${Object.keys(this.metrics.evmVotes).join(',')}`);
-    
     // Loop through all EVM chains
     Object.entries(this.metrics.evmVotes).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0) return;
@@ -413,8 +411,6 @@ export class AlertManager extends EventEmitter {
           break;
         }
       }
-      
-      // console.log(`Chain ${chain}: ${consecutiveMissed} consecutive missed votes on ${chainData.pollIds.length} recent votes`);
       
       // If the number of consecutive missed votes exceeds the warning threshold, send a warning alert
       if (consecutiveMissed >= this.thresholds.consecutiveEvmVotesMissed) {
@@ -444,8 +440,7 @@ export class AlertManager extends EventEmitter {
             const voteTime = new Date(vote.timestamp).getTime();
             if (voteTime > fiveMinutesAgo) return false;
           }
-          // Nous considérons comme validés tous les votes avec le statut 'validated'
-          // même si leur timestamp est plus ancien que fiveMinutesAgo
+          // We consider all votes with 'validated' status as valid
           return vote.result === 'validated';
         });
 
@@ -471,8 +466,6 @@ export class AlertManager extends EventEmitter {
   private checkAmpdVotes(): void {
     if (!this.metrics.ampdVotes) return;
     
-    // console.log(`AMPD votes check: chains=${Object.keys(this.metrics.ampdVotes).join(',')}`);
-    
     // Loop through all AMPD chains
     Object.entries(this.metrics.ampdVotes).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0) return;
@@ -495,8 +488,6 @@ export class AlertManager extends EventEmitter {
           break;
         }
       }
-      
-      // console.log(`Chain ${chain}: ${consecutiveMissed} consecutive missed votes on ${chainData.pollIds.length} recent votes`);
       
       // If the number of consecutive missed votes exceeds the warning threshold, send a warning alert
       if (consecutiveMissed >= this.thresholds.consecutiveAmpdVotesMissed) {
@@ -525,8 +516,7 @@ export class AlertManager extends EventEmitter {
             const voteTime = new Date(vote.timestamp).getTime();
             if (voteTime > twoMinutesAgo) return false;
           }
-          // Nous considérons comme validés tous les votes avec le statut 'succeeded_on_chain'
-          // même si leur timestamp est plus ancien que twoMinutesAgo
+          // We consider all votes with 'succeeded_on_chain' status as valid
           return vote.result === 'succeeded_on_chain';
         });
 
@@ -552,8 +542,6 @@ export class AlertManager extends EventEmitter {
   private checkAmpdSignings(): void {
     if (!this.metrics.ampdSignings) return;
     
-    // console.log(`AMPD signings check: chains=${Object.keys(this.metrics.ampdSignings).join(',')}`);
-    
     // Loop through all AMPD chains
     Object.entries(this.metrics.ampdSignings).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.signingIds || chainData.signingIds.length === 0) return;
@@ -574,8 +562,6 @@ export class AlertManager extends EventEmitter {
           break;
         }
       }
-      
-      // console.log(`Chain ${chain}: ${consecutiveMissed} consecutive missed signings on ${chainData.signingIds.length} recent signings`);
       
       // If the number of consecutive missed signings exceeds the warning threshold, send a warning alert
       if (consecutiveMissed >= this.thresholds.consecutiveAmpdSigningsMissed) {
@@ -604,8 +590,7 @@ export class AlertManager extends EventEmitter {
             const signingTime = new Date(signing.timestamp).getTime();
             if (signingTime > twoMinutesAgo) return false;
           }
-          // Nous considérons comme validés toutes les signatures avec le statut 'signed'
-          // même si leur timestamp est plus ancien que twoMinutesAgo
+          // We consider all signatures with 'signed' status as valid
           return signing.result === 'signed';
         });
 
