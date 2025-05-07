@@ -226,6 +226,13 @@ export class TendermintClient extends EventEmitter {
     }
   }
   
+  private generateSubscriptionId(): number {
+    // Combine timestamp with random number for uniqueness
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 10000);
+    return timestamp * 10000 + random;
+  }
+
   private subscribeToEvents(): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       console.warn('Cannot subscribe to events: WebSocket not ready');
@@ -237,7 +244,7 @@ export class TendermintClient extends EventEmitter {
       const subscribeNewBlock = {
         jsonrpc: "2.0",
         method: "subscribe",
-        id: 1,
+        id: this.generateSubscriptionId(),
         params: { query: QUERY_NEW_BLOCK }
       };
       
@@ -245,7 +252,7 @@ export class TendermintClient extends EventEmitter {
       const subscribeVotes = {
         jsonrpc: "2.0",
         method: "subscribe",
-        id: 2,
+        id: this.generateSubscriptionId(),
         params: { query: QUERY_VOTE }
       };
 
@@ -253,7 +260,7 @@ export class TendermintClient extends EventEmitter {
       const subscribeTx = {
         jsonrpc: "2.0",
         method: "subscribe",
-        id: 3,
+        id: this.generateSubscriptionId(),
         params: { query: QUERY_TX }
       };
       
