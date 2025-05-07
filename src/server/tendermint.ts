@@ -177,12 +177,12 @@ export class TendermintClient extends EventEmitter {
     return url;
   }
   
-  // Méthode pour être notifié de la reconnexion par le NodeManager
+  // Method to be notified of reconnection by NodeManager
   public handleReconnection(): void {
     this.setupWebSocket();
   }
 
-  // Méthode pour la connexion initiale
+  // Method for initial connection
   public connect(): void {
     console.log(`Connecting to ${this.endpoint}`);
     this.setupWebSocket();

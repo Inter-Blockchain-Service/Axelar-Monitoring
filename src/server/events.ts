@@ -142,7 +142,7 @@ export const setupEventHandlers = (
       broadcasters
     );
     
-    // Laisser node-manager.ts gérer la reconnexion
+    // Let node-manager.ts handle the reconnection
     if (onPermanentDisconnect) {
       onPermanentDisconnect();
     }

@@ -8,11 +8,11 @@ import {
   getErrorMessage
 } from './utils';
 
-// Constantes pour la gestion des reconnexions
-const RECONNECTION_COOLDOWN = 10000; // 10 secondes entre les tentatives de reconnexion
-const QUICK_RECONNECT_DELAY = 10 * 1000; // 10 secondes
+// Constants for reconnection management
+const RECONNECTION_COOLDOWN = 10000; // 10 seconds between reconnection attempts
+const QUICK_RECONNECT_DELAY = 10 * 1000; // 10 seconds
 
-// Variables globales pour le contrôle
+// Global variables for control
 let isReconnectionInProgress = false;
 let lastReconnectionAttempt = 0;
 
@@ -29,7 +29,7 @@ export async function checkNodeStatus(rpcEndpoint: string): Promise<{ available:
     
     console.log(`Checking node status at: ${statusUrl}`);
     
-    // Ajouter un timeout de 5 secondes pour éviter les requêtes bloquées indéfiniment
+    // Add a 5-second timeout to avoid indefinitely blocked requests
     const response = await axios.get(statusUrl, { timeout: 5000 });
     
     if (response.data && response.data.result) {
@@ -84,18 +84,18 @@ export async function waitForNodeToBeSynced(
 }
 
 /**
- * Vérifie si une reconnexion peut être tentée en fonction du temps écoulé
- * depuis la dernière tentative et de l'état actuel
+ * Checks if a reconnection can be attempted based on the time elapsed
+ * since the last attempt and the current state
  */
 export function canAttemptReconnection(): boolean {
   const now = Date.now();
   
-  // Si une reconnexion est déjà en cours, ne pas en démarrer une nouvelle
+  // If a reconnection is already in progress, don't start a new one
   if (isReconnectionInProgress) {
     return false;
   }
   
-  // Vérifier si le délai de refroidissement est passé
+  // Check if the cooldown period has passed
   if (now - lastReconnectionAttempt < RECONNECTION_COOLDOWN) {
     return false;
   }
@@ -131,10 +131,10 @@ export function createReconnectionHandler(
     
     console.log("Attempting to reconnect to node...");
     
-    // Déconnecter le client existant
+    // Disconnect the existing client
     tendermintClient.disconnect();
     
-    // Mettre à jour le statut
+    // Update status
     updateConnectionStatus(
       metrics,
       false,
@@ -143,12 +143,12 @@ export function createReconnectionHandler(
     );
     
     try {
-      // Vérifier si le nœud est prêt
+      // Check if the node is ready
       console.log(`Checking if node ${rpcEndpoint} is available and synced...`);
       const isNodeReady = await waitForNodeToBeSynced(rpcEndpoint);
       
       if (isNodeReady) {
-        // Reconnecter le client
+        // Reconnect the client
         tendermintClient.handleReconnection();
         
         updateConnectionStatus(
@@ -171,12 +171,12 @@ export function createReconnectionHandler(
     }
   };
 
-  // Fonction pour vérifier les nouveaux blocs
+  // Function to check for new blocks
   const checkNewBlocks = () => {
     if (metrics.lastBlock === lastBlockHeight) {
       const timeSinceLastBlock = Date.now() - lastBlockTime.getTime();
       
-      // Si pas de nouveau bloc depuis 10 secondes, tenter une reconnexion rapide
+      // If no new block for 10 seconds, attempt a quick reconnect
       if (timeSinceLastBlock > QUICK_RECONNECT_DELAY) {
         console.log('No new block detected for 10 seconds, attempting quick reconnect...');
         reconnectToNode().catch((error: Error) => {
@@ -189,10 +189,10 @@ export function createReconnectionHandler(
     }
   };
 
-  // Démarrer la vérification périodique des nouveaux blocs
-  setInterval(checkNewBlocks, 5000); // Vérifier toutes les 5 secondes
+  // Start periodic new block checking
+  setInterval(checkNewBlocks, 5000); // Check every 5 seconds
 
-  // Configurer le gestionnaire d'événements de déconnexion
+  // Set up disconnect event handler
   tendermintClient.on('disconnect', () => {
     reconnectToNode();
   });

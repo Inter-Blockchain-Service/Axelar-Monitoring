@@ -208,7 +208,7 @@ export class AlertManager extends EventEmitter {
         this.isNoNewBlockAlerted = false;
         this.createAlert(
           AlertType.NO_NEW_BLOCK,
-          `✅ Récupération: New blocks are being received again`,
+          `✅ Recovery: New blocks are being received again`,
           'info'
         );
       }
@@ -253,7 +253,7 @@ export class AlertManager extends EventEmitter {
         this.isMissingBlocks = false;
         this.createAlert(
           AlertType.CONSECUTIVE_BLOCKS_MISSED,
-          `✅ Récupération: No more blocks missed`,
+          `✅ Recovery: No more blocks missed`,
           'info'
         );
       }
@@ -298,7 +298,7 @@ export class AlertManager extends EventEmitter {
         this.isMissingHeartbeats = false;
         this.createAlert(
           AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
-          `✅ Récupération: New heartbeats received`,
+          `✅ Recovery: New heartbeats received`,
           'info'
         );
       }
@@ -333,7 +333,7 @@ export class AlertManager extends EventEmitter {
       this.isLowSignRate = false;
       this.createAlert(
         AlertType.SIGN_RATE_LOW,
-        `✅ Récupération: Normal signature rate (${signRate.toFixed(2)}%)`,
+        `✅ Recovery: Normal signature rate (${signRate.toFixed(2)}%)`,
         'info'
       );
     }
@@ -363,7 +363,7 @@ export class AlertManager extends EventEmitter {
       this.isLowHeartbeatRate = false;
       this.createAlert(
         AlertType.HEARTBEAT_RATE_LOW,
-        `✅ Récupération: Normal heartbeat rate (${heartbeatRate.toFixed(2)}%)`,
+        `✅ Recovery: Normal heartbeat rate (${heartbeatRate.toFixed(2)}%)`,
         'info'
       );
     }
@@ -454,7 +454,7 @@ export class AlertManager extends EventEmitter {
           console.log(`Chain ${chain}: Recovered from missed votes after receiving a valid vote`);
           this.createAlert(
             AlertType.EVM_VOTES_RECOVERED,
-            `✅ Récupération: No more consecutive missed EVM votes on chain ${chain} after receiving a valid vote`,
+            `✅ Recovery: No more consecutive missed EVM votes on chain ${chain} after receiving a valid vote`,
             'info',
             chain
           );
@@ -535,7 +535,7 @@ export class AlertManager extends EventEmitter {
           console.log(`Chain ${chain}: Recovered from missed votes after receiving a valid vote`);
           this.createAlert(
             AlertType.AMPD_VOTES_RECOVERED,
-            `✅ Récupération: No more consecutive missed AMPD votes on chain ${chain} after receiving a valid vote`,
+            `✅ Recovery: No more consecutive missed AMPD votes on chain ${chain} after receiving a valid vote`,
             'info',
             chain
           );
@@ -614,7 +614,7 @@ export class AlertManager extends EventEmitter {
           console.log(`Chain ${chain}: Recovered from missed signings after receiving a valid signing`);
           this.createAlert(
             AlertType.AMPD_SIGNINGS_RECOVERED,
-            `✅ Récupération: No more consecutive missed AMPD signings on chain ${chain} after receiving a valid signing`,
+            `✅ Recovery: No more consecutive missed AMPD signings on chain ${chain} after receiving a valid signing`,
             'info',
             chain
           );
@@ -774,7 +774,7 @@ export class AlertManager extends EventEmitter {
           this.evmVoteRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.EVM_VOTE_RATE_LOW,
-            `✅ Récupération: Normal EVM vote rate (${rate.toFixed(2)}%) on chain ${chain}`,
+            `✅ Recovery: Normal EVM vote rate (${rate.toFixed(2)}%) on chain ${chain}`,
             'info',
             chain
           );
@@ -818,7 +818,7 @@ export class AlertManager extends EventEmitter {
           this.ampdVoteRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.AMPD_VOTE_RATE_LOW,
-            `✅ Récupération: Normal AMPD vote rate (${rate.toFixed(2)}%) on chain ${chain}`,
+            `✅ Recovery: Normal AMPD vote rate (${rate.toFixed(2)}%) on chain ${chain}`,
             'info',
             chain
           );
@@ -862,7 +862,7 @@ export class AlertManager extends EventEmitter {
           this.ampdSigningRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.AMPD_SIGNING_RATE_LOW,
-            `✅ Récupération: Normal AMPD signing rate (${rate.toFixed(2)}%) on chain ${chain}`,
+            `✅ Recovery: Normal AMPD signing rate (${rate.toFixed(2)}%) on chain ${chain}`,
             'info',
             chain
           );

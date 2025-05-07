@@ -10,10 +10,12 @@ exports.createReconnectionHandler = createReconnectionHandler;
 exports.connectToNode = connectToNode;
 const axios_1 = __importDefault(require("axios"));
 const utils_1 = require("./utils");
-// Variable globale pour suivre l'état de reconnexion
+// Constants for reconnection management
+const RECONNECTION_COOLDOWN = 10000; // 10 seconds between reconnection attempts
+const QUICK_RECONNECT_DELAY = 10 * 1000; // 10 seconds
+// Global variables for control
 let isReconnectionInProgress = false;
 let lastReconnectionAttempt = 0;
-const RECONNECTION_COOLDOWN = 10000; // 10 secondes entre les tentatives de reconnexion
 /**
  * Checks if the RPC node is available and synchronized
  * @param rpcEndpoint RPC node URL
@@ -25,7 +27,7 @@ async function checkNodeStatus(rpcEndpoint) {
         const endpoint = rpcEndpoint.replace(/\/websocket$/, '');
         const statusUrl = `${endpoint}/status`;
         console.log(`Checking node status at: ${statusUrl}`);
-        // Ajouter un timeout de 5 secondes pour éviter les requêtes bloquées indéfiniment
+        // Add a 5-second timeout to avoid indefinitely blocked requests
         const response = await axios_1.default.get(statusUrl, { timeout: 5000 });
         if (response.data && response.data.result) {
             const syncInfo = response.data.result.sync_info;
@@ -69,16 +71,16 @@ async function waitForNodeToBeSynced(rpcEndpoint, interval = 10000) {
     }
 }
 /**
- * Vérifie si une reconnexion peut être tentée en fonction du temps écoulé
- * depuis la dernière tentative et de l'état actuel
+ * Checks if a reconnection can be attempted based on the time elapsed
+ * since the last attempt and the current state
  */
 function canAttemptReconnection() {
     const now = Date.now();
-    // Si une reconnexion est déjà en cours, ne pas en démarrer une nouvelle
+    // If a reconnection is already in progress, don't start a new one
     if (isReconnectionInProgress) {
         return false;
     }
-    // Vérifier si le délai de refroidissement est passé
+    // Check if the cooldown period has passed
     if (now - lastReconnectionAttempt < RECONNECTION_COOLDOWN) {
         return false;
     }
@@ -95,28 +97,24 @@ function canAttemptReconnection() {
 function createReconnectionHandler(tendermintClient, metrics, rpcEndpoint, broadcasters) {
     let lastBlockHeight = 0;
     let lastBlockTime = new Date();
-    const QUICK_RECONNECT_DELAY = 10 * 1000; // 10 secondes
-    // Déclarer la fonction de reconnexion
     const reconnectToNode = async () => {
-        // Vérifier si on peut tenter une reconnexion
         if (!canAttemptReconnection()) {
             console.log("Reconnection already in progress or cooldown period not elapsed, skipping...");
             return;
         }
-        // Marquer le début d'une tentative de reconnexion
         isReconnectionInProgress = true;
         lastReconnectionAttempt = Date.now();
         console.log("Attempting to reconnect to node...");
-        // First, disconnect the existing client
+        // Disconnect the existing client
         tendermintClient.disconnect();
-        // Update metrics to reflect disconnected state
+        // Update status
         (0, utils_1.updateConnectionStatus)(metrics, false, "Node disconnected. Attempting to reconnect...", broadcasters);
         try {
-            // Wait for the node to be available and synced again
+            // Check if the node is ready
             console.log(`Checking if node ${rpcEndpoint} is available and synced...`);
             const isNodeReady = await waitForNodeToBeSynced(rpcEndpoint);
             if (isNodeReady) {
-                // Connect the Tendermint client if the node is ready
+                // Reconnect the client
                 tendermintClient.handleReconnection();
                 (0, utils_1.updateConnectionStatus)(metrics, true, "Node reconnected successfully", broadcasters);
             }
@@ -126,15 +124,14 @@ function createReconnectionHandler(tendermintClient, metrics, rpcEndpoint, broad
             (0, utils_1.updateConnectionStatus)(metrics, false, "Failed to reconnect to node", broadcasters);
         }
         finally {
-            // Réinitialiser l'état de reconnexion une fois terminé
             isReconnectionInProgress = false;
         }
     };
-    // Fonction pour vérifier les nouveaux blocs
+    // Function to check for new blocks
     const checkNewBlocks = () => {
         if (metrics.lastBlock === lastBlockHeight) {
             const timeSinceLastBlock = Date.now() - lastBlockTime.getTime();
-            // Si pas de nouveau bloc depuis 10 secondes, tenter une reconnexion rapide
+            // If no new block for 10 seconds, attempt a quick reconnect
             if (timeSinceLastBlock > QUICK_RECONNECT_DELAY) {
                 console.log('No new block detected for 10 seconds, attempting quick reconnect...');
                 reconnectToNode().catch((error) => {
@@ -147,8 +144,12 @@ function createReconnectionHandler(tendermintClient, metrics, rpcEndpoint, broad
             lastBlockTime = new Date();
         }
     };
-    // Démarrer la vérification périodique des nouveaux blocs
-    setInterval(checkNewBlocks, 5000); // Vérifier toutes les 5 secondes
+    // Start periodic new block checking
+    setInterval(checkNewBlocks, 5000); // Check every 5 seconds
+    // Set up disconnect event handler
+    tendermintClient.on('disconnect', () => {
+        reconnectToNode();
+    });
     return reconnectToNode;
 }
 /**
@@ -164,7 +165,8 @@ async function connectToNode(tendermintClient, metrics, rpcEndpoint) {
         const isNodeReady = await waitForNodeToBeSynced(rpcEndpoint);
         if (isNodeReady) {
             // Connect the Tendermint client if the node is ready
-            (0, utils_1.connectTendermintClient)(tendermintClient, 'Node is ready. Connecting Tendermint client...');
+            console.log('Node is ready. Connecting Tendermint client...');
+            tendermintClient.connect();
         }
         else {
             // This code should never be reached since the function waits indefinitely

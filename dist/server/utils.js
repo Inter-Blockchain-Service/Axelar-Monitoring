@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getErrorMessage = exports.connectTendermintClient = exports.logNodeStatus = exports.updateStatusArray = exports.updateAndBroadcastMetrics = exports.updateConnectionStatus = void 0;
+exports.getErrorMessage = exports.logNodeStatus = exports.updateStatusArray = exports.updateAndBroadcastMetrics = exports.updateConnectionStatus = void 0;
 /**
  * Updates connection metrics and broadcasts if needed
  * @param metrics Validator metrics to update
@@ -67,16 +67,6 @@ const logNodeStatus = (status, attempts, elapsedMinutes, interval) => {
     }
 };
 exports.logNodeStatus = logNodeStatus;
-/**
- * Helper to connect Tendermint client and log result
- * @param tendermintClient Client to connect
- * @param message Message to log
- */
-const connectTendermintClient = (tendermintClient, message = 'Connecting Tendermint client...') => {
-    console.log(message);
-    tendermintClient.connect();
-};
-exports.connectTendermintClient = connectTendermintClient;
 /**
  * Creates a safe error message from any error object
  * @param error Error object

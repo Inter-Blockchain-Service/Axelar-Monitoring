@@ -136,7 +136,7 @@ class AlertManager extends events_1.EventEmitter {
             this.lastBlockHeight = this.metrics.lastBlock;
             if (this.isNoNewBlockAlerted) {
                 this.isNoNewBlockAlerted = false;
-                this.createAlert(AlertType.NO_NEW_BLOCK, `✅ Récupération: New blocks are being received again`, 'info');
+                this.createAlert(AlertType.NO_NEW_BLOCK, `✅ Recovery: New blocks are being received again`, 'info');
             }
         }
         // Check consecutive missed blocks using signStatus
@@ -169,7 +169,7 @@ class AlertManager extends events_1.EventEmitter {
             else if (this.isMissingBlocks) {
                 // On est revenu en dessous du seuil
                 this.isMissingBlocks = false;
-                this.createAlert(AlertType.CONSECUTIVE_BLOCKS_MISSED, `✅ Récupération: No more blocks missed`, 'info');
+                this.createAlert(AlertType.CONSECUTIVE_BLOCKS_MISSED, `✅ Recovery: No more blocks missed`, 'info');
             }
         }
         // Check consecutive missed heartbeats using heartbeatStatus
@@ -202,7 +202,7 @@ class AlertManager extends events_1.EventEmitter {
             else if (this.isMissingHeartbeats) {
                 // On est revenu en dessous du seuil
                 this.isMissingHeartbeats = false;
-                this.createAlert(AlertType.CONSECUTIVE_HEARTBEATS_MISSED, `✅ Récupération: New heartbeats received`, 'info');
+                this.createAlert(AlertType.CONSECUTIVE_HEARTBEATS_MISSED, `✅ Recovery: New heartbeats received`, 'info');
             }
         }
         // Calculate current rates
@@ -225,7 +225,7 @@ class AlertManager extends events_1.EventEmitter {
         else if (this.isLowSignRate) {
             // On est revenu au-dessus du seuil
             this.isLowSignRate = false;
-            this.createAlert(AlertType.SIGN_RATE_LOW, `✅ Récupération: Normal signature rate (${signRate.toFixed(2)}%)`, 'info');
+            this.createAlert(AlertType.SIGN_RATE_LOW, `✅ Recovery: Normal signature rate (${signRate.toFixed(2)}%)`, 'info');
         }
         // Check heartbeat rate
         if (heartbeatRate < this.thresholds.heartbeatRateThreshold) {
@@ -244,7 +244,7 @@ class AlertManager extends events_1.EventEmitter {
         else if (this.isLowHeartbeatRate) {
             // On est revenu au-dessus du seuil
             this.isLowHeartbeatRate = false;
-            this.createAlert(AlertType.HEARTBEAT_RATE_LOW, `✅ Récupération: Normal heartbeat rate (${heartbeatRate.toFixed(2)}%)`, 'info');
+            this.createAlert(AlertType.HEARTBEAT_RATE_LOW, `✅ Recovery: Normal heartbeat rate (${heartbeatRate.toFixed(2)}%)`, 'info');
         }
         // Analyze EVM votes
         if (this.metrics.evmVotesEnabled) {
@@ -317,7 +317,7 @@ class AlertManager extends events_1.EventEmitter {
                 if (hasNewValidVote) {
                     this.evmConsecutiveMissedByChain[chain] = 0;
                     console.log(`Chain ${chain}: Recovered from missed votes after receiving a valid vote`);
-                    this.createAlert(AlertType.EVM_VOTES_RECOVERED, `✅ Récupération: No more consecutive missed EVM votes on chain ${chain} after receiving a valid vote`, 'info', chain);
+                    this.createAlert(AlertType.EVM_VOTES_RECOVERED, `✅ Recovery: No more consecutive missed EVM votes on chain ${chain} after receiving a valid vote`, 'info', chain);
                 }
                 else {
                     console.log(`Chain ${chain}: Still in alert state, waiting for a valid vote`);
@@ -383,7 +383,7 @@ class AlertManager extends events_1.EventEmitter {
                 if (hasNewValidVote) {
                     this.ampdVotesConsecutiveMissedByChain[chain] = 0;
                     console.log(`Chain ${chain}: Recovered from missed votes after receiving a valid vote`);
-                    this.createAlert(AlertType.AMPD_VOTES_RECOVERED, `✅ Récupération: No more consecutive missed AMPD votes on chain ${chain} after receiving a valid vote`, 'info', chain);
+                    this.createAlert(AlertType.AMPD_VOTES_RECOVERED, `✅ Recovery: No more consecutive missed AMPD votes on chain ${chain} after receiving a valid vote`, 'info', chain);
                 }
                 else {
                     console.log(`Chain ${chain}: Still in alert state, waiting for a valid vote`);
@@ -446,7 +446,7 @@ class AlertManager extends events_1.EventEmitter {
                 if (hasNewValidSigning) {
                     this.ampdSigningsConsecutiveMissedByChain[chain] = 0;
                     console.log(`Chain ${chain}: Recovered from missed signings after receiving a valid signing`);
-                    this.createAlert(AlertType.AMPD_SIGNINGS_RECOVERED, `✅ Récupération: No more consecutive missed AMPD signings on chain ${chain} after receiving a valid signing`, 'info', chain);
+                    this.createAlert(AlertType.AMPD_SIGNINGS_RECOVERED, `✅ Recovery: No more consecutive missed AMPD signings on chain ${chain} after receiving a valid signing`, 'info', chain);
                 }
                 else {
                     console.log(`Chain ${chain}: Still in alert state, waiting for a valid signing`);
@@ -582,7 +582,7 @@ class AlertManager extends events_1.EventEmitter {
                 else if (this.evmVoteRateByChain[chain].isLow) {
                     // On est revenu au-dessus du seuil
                     this.evmVoteRateByChain[chain].isLow = false;
-                    this.createAlert(AlertType.EVM_VOTE_RATE_LOW, `✅ Récupération: Normal EVM vote rate (${rate.toFixed(2)}%) on chain ${chain}`, 'info', chain);
+                    this.createAlert(AlertType.EVM_VOTE_RATE_LOW, `✅ Recovery: Normal EVM vote rate (${rate.toFixed(2)}%) on chain ${chain}`, 'info', chain);
                 }
             });
         }
@@ -610,7 +610,7 @@ class AlertManager extends events_1.EventEmitter {
                 else if (this.ampdVoteRateByChain[chain].isLow) {
                     // On est revenu au-dessus du seuil
                     this.ampdVoteRateByChain[chain].isLow = false;
-                    this.createAlert(AlertType.AMPD_VOTE_RATE_LOW, `✅ Récupération: Normal AMPD vote rate (${rate.toFixed(2)}%) on chain ${chain}`, 'info', chain);
+                    this.createAlert(AlertType.AMPD_VOTE_RATE_LOW, `✅ Recovery: Normal AMPD vote rate (${rate.toFixed(2)}%) on chain ${chain}`, 'info', chain);
                 }
             });
         }
@@ -638,7 +638,7 @@ class AlertManager extends events_1.EventEmitter {
                 else if (this.ampdSigningRateByChain[chain].isLow) {
                     // On est revenu au-dessus du seuil
                     this.ampdSigningRateByChain[chain].isLow = false;
-                    this.createAlert(AlertType.AMPD_SIGNING_RATE_LOW, `✅ Récupération: Normal AMPD signing rate (${rate.toFixed(2)}%) on chain ${chain}`, 'info', chain);
+                    this.createAlert(AlertType.AMPD_SIGNING_RATE_LOW, `✅ Recovery: Normal AMPD signing rate (${rate.toFixed(2)}%) on chain ${chain}`, 'info', chain);
                 }
             });
         }

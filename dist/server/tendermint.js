@@ -84,11 +84,11 @@ class TendermintClient extends events_1.EventEmitter {
         }
         return url;
     }
-    // Méthode pour être notifié de la reconnexion par le NodeManager
+    // Method to be notified of reconnection by NodeManager
     handleReconnection() {
         this.setupWebSocket();
     }
-    // Méthode pour la connexion initiale
+    // Method for initial connection
     connect() {
         console.log(`Connecting to ${this.endpoint}`);
         this.setupWebSocket();

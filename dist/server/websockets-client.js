@@ -6,8 +6,13 @@ const socket_io_1 = require("socket.io");
  * Configure the WebSocket server and connection handlers
  */
 const setupWebSockets = (server, metrics, tendermintClient, rpcEndpoint, validatorAddress, broadcasterAddress) => {
-    // Configure Socket.io
-    const io = new socket_io_1.Server(server);
+    // Configure Socket.io with CORS
+    const io = new socket_io_1.Server(server, {
+        cors: {
+            origin: '*',
+            methods: ['GET', 'POST']
+        }
+    });
     // Client connection handler
     io.on('connection', (socket) => {
         console.log('New web client connected:', socket.id);
