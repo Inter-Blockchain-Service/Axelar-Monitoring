@@ -72,6 +72,7 @@ export class AlertManager extends EventEmitter {
   private previousMetrics: Partial<ValidatorMetrics> = {};
   private lastAlertTimestamps: Record<string, Date> = {} as Record<string, Date>;
   private lastAlertSeverities: Record<string, 'info' | 'warning' | 'critical'> = {} as Record<string, 'info' | 'warning' | 'critical'>;
+  private criticalAlertCount: Record<string, number> = {} as Record<string, number>;
   private thresholds: AlertThresholds;
   private notificationConfig: NotificationConfig;
   private cooldownPeriod: number = 5 * 60 * 1000; // 5 minutes in milliseconds by default
@@ -103,7 +104,6 @@ export class AlertManager extends EventEmitter {
   
   private isNoNewBlockAlerted: boolean = false;
   private lastBlockHeight: number = 0;
-  private readonly QUICK_RECONNECT_DELAY: number = 10 * 1000; // 10 seconds before first reconnection attempt
   private readonly ALERT_DELAY: number = 2 * 60 * 1000; // 2 minutes before alert
   
   constructor(metrics: ValidatorMetrics, reconnectToNode?: () => Promise<void>) {
@@ -867,16 +867,27 @@ export class AlertManager extends EventEmitter {
 
     // No cooldown for info alerts (return to normal)
     if (severity === 'info') {
+      this.criticalAlertCount[alertKey] = 0; // Reset counter when alert is resolved
       return true;
     }
 
     // If it's the first alert of this type or if severity has changed
     if (!lastAlert || lastSeverity !== severity) {
+      this.criticalAlertCount[alertKey] = 1;
       return true;
     }
 
-    // Check cooldown based on severity
-    const cooldown = severity === 'critical' ? this.cooldownPeriod : this.cooldownPeriod * 2;
+    // Calculate progressive cooldown for critical alerts
+    let cooldown = this.cooldownPeriod;
+    if (severity === 'critical') {
+      const alertCount = this.criticalAlertCount[alertKey] || 1;
+      // Increase cooldown by 5 minutes for each consecutive critical alert, up to 1 hour
+      cooldown = Math.min(this.cooldownPeriod * alertCount, 60 * 60 * 1000);
+      this.criticalAlertCount[alertKey] = alertCount + 1;
+    } else {
+      cooldown = this.cooldownPeriod * 2; // Warning alerts keep 2x cooldown
+    }
+
     return (now.getTime() - lastAlert.getTime()) > cooldown;
   }
   
@@ -1152,30 +1163,15 @@ export class AlertManager extends EventEmitter {
         const ampdSigningsRecoveredChainMatch = alert.message.match(/on chain ([^\s]+)/);
         const ampdSigningsRecoveredChain = ampdSigningsRecoveredChainMatch ? ampdSigningsRecoveredChainMatch[1] : null;
         
-        if (ampdSigningsRecoveredChain) {
+        if (ampdSigningsRecoveredChain && metrics.ampdSignings && metrics.ampdSignings[ampdSigningsRecoveredChain]) {
           message += `\nAMPD Signings have recovered on chain ${ampdSigningsRecoveredChain}\n`;
           
-          // Rechercher la chain in ampdSignings, trying exact name first, then alternative possibilities
-          const chainData = metrics.ampdSignings && (
-            metrics.ampdSignings[ampdSigningsRecoveredChain] || 
-            // If exact chain not found, try alternative possibilities
-            Object.entries(metrics.ampdSignings).find(([key]) => 
-              key === ampdSigningsRecoveredChain || 
-              ampdSigningsRecoveredChain.includes(key) || 
-              key.includes(ampdSigningsRecoveredChain)
-            )?.[1]
-          );
-          
-          if (chainData && chainData.signingIds) {
-            // Show the 5 most recent signings for context
-            message += `\nRecent Signings:\n`;
-            const recentSignings = chainData.signingIds.slice(0, 5);
-            recentSignings.forEach((signing: AmpdSigning) => {
-              message += `- Signing ID: ${signing.signingId || 'Unknown'}, Status: ${signing.result || 'Unknown'}\n`;
-            });
-          } else {
-            message += `No signing data found for this chain.\n`;
-          }
+          // Show the 5 most recent signings for context
+          message += `\nRecent Signings:\n`;
+          const recentSignings = metrics.ampdSignings[ampdSigningsRecoveredChain].signingIds.slice(0, 5);
+          recentSignings.forEach((signing) => {
+            message += `- ${signing.signingId}: ${signing.result}\n`;
+          });
         }
         break;
     }
