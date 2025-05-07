@@ -14,23 +14,32 @@ const alert_manager_1 = require("./alert-manager");
 const constants_1 = require("../constants");
 // Load environment variables
 dotenv_1.default.config();
-// Default configuration
-const DEFAULT_RPC_ENDPOINT = 'http://localhost:26657';
-const DEFAULT_VALIDATOR_ADDRESS = '';
 // Create HTTP server
 const server = http_1.default.createServer();
-// Initialize metrics
-const metrics = (0, metrics_1.createInitialMetrics)(process.env.CHAIN_ID || 'axelar', process.env.VALIDATOR_MONIKER || 'My Validator');
-// Configure Tendermint client
-const rpcEndpoint = process.env.RPC_ENDPOINT || DEFAULT_RPC_ENDPOINT;
-const validatorAddress = process.env.VALIDATOR_ADDRESS || DEFAULT_VALIDATOR_ADDRESS;
-const broadcasterAddress = process.env.BROADCASTER_ADDRESS || validatorAddress;
-const axelarApiEndpoint = process.env.AXELAR_API_ENDPOINT || '';
-const ampdAddress = process.env.AMPD_ADDRESS || broadcasterAddress;
-if (!validatorAddress) {
-    console.error("ERROR: Validator address not specified. Set VALIDATOR_ADDRESS in environment variables.");
+// Check required environment variables
+const requiredEnvVars = [
+    'VALIDATOR_ADDRESS',
+    'BROADCASTER_ADDRESS',
+    'AMPD_ADDRESS',
+    'VALIDATOR_MONIKER',
+    'CHAIN_ID',
+    'RPC_ENDPOINT',
+    'AXELAR_API_ENDPOINT'
+];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+if (missingEnvVars.length > 0) {
+    console.error('ERROR: Missing required environment variables in .env file:');
+    missingEnvVars.forEach(varName => console.error(`- ${varName}`));
     process.exit(1);
 }
+// Initialize metrics
+const metrics = (0, metrics_1.createInitialMetrics)(process.env.CHAIN_ID, process.env.VALIDATOR_MONIKER);
+// Configure Tendermint client
+const rpcEndpoint = process.env.RPC_ENDPOINT;
+const validatorAddress = process.env.VALIDATOR_ADDRESS;
+const broadcasterAddress = process.env.BROADCASTER_ADDRESS;
+const axelarApiEndpoint = process.env.AXELAR_API_ENDPOINT;
+const ampdAddress = process.env.AMPD_ADDRESS;
 // Get supported AMPD chains from environment variables
 const ampdSupportedChainsEnv = process.env.AMPD_SUPPORTED_CHAINS || '';
 const ampdSupportedChains = ampdSupportedChainsEnv.split(',').filter(chain => chain.trim() !== '');

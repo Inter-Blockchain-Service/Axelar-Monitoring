@@ -54,16 +54,14 @@ exports.updateStatusArray = updateStatusArray;
  */
 const logNodeStatus = (status, attempts, elapsedMinutes, interval) => {
     if (status.available && status.synced) {
-        console.log(`Node is ready and synced at block height: ${status.blockHeight}`);
+        console.log(`Node ready (height: ${status.blockHeight})`);
     }
     else if (status.available && !status.synced) {
-        console.log(`Node is available but still syncing (attempt ${attempts}, waiting for ${elapsedMinutes} min). Waiting ${interval / 1000}s before retrying...`);
-        if (status.blockHeight) {
-            console.log(`Current block height: ${status.blockHeight}`);
-        }
+        console.log(`Node syncing (attempt ${attempts}, ${elapsedMinutes}m elapsed) - retry in ${interval / 1000}s`);
     }
     else {
-        console.log(`Node is not available (attempt ${attempts}, waiting for ${elapsedMinutes} min). Waiting ${interval / 1000}s before retrying...`);
+        const errorMsg = status.error ? ` - ${status.error}` : '';
+        console.log(`Node unavailable (attempt ${attempts}, ${elapsedMinutes}m elapsed)${errorMsg} - retry in ${interval / 1000}s`);
     }
 };
 exports.logNodeStatus = logNodeStatus;

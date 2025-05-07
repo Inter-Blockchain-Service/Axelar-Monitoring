@@ -1025,19 +1025,29 @@ export class AlertManager extends EventEmitter {
           // Show status summary
           let validCount = 0;
           let invalidCount = 0;
+          let unsubmittedCount = 0;
           
           polls.forEach(poll => {
-            if (poll.result === 'invalid') {
-              invalidCount++;
-            } else if (poll.result === 'validated') {
-              validCount++;
+            switch (poll.result) {
+              case 'invalid':
+                invalidCount++;
+                break;
+              case 'validated':
+                validCount++;
+                break;
+              case 'unsubmitted':
+                unsubmittedCount++;
+                break;
             }
           });
           
+          const totalValidPolls = validCount + invalidCount + unsubmittedCount;
+          
           message += `\nSummary:\n`;
-          message += `- Total polls: ${polls.length}\n`;
+          message += `- Total polls: ${totalValidPolls}\n`;
           message += `- Valid polls: ${validCount}\n`;
           message += `- Invalid polls: ${invalidCount}\n`;
+          message += `- Unsubmitted polls: ${unsubmittedCount}\n`;
         }
         break;
         
@@ -1078,15 +1088,20 @@ export class AlertManager extends EventEmitter {
           let invalidCount = 0;
           
           votes.forEach(vote => {
-            if (vote.result === 'not_found') {
-              invalidCount++;
-            } else if (vote.result === 'succeeded_on_chain') {
-              validCount++;
+            switch (vote.result) {
+              case 'not_found':
+                invalidCount++;
+                break;
+              case 'succeeded_on_chain':
+                validCount++;
+                break;
             }
           });
           
+          const totalValidVotes = validCount + invalidCount;
+          
           message += `\nSummary:\n`;
-          message += `- Total votes: ${votes.length}\n`;
+          message += `- Total votes: ${totalValidVotes}\n`;
           message += `- Valid votes: ${validCount}\n`;
           message += `- Invalid votes: ${invalidCount}\n`;
         }
@@ -1129,15 +1144,20 @@ export class AlertManager extends EventEmitter {
           let unsubmitCount = 0;
           
           signings.forEach(signing => {
-            if (signing.result === 'unsubmit') {
-              unsubmitCount++;
-            } else if (signing.result === 'signed') {
-              validCount++;
+            switch (signing.result) {
+              case 'unsubmit':
+                unsubmitCount++;
+                break;
+              case 'signed':
+                validCount++;
+                break;
             }
           });
           
+          const totalValidSignings = validCount + unsubmitCount;
+          
           message += `\nSummary:\n`;
-          message += `- Total signings: ${signings.length}\n`;
+          message += `- Total signings: ${totalValidSignings}\n`;
           message += `- Valid signings: ${validCount}\n`;
           message += `- Unsubmit signings: ${unsubmitCount}\n`;
         }

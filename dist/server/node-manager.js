@@ -17,6 +17,26 @@ const QUICK_RECONNECT_DELAY = 10 * 1000; // 10 seconds
 let isReconnectionInProgress = false;
 let lastReconnectionAttempt = 0;
 /**
+ * Formats error message for RPC connection issues
+ * @param error Error object
+ * @returns Simplified error message
+ */
+function formatRpcError(error) {
+    if (error instanceof Error) {
+        if (error.message.includes('timeout')) {
+            return 'RPC timeout - no response received';
+        }
+        if (error.message.includes('ECONNREFUSED')) {
+            return 'RPC connection refused';
+        }
+        if (error.message.includes('ECONNRESET')) {
+            return 'RPC connection reset';
+        }
+        return error.message;
+    }
+    return 'Unknown error';
+}
+/**
  * Checks if the RPC node is available and synchronized
  * @param rpcEndpoint RPC node URL
  * @returns Promise with an object indicating if the node is available and synced
@@ -42,8 +62,8 @@ async function checkNodeStatus(rpcEndpoint) {
         return { available: true, synced: false, error: 'Unexpected response format' };
     }
     catch (error) {
-        console.error('Error checking node status:', error);
-        const errorMessage = (0, utils_1.getErrorMessage)(error, 'Unknown error');
+        const errorMessage = formatRpcError(error);
+        console.error(`RPC Error: ${errorMessage}`);
         return { available: false, synced: false, error: errorMessage };
     }
 }
@@ -159,27 +179,15 @@ function createReconnectionHandler(tendermintClient, metrics, rpcEndpoint, broad
  * @param rpcEndpoint RPC node URL
  */
 async function connectToNode(tendermintClient, metrics, rpcEndpoint) {
-    // Check RPC node status before connecting
-    console.log(`Checking if node ${rpcEndpoint} is available and synced...`);
     try {
-        const isNodeReady = await waitForNodeToBeSynced(rpcEndpoint);
-        if (isNodeReady) {
-            // Connect the Tendermint client if the node is ready
-            console.log('Node is ready. Connecting Tendermint client...');
-            tendermintClient.connect();
-        }
-        else {
-            // This code should never be reached since the function waits indefinitely
-            console.warn('WARNING: Node is not ready or synced. Starting anyway, but expect issues.');
-            // Update metrics with error message
-            (0, utils_1.updateConnectionStatus)(metrics, false, "Node is not available or not synced.");
-            // Connect anyway to allow future attempts
-            tendermintClient.connect();
-        }
+        // On attend que le nœud soit prêt
+        await waitForNodeToBeSynced(rpcEndpoint);
+        // Si on arrive ici, c'est que le nœud est prêt
+        console.log('Node is ready. Connecting Tendermint client...');
+        tendermintClient.connect();
     }
     catch (error) {
         console.error('Error during node status check:', error);
-        console.warn('Starting Tendermint client anyway...');
-        tendermintClient.connect();
+        throw error; // On propage l'erreur plutôt que de continuer
     }
 }
