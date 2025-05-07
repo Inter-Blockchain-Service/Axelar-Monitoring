@@ -249,7 +249,7 @@ export class AlertManager extends EventEmitter {
           );
         }
       } else if (this.isMissingBlocks) {
-        // On est revenu en dessous du seuil
+        // We are back below the threshold
         this.isMissingBlocks = false;
         this.createAlert(
           AlertType.CONSECUTIVE_BLOCKS_MISSED,
@@ -294,7 +294,7 @@ export class AlertManager extends EventEmitter {
           );
         }
       } else if (this.isMissingHeartbeats) {
-        // On est revenu en dessous du seuil
+        // We are back below the threshold
         this.isMissingHeartbeats = false;
         this.createAlert(
           AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
@@ -329,7 +329,7 @@ export class AlertManager extends EventEmitter {
         );
       }
     } else if (this.isLowSignRate) {
-      // On est revenu au-dessus du seuil
+      // We are back above the threshold
       this.isLowSignRate = false;
       this.createAlert(
         AlertType.SIGN_RATE_LOW,
@@ -359,7 +359,7 @@ export class AlertManager extends EventEmitter {
         );
       }
     } else if (this.isLowHeartbeatRate) {
-      // On est revenu au-dessus du seuil
+      // We are back above the threshold
       this.isLowHeartbeatRate = false;
       this.createAlert(
         AlertType.HEARTBEAT_RATE_LOW,
@@ -647,7 +647,7 @@ export class AlertManager extends EventEmitter {
     chainData.pollIds.forEach(vote => {
       if (vote.timestamp && vote.result !== 'unknown') {
         const voteTime = new Date(vote.timestamp).getTime();
-        // On ne compte que les votes matures (plus de 5 minutes)
+        // We only count mature votes (more than 5 minutes)
         if (voteTime < fiveMinutesAgo) {
           totalVotes++;
           if (vote.result === 'validated') {
@@ -676,7 +676,7 @@ export class AlertManager extends EventEmitter {
     chainData.pollIds.forEach(vote => {
       if (vote.timestamp && vote.result !== 'unknown') {
         const voteTime = new Date(vote.timestamp).getTime();
-        // On ne compte que les votes matures (plus de 2 minutes)
+        // We only count mature votes (more than 2 minutes)
         if (voteTime < twoMinutesAgo) {
           totalVotes++;
           if (vote.result === 'succeeded_on_chain') {
@@ -705,7 +705,7 @@ export class AlertManager extends EventEmitter {
     chainData.signingIds.forEach(signing => {
       if (signing.timestamp && signing.result !== 'unknown') {
         const signingTime = new Date(signing.timestamp).getTime();
-        // On ne compte que les signatures matures (plus de 2 minutes)
+        // We only count mature signatures (more than 2 minutes)
         if (signingTime < twoMinutesAgo) {
           totalSignings++;
           if (signing.result === 'signed') {
@@ -755,7 +755,7 @@ export class AlertManager extends EventEmitter {
             );
           }
         } else if (this.evmVoteRateByChain[chain].isLow) {
-          // On est revenu au-dessus du seuil
+          // We are back above the threshold
           this.evmVoteRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.EVM_VOTE_RATE_LOW,
@@ -799,7 +799,7 @@ export class AlertManager extends EventEmitter {
             );
           }
         } else if (this.ampdVoteRateByChain[chain].isLow) {
-          // On est revenu au-dessus du seuil
+          // We are back above the threshold
           this.ampdVoteRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.AMPD_VOTE_RATE_LOW,
@@ -843,7 +843,7 @@ export class AlertManager extends EventEmitter {
             );
           }
         } else if (this.ampdSigningRateByChain[chain].isLow) {
-          // On est revenu au-dessus du seuil
+          // We are back above the threshold
           this.ampdSigningRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.AMPD_SIGNING_RATE_LOW,
