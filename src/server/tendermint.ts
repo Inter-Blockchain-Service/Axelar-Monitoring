@@ -10,6 +10,7 @@ import {
   AmpdVoteData, 
   AmpdSigningData 
 } from './ampd-manager';
+import { v4 as uuidv4 } from 'uuid';
 
 const QUERY_NEW_BLOCK = `tm.event='NewBlock'`;
 const QUERY_VOTE = `tm.event='Vote'`;
@@ -226,11 +227,8 @@ export class TendermintClient extends EventEmitter {
     }
   }
   
-  private generateSubscriptionId(): number {
-    // Combine timestamp with random number for uniqueness
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 10000);
-    return timestamp * 10000 + random;
+  private generateSubscriptionId(): string {
+    return uuidv4();
   }
 
   private subscribeToEvents(): void {
