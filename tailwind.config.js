@@ -12,11 +12,11 @@ module.exports = {
         foreground: 'var(--foreground)',
       },
       gridTemplateColumns: {
-        // Ajouter un layout de grille avec 20 colonnes
+        // Add a grid layout with 20 columns
         '20': 'repeat(20, minmax(0, 1fr))',
-        // Pour le composant BlockStatus
+        // For the BlockStatus component
         '30': 'repeat(30, minmax(0, 1fr))',
-        // Pour le composant HeartBeatStatus
+        // For the HeartBeatStatus component
         '35': 'repeat(35, minmax(0, 1fr))',
       },
       animation: {

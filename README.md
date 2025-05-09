@@ -10,19 +10,6 @@ Real-time monitoring application for Axelar validators built with Next.js and So
 - Detailed statistics on signing performance for vald and ampd
 - Alerting on discord and/or telegram
 
-## Project Structure
-
-```
-axelar-monitoring/
-├── src/
-│   ├── app/             # Next.js pages (App Router)
-│   ├── components/      # Reusable React components
-│   ├── hooks/           # Custom hooks
-│   └── server/          # Tendermint WebSocket client and Socket.io server
-├── public/              # Static files
-└── ...
-```
-
 ## Prerequisites
 
 - Node.js 18+
