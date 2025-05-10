@@ -48,6 +48,8 @@ npm run build
 npm start
 ```
 
+You can now check the metrics on http://server_ip:3000 (replace server_ip with your actual server IP address)
+
 ## Security
 
 This application is designed for internal/private use. If you expose it on the Internet, please implement additional security measures (authentication, HTTPS, etc.).
