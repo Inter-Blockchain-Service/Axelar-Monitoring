@@ -157,6 +157,8 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
               <div className="flex items-start">
                 <div 
                   className="w-20 font-semibold text-white text-sm cursor-pointer hover:text-blue-400"
+                  style={{ minWidth: '120px' }}
+                  title={chainName.toUpperCase()}
                   onClick={() => handleChainClick(chainName)}
                 >
                   {chainName.toUpperCase()}:
