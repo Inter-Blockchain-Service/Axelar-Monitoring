@@ -48,7 +48,7 @@ npm run build
 npm start
 ```
 
-You can now check the metrics on http://server_ip:3000 (replace server_ip with your actual server IP address)
+You can now check the metrics on http://server_ip:3002 (replace server_ip with your actual server IP address)
 
 ## Security
 
