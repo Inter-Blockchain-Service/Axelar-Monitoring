@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev --turbopack\" \"npm run server:dev\"",
+    "dev": "concurrently \"next dev --turbopack -p 3002\" \"npm run server:dev\"",
     "build": "next build && npm run build:server",
     "build:server": "tsc --project tsconfig.server.json",
-    "start": "concurrently \"next start\" \"npm run server\"",
+    "start": "concurrently \"next start -p 3002\" \"npm run server\"",
     "lint": "next lint",
     "server": "node dist/server/index.js",
     "server:dev": "tsx src/server/index.ts",
