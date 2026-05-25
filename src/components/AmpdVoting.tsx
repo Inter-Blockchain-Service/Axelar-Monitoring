@@ -61,11 +61,11 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
 
   // Function to get status color
   const getStatusColor = (status: string) => {
-    if (status === 'succeeded_on_chain' || status.includes('succeeded')) return 'bg-green-500'; // green - valid vote
-    if (status === 'not_found' || status.includes('failed')) return 'bg-red-500'; // red - invalid vote
-    if (status === 'unsubmit') return 'bg-orange-500'; // orange - unsubmitted
-    if (status === 'unknown') return 'bg-[#9e9e9e4d]'; // transparent gray - no data
-    return 'bg-[#9e9e9e4d]'; // default transparent gray
+    if (status === 'succeeded_on_chain' || status.includes('succeeded')) return 'bg-[#10b981]'; // green - valid vote
+    if (status === 'not_found' || status.includes('failed')) return 'bg-[#ef4444]'; // red - invalid vote
+    if (status === 'unsubmit') return 'bg-[#f59e0b]'; // orange - unsubmitted
+    if (status === 'unknown') return 'bg-[#2a2a2a]'; // dark gray - no data
+    return 'bg-[#2a2a2a]'; // default dark gray
   };
 
   // Function to get tooltip text
@@ -86,16 +86,16 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
   // If data is loading, show indicator
   if (isLoading) {
     return (
-      <div className={`bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
+      <div className={`bg-[#1a1a1a] p-5 rounded-lg border border-[#2a2a2a] ${className}`}>
         <div className="flex flex-col gap-2 mb-3">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-gray-200">
+            <h3 className="text-base font-semibold text-white">
               AMPD Votes
             </h3>
           </div>
         </div>
         <div className="flex justify-center items-center h-[200px]">
-          <p className="text-gray-400">
+          <p className="text-[#a0a0a0] text-sm">
             Loading AMPD data...
           </p>
         </div>
@@ -106,16 +106,16 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
   // If no chains are supported after loading
   if (supportedChains.length === 0) {
     return (
-      <div className={`bg-[#333333] p-4 rounded-lg shadow-md ${className}`}>
+      <div className={`bg-[#1a1a1a] p-5 rounded-lg border border-[#2a2a2a] ${className}`}>
         <div className="flex flex-col gap-2 mb-3">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-gray-200">
+            <h3 className="text-base font-semibold text-white">
               AMPD Votes
             </h3>
           </div>
         </div>
         <div className="flex justify-center items-center h-[200px]">
-          <p className="text-gray-400">
+          <p className="text-[#a0a0a0] text-sm">
             AMPD monitoring is not enabled
           </p>
         </div>
@@ -137,14 +137,14 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
   };
 
   return (
-    <div className={`bg-[#292524] p-4 rounded-lg shadow-md flex flex-col h-full ${className}`}>
-      <div className="mb-3">
+    <div className={`bg-[#1a1a1a] p-5 rounded-lg border border-[#2a2a2a] flex flex-col h-full ${className}`}>
+      <div className="mb-4">
         <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-gray-200">
+          <h3 className="text-base font-semibold text-white">
             Amplifier Votes
           </h3>
-          <div className="text-sm text-gray-500">
-            Last 35 votes are displayed (you can click on the chain to see last 200)
+          <div className="text-xs text-[#a0a0a0]">
+            Last 35 votes (click chain for history)
           </div>
         </div>
       </div>
@@ -158,7 +158,7 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
             <div key={chainName} className="mb-2">
               <div className="flex items-start">
                 <div 
-                  className="w-20 font-semibold text-white text-sm cursor-pointer hover:text-blue-400"
+                  className="w-20 font-medium text-white text-sm cursor-pointer hover:text-[#fbb800] transition-colors"
                   style={{ minWidth: '120px' }}
                   title={chainName.toUpperCase()}
                   onClick={() => handleChainClick(chainName)}
@@ -186,7 +186,7 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
                       )
                     ))
                   ) : (
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-[#a0a0a0] text-xs">
                       No votes available
                     </p>
                   )}
@@ -198,15 +198,15 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
       </div>
 
       {showModal && selectedChain && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-[#292524] p-6 rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold text-white">
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] p-6 rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-lg font-semibold text-white">
                 Amplifier History Votes - {selectedChain.toUpperCase()}
               </h3>
               <button
                 onClick={closeModal}
-                className="text-gray-400 hover:text-white"
+                className="text-[#a0a0a0] hover:text-white transition-colors text-xl"
               >
                 ✕
               </button>
@@ -231,19 +231,19 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
                 )
               ))}
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-700">
+            <div className="mt-4 pt-4 border-t border-[#2a2a2a]">
               <div className="flex flex-wrap gap-4">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 bg-orange-500 rounded-sm"></div>
-                  <span className="text-xs">Unsubmitted</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 bg-[#f59e0b] rounded-sm"></div>
+                  <span className="text-xs text-[#a0a0a0]">Unsubmitted</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 bg-green-500 rounded-sm"></div>
-                  <span className="text-xs">Valid vote</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 bg-[#10b981] rounded-sm"></div>
+                  <span className="text-xs text-[#a0a0a0]">Valid vote</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
-                  <span className="text-xs">Invalid vote</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 bg-[#ef4444] rounded-sm"></div>
+                  <span className="text-xs text-[#a0a0a0]">Invalid vote</span>
                 </div>
               </div>
             </div>
@@ -251,19 +251,19 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
         </div>
       )}
 
-      <div className="mt-auto pt-4">
+      <div className="mt-auto pt-4 border-t border-[#2a2a2a]">
         <div className="flex flex-wrap gap-4">
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-orange-500 rounded-sm"></div>
-            <span className="text-xs">Unsubmitted</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-[#f59e0b] rounded-sm"></div>
+            <span className="text-xs text-[#a0a0a0]">Unsubmitted</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-green-500 rounded-sm"></div>
-            <span className="text-xs">Valid vote</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-[#10b981] rounded-sm"></div>
+            <span className="text-xs text-[#a0a0a0]">Valid vote</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
-            <span className="text-xs">Invalid vote</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-[#ef4444] rounded-sm"></div>
+            <span className="text-xs text-[#a0a0a0]">Invalid vote</span>
           </div>
         </div>
       </div>

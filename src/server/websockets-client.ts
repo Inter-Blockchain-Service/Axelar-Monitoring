@@ -57,7 +57,6 @@ export const setupWebSockets = (
     // Send connection information
     socket.emit('connection-status', {
       connected: tendermintClient.isConnected(),
-      heartbeatConnected: tendermintClient.isConnected(),
       endpoint: rpcEndpoint,
       validatorAddress,
       broadcasterAddress,

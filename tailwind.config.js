@@ -16,7 +16,7 @@ module.exports = {
         '20': 'repeat(20, minmax(0, 1fr))',
         // For the BlockStatus component
         '30': 'repeat(30, minmax(0, 1fr))',
-        // For the HeartBeatStatus component
+        // For grid components (kept for future use)
         '35': 'repeat(35, minmax(0, 1fr))',
       },
       animation: {

@@ -40,17 +40,17 @@ export default function BlockStatus({ statusList, className = '', lastBlockHeigh
   const getStatusColor = (status: number) => {
     switch (status) {
       case StatusType.Proposed:
-        return 'bg-purple-500';
+        return 'bg-[#fbb800]';
       case StatusType.Signed:
-        return 'bg-green-500';
+        return 'bg-[#10b981]';
       case StatusType.Precommit:
-        return 'bg-yellow-500';
+        return 'bg-[#a855f7]';
       case StatusType.Prevote:
-        return 'bg-orange-500';
+        return 'bg-[#3b82f6]';
       case StatusType.Missed:
-        return 'bg-red-500';
+        return 'bg-[#ef4444]';
       default:
-        return 'bg-[#9e9e9e4d]';
+        return 'bg-[#2a2a2a]';
     }
   };
 
@@ -64,14 +64,14 @@ export default function BlockStatus({ statusList, className = '', lastBlockHeigh
   const visibleBlocks = statusList.slice(0, 200).map((status, index) => ({ status, index }));
   
   return (
-    <div className={`bg-[#292524] p-4 rounded-lg shadow-md ${className}`}>
-      <div className="flex flex-col gap-2 mb-3">
+    <div className={`bg-[#1a1a1a] p-5 rounded-lg border border-[#2a2a2a] ${className}`}>
+      <div className="flex flex-col gap-2 mb-4">
         <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-gray-200">
+          <h3 className="text-base font-semibold text-white">
             Recent Blocks Status
           </h3>
-          <div className="text-sm text-gray-500">
-            Displaying the last 200 blocks
+          <div className="text-xs text-[#a0a0a0]">
+            Last 200 blocks
           </div>
         </div>
       </div>
@@ -80,33 +80,33 @@ export default function BlockStatus({ statusList, className = '', lastBlockHeigh
         {visibleBlocks.map((item) => (
           <div 
             key={item.index} 
-            className={`w-4 h-4 ${getStatusColor(item.status)} hover:opacity-80 transition-opacity rounded-sm ${item.index === 0 && hasNewBlock ? 'animate-pulse scale-110' : ''}`}
-            title={`${getBlockHeight(item.index)}`}
+            className={`w-4 h-4 ${getStatusColor(item.status)} hover:opacity-80 transition-opacity rounded-sm ${item.index === 0 && hasNewBlock ? 'animate-pulse' : ''}`}
+            title={`Block #${getBlockHeight(item.index)}`}
           />
         ))}
       </div>
       
-      <div className="flex justify-start mt-4">
-        <div className="grid grid-cols-5 gap-2">
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-purple-500 rounded-sm"></div>
-            <span className="text-xs">Proposed</span>
+      <div className="flex justify-start mt-4 pt-4 border-t border-[#2a2a2a]">
+        <div className="grid grid-cols-5 gap-3">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-[#fbb800] rounded-sm"></div>
+            <span className="text-xs text-[#a0a0a0]">Proposed</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-green-500 rounded-sm"></div>
-            <span className="text-xs">Signed</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-[#10b981] rounded-sm"></div>
+            <span className="text-xs text-[#a0a0a0]">Signed</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-yellow-500 rounded-sm"></div>
-            <span className="text-xs">Precommit</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-[#a855f7] rounded-sm"></div>
+            <span className="text-xs text-[#a0a0a0]">Precommit</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-orange-500 rounded-sm"></div>
-            <span className="text-xs">Prevote</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-[#3b82f6] rounded-sm"></div>
+            <span className="text-xs text-[#a0a0a0]">Prevote</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
-            <span className="text-xs">Missed</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-[#ef4444] rounded-sm"></div>
+            <span className="text-xs text-[#a0a0a0]">Missed</span>
           </div>
         </div>
       </div>

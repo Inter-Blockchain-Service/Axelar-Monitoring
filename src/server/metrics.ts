@@ -1,8 +1,7 @@
 import { StatusType } from './tendermint';
-import { HeartbeatStatusType } from './heartbeat-manager';
 import { EvmVoteData } from './evm-vote-manager';
 import { AmpdVoteData, AmpdSigningData } from './ampd-manager';
-import { BLOCKS_HISTORY_SIZE, HEARTBEAT_HISTORY_SIZE } from '../constants';
+import { BLOCKS_HISTORY_SIZE } from '../constants';
 
 // Interface for validator metrics
 export interface ValidatorMetrics {
@@ -19,16 +18,6 @@ export interface ValidatorMetrics {
   precommitMissed: number;
   connected: boolean;
   lastError: string;
-  // Heartbeat metrics
-  heartbeatStatus: number[];
-  heartbeatBlocks: (number | undefined)[]; 
-  heartbeatsMissed: number;
-  heartbeatsSigned: number;
-  heartbeatsConsecutiveMissed: number;
-  lastHeartbeatPeriod: number;
-  lastHeartbeatTime: Date | null;
-  heartbeatConnected: boolean;
-  heartbeatLastError: string;
   // EVM Votes metrics
   evmVotesEnabled: boolean;
   evmVotes: EvmVoteData;
@@ -59,16 +48,6 @@ export const createInitialMetrics = (
     precommitMissed: 0,
     connected: false,
     lastError: '',
-    // Initialize heartbeat metrics
-    heartbeatStatus: Array(HEARTBEAT_HISTORY_SIZE).fill(-1),
-    heartbeatBlocks: Array(HEARTBEAT_HISTORY_SIZE).fill(undefined), // Adding block heights
-    heartbeatsMissed: 0,
-    heartbeatsSigned: 0,
-    heartbeatsConsecutiveMissed: 0,
-    lastHeartbeatPeriod: 0,
-    lastHeartbeatTime: null,
-    heartbeatConnected: false,
-    heartbeatLastError: '',
     // Initialize EVM votes metrics
     evmVotesEnabled: false,
     evmVotes: {},
@@ -132,43 +111,6 @@ export const recalculateStats = (metrics: ValidatorMetrics): ValidatorMetrics =>
   
   // Update number of consecutive missed blocks
   updatedMetrics.consecutiveMissed = maxConsecutiveMissed;
-  
-  return updatedMetrics;
-};
-
-// Calculate heartbeat statistics
-export const recalculateHeartbeatStats = (metrics: ValidatorMetrics): ValidatorMetrics => {
-  const updatedMetrics = { ...metrics };
-  
-  // Reset statistics
-  updatedMetrics.heartbeatsMissed = 0;
-  updatedMetrics.heartbeatsSigned = 0;
-  
-  // Number of consecutive missed heartbeats
-  let consecutiveMissed = 0;
-  let maxConsecutiveMissed = 0;
-  
-  // Go through all heartbeats in history, ignore -1 values (no data yet)
-  updatedMetrics.heartbeatStatus.forEach((status) => {
-    if (status === -1) return; // Ignore periods without data
-    
-    switch (status) {
-      case HeartbeatStatusType.Missed:
-        updatedMetrics.heartbeatsMissed += 1;
-        consecutiveMissed += 1;
-        break;
-      case HeartbeatStatusType.Signed:
-        updatedMetrics.heartbeatsSigned += 1;
-        consecutiveMissed = 0;
-        break;
-    }
-    
-    // Update maximum consecutive missed heartbeats
-    maxConsecutiveMissed = Math.max(maxConsecutiveMissed, consecutiveMissed);
-  });
-  
-  // Update number of consecutive missed heartbeats
-  updatedMetrics.heartbeatsConsecutiveMissed = maxConsecutiveMissed;
   
   return updatedMetrics;
 }; 

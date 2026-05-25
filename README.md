@@ -6,7 +6,6 @@ Real-time monitoring application for Axelar validators built with Next.js and So
 
 - Real-time WebSocket connection to a Tendermint node
 - Monitoring of signed, missed, and proposed blocks 
-- Monitoring of heartbeat
 - Detailed statistics on signing performance for vald and ampd
 - Alerting on discord and/or telegram
 

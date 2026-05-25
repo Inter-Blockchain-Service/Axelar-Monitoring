@@ -6,7 +6,7 @@ import { setupWebSockets, createBroadcasters } from './websockets-client';
 import { setupEventHandlers } from './events';
 import { connectToNode, createReconnectionHandler } from './node-manager';
 import { AlertManager } from './alert-manager';
-import { BLOCKS_HISTORY_SIZE, HEARTBEAT_HISTORY_SIZE, HEARTBEAT_PERIOD } from '../constants';
+import { BLOCKS_HISTORY_SIZE } from '../constants';
 
 // Load environment variables
 dotenv.config();
@@ -61,7 +61,6 @@ const tendermintClient = new TendermintClient(
   validatorAddress,
   broadcasterAddress,
   ampdAddress,
-  HEARTBEAT_HISTORY_SIZE,
   evmSupportedChains,
   ampdSupportedChains
 );
@@ -109,7 +108,6 @@ server.listen(Number(PORT), '0.0.0.0', async () => {
   console.log(`Server listening on address 0.0.0.0:${PORT}`);
   console.log(`Monitoring validator ${metrics.moniker} (${validatorAddress}) on ${rpcEndpoint}`);
   console.log(`Signature period set to ${BLOCKS_HISTORY_SIZE} blocks`);
-  console.log(`Heartbeat monitoring set to ${HEARTBEAT_HISTORY_SIZE} periods (1 period = ${HEARTBEAT_PERIOD} blocks)`);
   
   if (metrics.evmVotesEnabled) {
     console.log(`EVM votes monitoring enabled with API endpoint: ${axelarApiEndpoint}`);

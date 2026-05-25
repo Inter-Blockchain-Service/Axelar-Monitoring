@@ -10,13 +10,6 @@ export enum StatusType {
   Proposed = 4    // Block proposed
 }
 
-// Heartbeat status
-export enum HeartbeatStatusType {
-  Unknown = -1,   // No data yet for this period
-  Missed = 0,     // Missed heartbeat
-  Signed = 1      // Successfully signed heartbeat
-}
-
 // EVM vote status
 export enum VoteStatusType {
   Unknown = 'unknown',
@@ -59,16 +52,6 @@ export interface ValidatorMetrics {
   precommitMissed: number;
   connected: boolean;
   lastError: string;
-  // Heartbeat metrics
-  heartbeatStatus: number[];
-  heartbeatBlocks: (number | undefined)[];
-  heartbeatsMissed: number;
-  heartbeatsSigned: number;
-  heartbeatsConsecutiveMissed: number;
-  lastHeartbeatPeriod: number;
-  lastHeartbeatTime: Date | null;
-  heartbeatConnected: boolean;
-  heartbeatLastError: string;
   // EVM votes metrics
   evmVotesEnabled: boolean;
   evmVotes: ChainData;
@@ -83,7 +66,6 @@ export interface ValidatorMetrics {
 // Connection information
 export interface ConnectionInfo {
   connected: boolean;
-  heartbeatConnected: boolean;
   endpoint: string;
   wsEndpoint: string;
   validatorAddress: string;
@@ -109,16 +91,6 @@ export function useMetrics() {
     precommitMissed: 0,
     connected: false,
     lastError: '',
-    // Initialize heartbeat metrics
-    heartbeatStatus: [],
-    heartbeatBlocks: [],
-    heartbeatsMissed: 0,
-    heartbeatsSigned: 0,
-    heartbeatsConsecutiveMissed: 0,
-    lastHeartbeatPeriod: 0,
-    lastHeartbeatTime: null,
-    heartbeatConnected: false,
-    heartbeatLastError: '',
     // Initialize EVM votes metrics
     evmVotesEnabled: false,
     evmVotes: {},
@@ -131,7 +103,6 @@ export function useMetrics() {
   });
   const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo>({
     connected: false,
-    heartbeatConnected: false,
     endpoint: '',
     wsEndpoint: '',
     validatorAddress: '',
@@ -162,10 +133,6 @@ export function useMetrics() {
       // Convert lastBlockTime from string to Date if needed
       if (typeof data.lastBlockTime === 'string') {
         data.lastBlockTime = new Date(data.lastBlockTime);
-      }
-      // Convert lastHeartbeatTime from string to Date if needed
-      if (data.lastHeartbeatTime && typeof data.lastHeartbeatTime === 'string') {
-        data.lastHeartbeatTime = new Date(data.lastHeartbeatTime);
       }
       setMetrics(data);
     });

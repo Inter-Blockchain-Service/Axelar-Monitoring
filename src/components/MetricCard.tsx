@@ -10,20 +10,20 @@ interface MetricCardProps {
 
 export default function MetricCard({ title, value, icon, trend, className = '' }: MetricCardProps) {
   return (
-    <div className={`bg-[#292524] px-6 py-4 rounded-lg shadow-[0_4px_12px_rgba(200,200,200,0.1)] ${className}`}>
+    <div className={`bg-[#1a1a1a] px-5 py-4 rounded-lg border border-[#2a2a2a] hover:border-[#3a3a3a] transition-colors ${className}`}>
       <div className="flex justify-between items-center mb-2">
-        <h3 className="text-lg font-semibold text-gray-200">{title}</h3>
-        {icon && <div className="text-gray-400">{icon}</div>}
+        <h3 className="text-xs font-medium text-[#a0a0a0] uppercase tracking-wide">{title}</h3>
+        {icon && <div className="text-[#fbb800]">{icon}</div>}
       </div>
       
       <div className="flex items-end gap-2">
-        <p className="text-3xl font-bold text-white">{value}</p>
+        <p className="text-2xl font-bold text-white">{value}</p>
         
         {trend && (
           <div className="flex items-center gap-1 pb-1">
-            {trend === 'up' && <span className="text-green-500">↑</span>}
-            {trend === 'down' && <span className="text-red-500">↓</span>}
-            {trend === 'neutral' && <span className="text-gray-500">→</span>}
+            {trend === 'up' && <span className="text-[#10b981]">↑</span>}
+            {trend === 'down' && <span className="text-[#ef4444]">↓</span>}
+            {trend === 'neutral' && <span className="text-[#a0a0a0]">→</span>}
           </div>
         )}
       </div>

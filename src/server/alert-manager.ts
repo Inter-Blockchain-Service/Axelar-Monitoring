@@ -2,7 +2,6 @@ import axios from 'axios';
 import { ValidatorMetrics } from './metrics';
 import { EventEmitter } from 'events';
 import { StatusType } from '../hooks/useMetrics';
-import { HeartbeatStatusType } from '../hooks/useMetrics';
 
 // Alert types
 export enum AlertType {
@@ -12,8 +11,6 @@ export enum AlertType {
   NODE_RECONNECTED = 'node_reconnected',
   CONSECUTIVE_BLOCKS_MISSED = 'consecutive_blocks_missed',
   SIGN_RATE_LOW = 'sign_rate_low',
-  CONSECUTIVE_HEARTBEATS_MISSED = 'consecutive_heartbeats_missed',
-  HEARTBEAT_RATE_LOW = 'heartbeat_rate_low',
   EVM_VOTE_MISSED = 'evm_vote_missed',
   EVM_VOTE_RATE_LOW = 'evm_vote_rate_low',
   EVM_VOTES_RECOVERED = 'evm_votes_recovered',
@@ -37,9 +34,7 @@ interface Alert {
 // Interface for alert thresholds
 interface AlertThresholds {
   consecutiveBlocksMissed: number;
-  consecutiveHeartbeatsMissed: number;
   signRateThreshold: number;
-  heartbeatRateThreshold: number;
   consecutiveEvmVotesMissed: number;
   consecutiveAmpdVotesMissed: number;
   consecutiveAmpdSigningsMissed: number;
@@ -76,15 +71,9 @@ export class AlertManager extends EventEmitter {
   private isMissingBlocks: boolean = false;
   private lastAlertedConsecutiveMissed: number = 0;
   
-  // State to track missed heartbeats
-  private isMissingHeartbeats: boolean = false;
-  private lastAlertedConsecutiveHeartbeatsMissed: number = 0;
-  
   // State to track low rates
   private isLowSignRate: boolean = false;
-  private isLowHeartbeatRate: boolean = false;
   private lastAlertedSignRate: number = 0;
-  private lastAlertedHeartbeatRate: number = 0;
   
   // State to track low vote and signing rates
   private evmVoteRateByChain: Record<string, { isLow: boolean; lastRate: number }> = {};
@@ -108,9 +97,7 @@ export class AlertManager extends EventEmitter {
     // Load configuration from environment variables
     this.thresholds = {
       consecutiveBlocksMissed: parseInt(process.env.ALERT_CONSECUTIVE_BLOCKS_THRESHOLD || '3', 10),
-      consecutiveHeartbeatsMissed: parseInt(process.env.ALERT_CONSECUTIVE_HEARTBEATS_THRESHOLD || '2', 10),
       signRateThreshold: parseFloat(process.env.ALERT_SIGN_RATE_THRESHOLD || '98.5'),
-      heartbeatRateThreshold: parseFloat(process.env.ALERT_HEARTBEAT_RATE_THRESHOLD || '98.0'),
       consecutiveEvmVotesMissed: parseInt(process.env.ALERT_CONSECUTIVE_EVM_VOTES_THRESHOLD || '3', 10),
       consecutiveAmpdVotesMissed: parseInt(process.env.ALERT_CONSECUTIVE_AMPD_VOTES_THRESHOLD || '3', 10),
       consecutiveAmpdSigningsMissed: parseInt(process.env.ALERT_CONSECUTIVE_AMPD_SIGNINGS_THRESHOLD || '3', 10),
@@ -253,54 +240,8 @@ export class AlertManager extends EventEmitter {
       }
     }
     
-    // Check consecutive missed heartbeats using heartbeatStatus
-    if (this.metrics.heartbeatStatus && this.metrics.heartbeatStatus.length > 0) {
-      let consecutiveHeartbeatsMissed = 0;
-      
-      // We only look at the first heartbeats until we find a signed heartbeat
-      for (const status of this.metrics.heartbeatStatus) {
-        if (status === HeartbeatStatusType.Missed) {
-          consecutiveHeartbeatsMissed++;
-        } else {
-          // As soon as we find a signed heartbeat, we stop counting
-          break;
-        }
-      }
-      
-      // Check if we exceed the threshold
-      if (consecutiveHeartbeatsMissed >= this.thresholds.consecutiveHeartbeatsMissed) {
-        if (!this.isMissingHeartbeats) {
-          // First threshold exceedance
-          this.isMissingHeartbeats = true;
-          this.lastAlertedConsecutiveHeartbeatsMissed = consecutiveHeartbeatsMissed;
-          this.createAlert(
-            AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
-            `⚠️ ALERT: ${consecutiveHeartbeatsMissed} heartbeats missed`,
-            'warning'
-          );
-        } else if (consecutiveHeartbeatsMissed > this.lastAlertedConsecutiveHeartbeatsMissed) {
-          // The number of missed heartbeats has increased
-          this.lastAlertedConsecutiveHeartbeatsMissed = consecutiveHeartbeatsMissed;
-          this.createAlert(
-            AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
-            `🚨 ALERT: ${consecutiveHeartbeatsMissed} heartbeats missed in increase`,
-            'critical'
-          );
-        }
-      } else if (this.isMissingHeartbeats) {
-        // We are back below the threshold
-        this.isMissingHeartbeats = false;
-        this.createAlert(
-          AlertType.CONSECUTIVE_HEARTBEATS_MISSED,
-          `✅ Recovery: New heartbeats received`,
-          'info'
-        );
-      }
-    }
-    
     // Calculate current rates
     const signRate = this.calculateSignRate();
-    const heartbeatRate = this.calculateHeartbeatRate();
     
     // Check signature rate
     if (signRate < this.thresholds.signRateThreshold) {
@@ -310,15 +251,15 @@ export class AlertManager extends EventEmitter {
         this.lastAlertedSignRate = signRate;
         this.createAlert(
           AlertType.SIGN_RATE_LOW,
-          `⚠️ ALERT: Low signature rate (${signRate.toFixed(2)}%)`,
+          `⚠️ ALERT: Low signature rate (${signRate.toFixed(1)}%)`,
           'warning'
         );
-      } else if (signRate < this.lastAlertedSignRate) {
-        // The rate has decreased
+      } else if (signRate < this.lastAlertedSignRate - 0.5) {
+        // The rate has decreased by at least 0.5%
         this.lastAlertedSignRate = signRate;
         this.createAlert(
           AlertType.SIGN_RATE_LOW,
-          `🚨 ALERT: Signature rate in decrease (${signRate.toFixed(2)}%)`,
+          `🚨 ALERT: Signature rate in decrease (${signRate.toFixed(1)}%)`,
           'critical'
         );
       }
@@ -327,37 +268,7 @@ export class AlertManager extends EventEmitter {
       this.isLowSignRate = false;
       this.createAlert(
         AlertType.SIGN_RATE_LOW,
-        `✅ Recovery: Normal signature rate (${signRate.toFixed(2)}%)`,
-        'info'
-      );
-    }
-    
-    // Check heartbeat rate
-    if (heartbeatRate < this.thresholds.heartbeatRateThreshold) {
-      if (!this.isLowHeartbeatRate) {
-        // First threshold exceedance
-        this.isLowHeartbeatRate = true;
-        this.lastAlertedHeartbeatRate = heartbeatRate;
-        this.createAlert(
-          AlertType.HEARTBEAT_RATE_LOW,
-          `⚠️ ALERT: Low heartbeat rate (${heartbeatRate.toFixed(2)}%)`,
-          'warning'
-        );
-      } else if (heartbeatRate < this.lastAlertedHeartbeatRate) {
-        // The rate has decreased
-        this.lastAlertedHeartbeatRate = heartbeatRate;
-        this.createAlert(
-          AlertType.HEARTBEAT_RATE_LOW,
-          `🚨 ALERT: Heartbeat rate in decrease (${heartbeatRate.toFixed(2)}%)`,
-          'critical'
-        );
-      }
-    } else if (this.isLowHeartbeatRate) {
-      // We are back above the threshold
-      this.isLowHeartbeatRate = false;
-      this.createAlert(
-        AlertType.HEARTBEAT_RATE_LOW,
-        `✅ Recovery: Normal heartbeat rate (${heartbeatRate.toFixed(2)}%)`,
+        `✅ Recovery: Normal signature rate (${signRate.toFixed(1)}%)`,
         'info'
       );
     }
@@ -605,29 +516,18 @@ export class AlertManager extends EventEmitter {
   }
   
   /**
-   * Calculate the signing rate
+   * Calculate the signing rate (rounded to 1 decimal)
    */
   private calculateSignRate(): number {
     const totalSigned = this.metrics.totalSigned || 0;
     const totalMissed = this.metrics.totalMissed || 0;
     const totalBlocks = totalSigned + totalMissed;
     if (totalBlocks === 0) return 100;
-    return (totalSigned / totalBlocks) * 100;
+    return Math.round((totalSigned / totalBlocks) * 1000) / 10; // Round to 1 decimal
   }
   
   /**
-   * Calculate the heartbeat rate
-   */
-  private calculateHeartbeatRate(): number {
-    const heartbeatsSigned = this.metrics.heartbeatsSigned || 0;
-    const heartbeatsMissed = this.metrics.heartbeatsMissed || 0;
-    const totalHeartbeats = heartbeatsSigned + heartbeatsMissed;
-    if (totalHeartbeats === 0) return 100;
-    return (heartbeatsSigned / totalHeartbeats) * 100;
-  }
-  
-  /**
-   * Calculate EVM vote rate for a specific chain
+   * Calculate EVM vote rate for a specific chain (rounded to 1 decimal)
    */
   private calculateEvmVoteRate(chain: string): number {
     if (!this.metrics.evmVotes || !this.metrics.evmVotes[chain]) return 100;
@@ -652,11 +552,11 @@ export class AlertManager extends EventEmitter {
     });
     
     if (totalVotes === 0) return 100;
-    return (validVotes / totalVotes) * 100;
+    return Math.round((validVotes / totalVotes) * 1000) / 10; // Round to 1 decimal
   }
   
   /**
-   * Calculate AMPD vote rate for a specific chain
+   * Calculate AMPD vote rate for a specific chain (rounded to 1 decimal)
    */
   private calculateAmpdVoteRate(chain: string): number {
     if (!this.metrics.ampdVotes || !this.metrics.ampdVotes[chain]) return 100;
@@ -681,11 +581,11 @@ export class AlertManager extends EventEmitter {
     });
     
     if (totalVotes === 0) return 100;
-    return (validVotes / totalVotes) * 100;
+    return Math.round((validVotes / totalVotes) * 1000) / 10; // Round to 1 decimal
   }
   
   /**
-   * Calculate AMPD signing rate for a specific chain
+   * Calculate AMPD signing rate for a specific chain (rounded to 1 decimal)
    */
   private calculateAmpdSigningRate(chain: string): number {
     if (!this.metrics.ampdSignings || !this.metrics.ampdSignings[chain]) return 100;
@@ -710,7 +610,7 @@ export class AlertManager extends EventEmitter {
     });
     
     if (totalSignings === 0) return 100;
-    return (validSignings / totalSignings) * 100;
+    return Math.round((validSignings / totalSignings) * 1000) / 10; // Round to 1 decimal
   }
   
   /**
@@ -734,16 +634,16 @@ export class AlertManager extends EventEmitter {
             this.evmVoteRateByChain[chain].lastRate = rate;
             this.createAlert(
               AlertType.EVM_VOTE_RATE_LOW,
-              `⚠️ ALERT: Low EVM vote rate (${rate.toFixed(2)}%) on chain ${chain}`,
+              `⚠️ ALERT: Low EVM vote rate (${rate.toFixed(1)}%) on chain ${chain}`,
               'warning',
               chain
             );
-          } else if (rate < this.evmVoteRateByChain[chain].lastRate) {
-            // The rate has decreased
+          } else if (rate < this.evmVoteRateByChain[chain].lastRate - 0.5) {
+            // The rate has decreased by at least 0.5%
             this.evmVoteRateByChain[chain].lastRate = rate;
             this.createAlert(
               AlertType.EVM_VOTE_RATE_LOW,
-              `🚨 ALERT: EVM vote rate in decrease (${rate.toFixed(2)}%) on chain ${chain}`,
+              `🚨 ALERT: EVM vote rate in decrease (${rate.toFixed(1)}%) on chain ${chain}`,
               'critical',
               chain
             );
@@ -753,7 +653,7 @@ export class AlertManager extends EventEmitter {
           this.evmVoteRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.EVM_VOTE_RATE_LOW,
-            `✅ Recovery: Normal EVM vote rate (${rate.toFixed(2)}%) on chain ${chain}`,
+            `✅ Recovery: Normal EVM vote rate (${rate.toFixed(1)}%) on chain ${chain}`,
             'info',
             chain
           );
@@ -778,16 +678,16 @@ export class AlertManager extends EventEmitter {
             this.ampdVoteRateByChain[chain].lastRate = rate;
             this.createAlert(
               AlertType.AMPD_VOTE_RATE_LOW,
-              `⚠️ ALERT: Low AMPD vote rate (${rate.toFixed(2)}%) on chain ${chain}`,
+              `⚠️ ALERT: Low AMPD vote rate (${rate.toFixed(1)}%) on chain ${chain}`,
               'warning',
               chain
             );
-          } else if (rate < this.ampdVoteRateByChain[chain].lastRate) {
-            // The rate has decreased
+          } else if (rate < this.ampdVoteRateByChain[chain].lastRate - 0.5) {
+            // The rate has decreased by at least 0.5%
             this.ampdVoteRateByChain[chain].lastRate = rate;
             this.createAlert(
               AlertType.AMPD_VOTE_RATE_LOW,
-              `🚨 ALERT: AMPD vote rate in decrease (${rate.toFixed(2)}%) on chain ${chain}`,
+              `🚨 ALERT: AMPD vote rate in decrease (${rate.toFixed(1)}%) on chain ${chain}`,
               'critical',
               chain
             );
@@ -797,7 +697,7 @@ export class AlertManager extends EventEmitter {
           this.ampdVoteRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.AMPD_VOTE_RATE_LOW,
-            `✅ Recovery: Normal AMPD vote rate (${rate.toFixed(2)}%) on chain ${chain}`,
+            `✅ Recovery: Normal AMPD vote rate (${rate.toFixed(1)}%) on chain ${chain}`,
             'info',
             chain
           );
@@ -822,16 +722,16 @@ export class AlertManager extends EventEmitter {
             this.ampdSigningRateByChain[chain].lastRate = rate;
             this.createAlert(
               AlertType.AMPD_SIGNING_RATE_LOW,
-              `⚠️ ALERT: Low AMPD signing rate (${rate.toFixed(2)}%) on chain ${chain}`,
+              `⚠️ ALERT: Low AMPD signing rate (${rate.toFixed(1)}%) on chain ${chain}`,
               'warning',
               chain
             );
-          } else if (rate < this.ampdSigningRateByChain[chain].lastRate) {
-            // The rate has decreased
+          } else if (rate < this.ampdSigningRateByChain[chain].lastRate - 0.5) {
+            // The rate has decreased by at least 0.5%
             this.ampdSigningRateByChain[chain].lastRate = rate;
             this.createAlert(
               AlertType.AMPD_SIGNING_RATE_LOW,
-              `🚨 ALERT: AMPD signing rate in decrease (${rate.toFixed(2)}%) on chain ${chain}`,
+              `🚨 ALERT: AMPD signing rate in decrease (${rate.toFixed(1)}%) on chain ${chain}`,
               'critical',
               chain
             );
@@ -841,7 +741,7 @@ export class AlertManager extends EventEmitter {
           this.ampdSigningRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.AMPD_SIGNING_RATE_LOW,
-            `✅ Recovery: Normal AMPD signing rate (${rate.toFixed(2)}%) on chain ${chain}`,
+            `✅ Recovery: Normal AMPD signing rate (${rate.toFixed(1)}%) on chain ${chain}`,
             'info',
             chain
           );
@@ -973,16 +873,6 @@ export class AlertManager extends EventEmitter {
         const totalMissed = metrics.totalMissed || 0;
         message += `- Signed: ${totalSigned}/${totalSigned + totalMissed} (${this.calculateSignRate().toFixed(2)}%)\n`;
         message += `- Consecutive missed: ${metrics.consecutiveMissed || 0}\n`;
-        break;
-        
-      case AlertType.CONSECUTIVE_HEARTBEATS_MISSED:
-      case AlertType.HEARTBEAT_RATE_LOW:
-        message += `\nHeartbeat Metrics:\n`;
-        message += `- Current period: ${metrics.lastHeartbeatPeriod || 0}\n`;
-        const heartbeatsSigned = metrics.heartbeatsSigned || 0;
-        const heartbeatsMissed = metrics.heartbeatsMissed || 0;
-        message += `- Signed: ${heartbeatsSigned}/${heartbeatsSigned + heartbeatsMissed} (${this.calculateHeartbeatRate().toFixed(2)}%)\n`;
-        message += `- Consecutive missed: ${metrics.heartbeatsConsecutiveMissed || 0}\n`;
         break;
         
       case AlertType.NODE_DISCONNECTED:

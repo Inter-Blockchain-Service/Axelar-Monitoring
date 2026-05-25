@@ -15,11 +15,9 @@ export const updateConnectionStatus = (
   broadcasters?: Broadcasters
 ): void => {
   metrics.connected = connected;
-  metrics.heartbeatConnected = connected;
   
   if (errorMessage) {
     metrics.lastError = errorMessage;
-    metrics.heartbeatLastError = errorMessage;
   }
   
   if (broadcasters) {

@@ -1,7 +1,6 @@
 import WebSocket from 'ws';
 import { EventEmitter } from 'events';
 import { ValidatorSignatureManager } from './validator-signature-manager';
-import { HeartbeatManager, HeartbeatStatusType } from './heartbeat-manager';
 import { EvmVoteManager, PollStatus as EvmPollStatus, EvmVoteData } from './evm-vote-manager';
 import { 
   AmpdManager, 
@@ -95,7 +94,6 @@ export class TendermintClient extends EventEmitter {
   private broadcasterAddress: string;
   private ampdAddress: string;
   private signatureManager: ValidatorSignatureManager;
-  private heartbeatManager: HeartbeatManager;
   private evmVoteManager: EvmVoteManager | null = null;
   private ampdManager: AmpdManager | null = null;
   private rpcUrl: string;
@@ -106,7 +104,6 @@ export class TendermintClient extends EventEmitter {
     validatorAddress: string,
     broadcasterAddress: string = '',
     ampdAddress: string = '',
-    historySize: number = 700,
     evmSupportedChains: string[] = [],
     ampdSupportedChains: string[] = []
   ) {
@@ -116,7 +113,6 @@ export class TendermintClient extends EventEmitter {
     this.broadcasterAddress = broadcasterAddress || validatorAddress;
     this.ampdAddress = ampdAddress || this.broadcasterAddress;
     this.signatureManager = new ValidatorSignatureManager(validatorAddress);
-    this.heartbeatManager = new HeartbeatManager(this.broadcasterAddress, historySize);
     this.rpcUrl = endpoint.trim().replace(/\/websocket$/, '');
     
     if (axelarApiEndpoint) {
@@ -149,11 +145,6 @@ export class TendermintClient extends EventEmitter {
     // Forward events from the signature manager
     this.signatureManager.on('status-update', (update: StatusUpdate) => {
       this.emit('status-update', update);
-    });
-
-    // Forward events from the heartbeat manager
-    this.heartbeatManager.on('heartbeat-update', (update) => {
-      this.emit('heartbeat-update', update);
     });
   }
   
@@ -254,7 +245,7 @@ export class TendermintClient extends EventEmitter {
         params: { query: QUERY_VOTE }
       };
 
-      // Subscribe to transactions (for heartbeats)
+      // Subscribe to transactions (for EVM and AMPD)
       const subscribeTx = {
         jsonrpc: "2.0",
         method: "subscribe",
@@ -287,7 +278,6 @@ export class TendermintClient extends EventEmitter {
             value.block && typeof value.block === 'object' && 'header' in value.block) {
           const blockData = value as unknown as BlockData;
           this.signatureManager.handleNewBlock(blockData);
-          this.heartbeatManager.handleNewBlock(blockData);
         } else {
           console.error('Invalid block structure received:', value);
         }
@@ -303,7 +293,6 @@ export class TendermintClient extends EventEmitter {
         // Type assertion to indicate that value is of type TxData
         if (value && typeof value === 'object' && 'TxResult' in value) {
           const txData = value as unknown as TxData;
-          this.heartbeatManager.handleTransaction(txData.TxResult);
           
           // Process transactions for EVM votes if manager is enabled
           if (this.evmVoteManager) {
@@ -345,20 +334,6 @@ export class TendermintClient extends EventEmitter {
   
   public isConnected(): boolean {
     return this.connected;
-  }
-
-  /**
-   * Gets the heartbeat status history
-   */
-  public getHeartbeatHistory(): HeartbeatStatusType[] {
-    return this.heartbeatManager.getHeartbeatHistory();
-  }
-
-  /**
-   * Gets the history of blocks where heartbeats were found
-   */
-  public getHeartbeatBlocks(): (number | undefined)[] {
-    return this.heartbeatManager.getHeartbeatBlocks();
   }
 
   /**

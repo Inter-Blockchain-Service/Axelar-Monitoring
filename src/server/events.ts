@@ -1,6 +1,5 @@
 import { TendermintClient, StatusUpdate, StatusType } from './tendermint';
-import { ValidatorMetrics, recalculateStats, recalculateHeartbeatStats } from './metrics';
-import { HeartbeatUpdate, HeartbeatStatusType } from './heartbeat-manager';
+import { ValidatorMetrics, recalculateStats } from './metrics';
 import { Broadcasters } from './websockets-client';
 import { PollStatus } from './ampd-manager';
 import { updateConnectionStatus, updateAndBroadcastMetrics, updateStatusArray } from './utils';
@@ -56,33 +55,6 @@ export const setupEventHandlers = (
         `Block ${update.height}: ${StatusType[update.status]}`
       );
     }
-  });
-  
-  // Heartbeat update handler
-  tendermintClient.on('heartbeat-update', (update: HeartbeatUpdate) => {
-    metrics.heartbeatConnected = true;
-    
-    if (update.final) {
-      metrics.lastHeartbeatPeriod = update.period;
-      metrics.lastHeartbeatTime = new Date();
-      
-      // Update heartbeat status using the helper function
-      metrics.heartbeatStatus = updateStatusArray(metrics.heartbeatStatus, update.status);
-      
-      // Recalculate all heartbeat statistics
-      const updatedMetrics = recalculateHeartbeatStats(metrics);
-      Object.assign(metrics, updatedMetrics);
-      
-      // Broadcast and log
-      updateAndBroadcastMetrics(
-        metrics,
-        broadcasters,
-        `HeartBeat period ${update.period} (${update.periodStart}-${update.periodEnd}): ${HeartbeatStatusType[update.status]}`
-      );
-    }
-    
-    // Update metrics object with heartbeat block heights
-    metrics.heartbeatBlocks = tendermintClient.getHeartbeatBlocks();
   });
   
   // EVM vote update handler

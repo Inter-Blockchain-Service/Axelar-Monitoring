@@ -106,7 +106,12 @@ export class EvmVoteManager extends EventEmitter {
 
   // Function to process transactions
   public handleTransaction(txResult: TxResult): void {
-    // Check if txResult.events contains vote information for our validator
+    // FIRST: Check if txResult.events contains poll_id information (for ConfirmGatewayTxs, etc.)
+    if (txResult.events) {
+      this.extractPollIdFromEvents(txResult.events);
+    }
+    
+    // SECOND: Check if txResult.events contains vote information for our validator
     if (txResult.events && 
         txResult.events['axelar.vote.v1beta1.Voted.voter'] &&
         txResult.events['axelar.vote.v1beta1.Voted.voter'].some((voter: string) => voter.includes(this.validatorAddress))) {
@@ -246,6 +251,63 @@ export class EvmVoteManager extends EventEmitter {
     }
   }
 
+  // Function to extract poll_id from WebSocket events
+  private extractPollIdFromEvents(events: Record<string, string[]>): void {
+    try {
+      // Look for poll_mappings in events (for ConfirmGatewayTxs, etc.)
+      if (events['axelar.evm.v1beta1.ConfirmGatewayTxsStarted.poll_mappings']) {
+        const pollMappingsArray = events['axelar.evm.v1beta1.ConfirmGatewayTxsStarted.poll_mappings'];
+        const chainArray = events['axelar.evm.v1beta1.ConfirmGatewayTxsStarted.chain'];
+        
+        if (pollMappingsArray && pollMappingsArray.length > 0) {
+          pollMappingsArray.forEach((pollMappingsStr, index) => {
+            try {
+              // Parse the poll_mappings JSON
+              const pollMappings = JSON.parse(pollMappingsStr);
+              
+              if (Array.isArray(pollMappings) && pollMappings.length > 0) {
+                pollMappings.forEach((mapping) => {
+                  if (mapping.poll_id) {
+                    const pollId = mapping.poll_id;
+                    // Get corresponding chain
+                    const chain = chainArray && chainArray[index] ? chainArray[index] : null;
+                    
+                    if (chain && pollId) {
+                      console.log(`✅ Found poll_id ${pollId} for chain ${chain} in WebSocket events`);
+                      this.addPollIdToChain(chain, pollId);
+                    }
+                  }
+                });
+              }
+            } catch (error) {
+              console.error("Error parsing poll_mappings from WebSocket events:", error);
+            }
+          });
+        }
+      }
+      
+      // Also check for other event types that might contain poll_id
+      // (like ConfirmDepositStarted, etc.)
+      for (const [eventKey, eventValues] of Object.entries(events)) {
+        if (eventKey.includes('poll_id') && !eventKey.includes('poll_mappings')) {
+          // Direct poll_id event
+          const chainKey = eventKey.replace('.poll_id', '.chain');
+          if (events[chainKey]) {
+            eventValues.forEach((pollId, index) => {
+              const chain = events[chainKey][index];
+              if (chain && pollId) {
+                console.log(`✅ Found poll_id ${pollId} for chain ${chain} in event ${eventKey}`);
+                this.addPollIdToChain(chain, pollId);
+              }
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error extracting poll_id from WebSocket events:", error);
+    }
+  }
+
   // Function to add a new poll_id to a chain
   private addPollIdToChain(chain: string, pollId: string): boolean {
     if (!chain) return false;
@@ -340,6 +402,11 @@ export class EvmVoteManager extends EventEmitter {
   // Function to process an individual vote message
   private processVoteMessage(message: unknown) {
     try {
+      // Log the message type for debugging
+      if (typeof message === 'object' && message !== null && '@type' in message) {
+        console.log(`📋 Processing message type: ${message['@type']}`);
+      }
+      
       // Check if it's a RefundMsgRequest containing a VoteRequest
       if (typeof message === 'object' && message !== null && '@type' in message && 
           message['@type'] === "/axelar.reward.v1beta1.RefundMsgRequest" && 
@@ -372,14 +439,21 @@ export class EvmVoteManager extends EventEmitter {
             this.updatePollStatus(pollId, status, voteChain);
           } else {
             const voteType = vote && typeof vote === 'object' && '@type' in vote ? vote['@type'] : 'unknown';
-            console.log(`Unsupported vote type: ${voteType}`);
+            console.log(`⚠️ Unsupported vote type: ${voteType}`);
+            console.log(`📦 Vote object:`, JSON.stringify(vote, null, 2));
           }
         } else {
-          console.log("No poll_id found in inner_message");
+          console.log("⚠️ No poll_id found in inner_message");
+          if (typeof message === 'object' && message !== null && 'inner_message' in message) {
+            console.log(`📦 Inner message:`, JSON.stringify(message.inner_message, null, 2));
+          }
         }
       } else {
         const msgType = typeof message === 'object' && message !== null && '@type' in message ? message['@type'] : 'unknown';
-        console.log(`Unsupported message type: ${msgType}`);
+        console.log(`⚠️ Unsupported message type: ${msgType}`);
+        if (typeof message === 'object' && message !== null) {
+          console.log(`📦 Full message structure:`, JSON.stringify(message, null, 2));
+        }
       }
     } catch (error) {
       console.error("Error processing individual message:", error);
