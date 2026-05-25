@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { SigningStatus } from '../server/ampd-manager';
 import { Socket } from 'socket.io-client';
 
@@ -12,10 +12,11 @@ interface AmpdSigningProps {
 const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = '', chainId = '' }) => {
   const [signingData, setSigningData] = useState<Record<string, SigningStatus[]>>({});
   const [supportedChains, setSupportedChains] = useState<string[]>([]);
-  const [displayLimit] = useState(35); // Display a maximum number of signatures
+  const [displayLimit, setDisplayLimit] = useState(35);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedChain, setSelectedChain] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Function to get URL based on chainId
   const getAxelarscanUrl = (): string => {
@@ -58,6 +59,35 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
       }
     };
   }, [socket]);
+
+  // Calculate dynamic display limit based on container width
+  useEffect(() => {
+    const calculateDisplayLimit = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.offsetWidth;
+        // Subtract label width (120px) and some padding
+        const availableWidth = containerWidth - 140;
+        // Each vote box is 16px wide + 4px gap = 20px
+        const votesPerRow = Math.floor(availableWidth / 20);
+        // Set a minimum of 20 and maximum of 100
+        const newLimit = Math.max(20, Math.min(votesPerRow, 100));
+        setDisplayLimit(newLimit);
+      }
+    };
+
+    // Wait a bit for the DOM to be fully rendered
+    const timer = setTimeout(calculateDisplayLimit, 100);
+
+    const resizeObserver = new ResizeObserver(calculateDisplayLimit);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      clearTimeout(timer);
+      resizeObserver.disconnect();
+    };
+  }, [supportedChains]);
 
   // Function to get status color
   const getStatusColor = (status: string) => {
@@ -110,9 +140,6 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
             <h3 className="text-base font-semibold text-white">
             Amplifier Signings
             </h3>
-            <div className="text-xs text-[#a0a0a0]">
-              Last 35 signings (click chain for history)
-            </div>
           </div>
         </div>
         <div className="flex justify-center items-center h-[200px]">
@@ -144,10 +171,13 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
           <h3 className="text-base font-semibold text-white">
             AMPD Signatures
           </h3>
+          <div className="text-xs text-[#a0a0a0]">
+            Last {displayLimit} signings (click chain for history)
+          </div>
         </div>
       </div>
       
-      <div className="overflow-y-auto flex-grow">
+      <div className="overflow-y-auto flex-grow" ref={containerRef}>
         {chainsToDisplay.map((chainName) => {
           const chainSignings = signingData[chainName] || [];
           const signingsToDisplay = chainSignings.slice(0, displayLimit);
@@ -163,7 +193,7 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
                 >
                   {chainName.toUpperCase()}:
                 </div>
-                <div className="grid grid-cols-35 gap-1 flex-1">
+                <div className="flex gap-1 flex-1 flex-wrap">
                   {signingsToDisplay.length > 0 ? (
                     signingsToDisplay.map((signing, index) => (
                       signing.result === 'unknown' ? (

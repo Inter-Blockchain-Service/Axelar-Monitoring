@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PollStatus } from '../hooks/useMetrics';
 
 interface ChainData {
@@ -16,9 +16,10 @@ interface EvmVoteStatusProps {
 
 const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, className = '', chainId }) => {
   const [availableChains, setAvailableChains] = useState<string[]>([]);
-  const [displayLimit] = useState(35); // Display maximum number of votes
+  const [displayLimit, setDisplayLimit] = useState(35);
   const [selectedChain, setSelectedChain] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const getAxelarscanUrl = (): string => {
     if (chainId === 'axelar-dojo-1') {
@@ -42,6 +43,35 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
       setAvailableChains(sortedChains);
     }
   }, [evmVotes]);
+
+  // Calculate dynamic display limit based on container width
+  useEffect(() => {
+    const calculateDisplayLimit = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.offsetWidth;
+        // Subtract label width (120px) and some padding
+        const availableWidth = containerWidth - 140;
+        // Each vote box is 16px wide + 4px gap = 20px
+        const votesPerRow = Math.floor(availableWidth / 20);
+        // Set a minimum of 20 and maximum of 100
+        const newLimit = Math.max(20, Math.min(votesPerRow, 100));
+        setDisplayLimit(newLimit);
+      }
+    };
+
+    // Wait a bit for the DOM to be fully rendered
+    const timer = setTimeout(calculateDisplayLimit, 100);
+
+    const resizeObserver = new ResizeObserver(calculateDisplayLimit);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      clearTimeout(timer);
+      resizeObserver.disconnect();
+    };
+  }, [availableChains]);
 
   const handleChainClick = (chain: string) => {
     setSelectedChain(chain);
@@ -108,12 +138,12 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
             EVM Votes
           </h3>
           <div className="text-xs text-[#a0a0a0]">
-            Last 35 votes (click chain for history)
+            Last {displayLimit} votes (click chain for history)
           </div>
         </div>
       </div>
 
-      <div className="flex-grow">
+      <div className="flex-grow" ref={containerRef}>
         {availableChains.map((chain) => {
           const chainVotes = evmVotes[chain]?.pollIds || [];
 
@@ -126,7 +156,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
                 >
                   {chain.toUpperCase()}:
                 </div>
-                <div className="grid grid-cols-35 gap-1 flex-1">
+                <div className="flex gap-1 flex-1 flex-wrap">
                   {chainVotes.length > 0 ? (
                     chainVotes.slice(0, displayLimit).map((vote, index) => (
                       vote.result.toString() === 'unknown' ? (

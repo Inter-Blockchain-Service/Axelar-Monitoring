@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { PollStatus } from '../server/ampd-manager';
 import { Socket } from 'socket.io-client';
 
@@ -12,10 +12,11 @@ interface AmpdVotingProps {
 const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', chainId = '' }) => {
   const [voteData, setVoteData] = useState<Record<string, PollStatus[]>>({});
   const [supportedChains, setSupportedChains] = useState<string[]>([]);
-  const [displayLimit] = useState(35); // Display maximum number of votes
+  const [displayLimit, setDisplayLimit] = useState(35);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedChain, setSelectedChain] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Function to get URL based on chainId
   const getAxelarscanUrl = (): string => {
@@ -58,6 +59,35 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
       }
     };
   }, [socket]);
+
+  // Calculate dynamic display limit based on container width
+  useEffect(() => {
+    const calculateDisplayLimit = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.offsetWidth;
+        // Subtract label width (120px) and some padding
+        const availableWidth = containerWidth - 140;
+        // Each vote box is 16px wide + 4px gap = 20px
+        const votesPerRow = Math.floor(availableWidth / 20);
+        // Set a minimum of 20 and maximum of 100
+        const newLimit = Math.max(20, Math.min(votesPerRow, 100));
+        setDisplayLimit(newLimit);
+      }
+    };
+
+    // Wait a bit for the DOM to be fully rendered
+    const timer = setTimeout(calculateDisplayLimit, 100);
+
+    const resizeObserver = new ResizeObserver(calculateDisplayLimit);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      clearTimeout(timer);
+      resizeObserver.disconnect();
+    };
+  }, [supportedChains]);
 
   // Function to get status color
   const getStatusColor = (status: string) => {
@@ -144,12 +174,12 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
             Amplifier Votes
           </h3>
           <div className="text-xs text-[#a0a0a0]">
-            Last 35 votes (click chain for history)
+            Last {displayLimit} votes (click chain for history)
           </div>
         </div>
       </div>
       
-      <div className="overflow-y-auto flex-grow">
+      <div className="overflow-y-auto flex-grow" ref={containerRef}>
         {chainsToDisplay.map((chainName) => {
           const chainVotes = voteData[chainName] || [];
           const votesToDisplay = chainVotes.slice(0, displayLimit);
@@ -165,7 +195,7 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
                 >
                   {chainName.toUpperCase()}:
                 </div>
-                <div className="grid grid-cols-35 gap-1 flex-1">
+                <div className="flex gap-1 flex-1 flex-wrap">
                   {votesToDisplay.length > 0 ? (
                     votesToDisplay.map((vote, index) => (
                       vote.result === 'unknown' ? (
