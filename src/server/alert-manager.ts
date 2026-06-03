@@ -311,6 +311,9 @@ export class AlertManager extends EventEmitter {
           const voteTime = new Date(vote.timestamp).getTime();
           if (voteTime < fiveMinutesAgo) {
             consecutiveMissed++;
+          } else {
+            // Vote still pending (less than 5 minutes), stop counting
+            break;
           }
         } else if (vote.result === 'validated') {
           break;

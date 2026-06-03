@@ -338,7 +338,8 @@ export class EvmVoteManager extends EventEmitter {
       // Add new poll_id to the beginning of the array and remove the oldest
       this.chainData[normalizedChain].pollIds.unshift({
         pollId: pollId,
-        result: VoteStatusType.Unsubmitted
+        result: VoteStatusType.Unsubmitted,
+        timestamp: new Date().toISOString()
       });
       
       // Limit array size
