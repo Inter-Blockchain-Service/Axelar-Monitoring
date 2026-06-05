@@ -112,53 +112,10 @@ export class EvmVoteManager extends EventEmitter {
     }
     
     // SECOND: Check if txResult.events contains vote information for our validator
-    if (txResult.events && 
-        txResult.events['axelar.vote.v1beta1.Voted.voter'] &&
-        txResult.events['axelar.vote.v1beta1.Voted.voter'].some((voter: string) => voter.includes(this.validatorAddress))) {
-        
-      // Get transaction hash
-      if (txResult.events['tx.hash'] && txResult.events['tx.hash'].length > 0) {
-        const txHash = txResult.events['tx.hash'][0];
-        
-        // Query Axelar API for transaction details
-        this.getTxByHash(txHash)
-          .then(txDetails => {
-            try {
-              // Check if it's a BatchRequest or a direct message
-              if (!txDetails) {
-                console.log(`⚠️ No details for transaction ${txHash}`);
-                return;
-              }
-              
-              const messages = txDetails.tx.body.messages;
-              if (!messages || messages.length === 0) {
-                console.log("⚠️ No messages found in transaction");
-                return;
-              }
-
-              // Process differently based on message type
-              if (messages[0]["@type"] === "/axelar.auxiliary.v1beta1.BatchRequest") {
-                const batchMessages = messages[0].messages;
-                
-                if (batchMessages && batchMessages.length > 0) {
-                  // Process each message in the batch
-                  batchMessages.forEach((batchMsg: TxMessage) => {
-                    this.processVoteMessage(batchMsg);
-                  });
-                } else {
-                  console.log("⚠️ No messages in BatchRequest");
-                }
-              } else {
-                // Case of a single message
-                this.processVoteMessage(messages[0]);
-              }
-            } catch (error) {
-              console.error("❌ Error processing vote:", error);
-            }
-          })
-          .catch(error => {
-            console.error("❌ Error requesting transaction details:", error instanceof Error ? error.message : 'Unknown error');
-          });
+    if (txResult.events && this.isOurVoteTransaction(txResult.events)) {
+      const txHash = txResult.events['tx.hash']?.[0];
+      if (txHash) {
+        this.fetchAndProcessVoteTx(txHash);
       }
     }
     
@@ -358,6 +315,66 @@ export class EvmVoteManager extends EventEmitter {
     }
     
     return false;
+  }
+
+  // Check if a transaction event belongs to our broadcaster's vote
+  private isOurVoteTransaction(events: Record<string, string[]>): boolean {
+    const address = this.validatorAddress;
+
+    // Legacy path: axelar.vote.v1beta1.Voted event
+    if (events['axelar.vote.v1beta1.Voted.voter']?.some(voter => voter.includes(address))) {
+      return true;
+    }
+
+    // Modern path: votes wrapped in RefundMsgRequest (no Voted event emitted)
+    const isRefundVote = events['message.action']?.some(
+      action => action.includes('/axelar.reward.v1beta1.RefundMsgRequest')
+    );
+    if (!isRefundVote) {
+      return false;
+    }
+
+    const senderKeys = ['message.sender', 'tx.fee_payer'];
+    return senderKeys.some(key =>
+      events[key]?.some(value => value.includes(address))
+    );
+  }
+
+  // Fetch transaction details and process vote messages
+  private fetchAndProcessVoteTx(txHash: string): void {
+    this.getTxByHash(txHash)
+      .then(txDetails => {
+        try {
+          if (!txDetails) {
+            console.log(`⚠️ No details for transaction ${txHash}`);
+            return;
+          }
+
+          const messages = txDetails.tx.body.messages;
+          if (!messages || messages.length === 0) {
+            console.log("⚠️ No messages found in transaction");
+            return;
+          }
+
+          if (messages[0]["@type"] === "/axelar.auxiliary.v1beta1.BatchRequest") {
+            const batchMessages = messages[0].messages;
+            if (batchMessages && batchMessages.length > 0) {
+              batchMessages.forEach((batchMsg: TxMessage) => {
+                this.processVoteMessage(batchMsg);
+              });
+            } else {
+              console.log("⚠️ No messages in BatchRequest");
+            }
+          } else {
+            this.processVoteMessage(messages[0]);
+          }
+        } catch (error) {
+          console.error("❌ Error processing vote:", error);
+        }
+      })
+      .catch(error => {
+        console.error("❌ Error requesting transaction details:", error instanceof Error ? error.message : 'Unknown error');
+      });
   }
 
   // Get transaction details by hash
