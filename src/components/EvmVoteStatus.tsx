@@ -155,7 +155,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
             EVM Votes
           </h3>
           <div className="text-xs text-[#a0a0a0]">
-            Last {displayLimit} votes (click chain for history)
+            Last {displayLimit} votes (click chain for history and tx)
           </div>
         </div>
       </div>
@@ -188,7 +188,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
                           target="_blank"
                           rel="noopener noreferrer"
                           key={`${vote.pollId}-${index}`}
-                          className={`w-4 h-4 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block`}
+                          className={`w-4 h-4 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block${vote.txHash ? ' ring-1 ring-white/40' : ''}`}
                           title={getVoteTooltip(vote)}
                         />
                       )
@@ -233,11 +233,47 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
                     target="_blank"
                     rel="noopener noreferrer"
                     key={`${vote.pollId}-${index}`}
-                    className={`w-6 h-6 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block`}
+                    className={`w-6 h-6 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block${vote.txHash ? ' ring-1 ring-white/40' : ''}`}
                     title={getVoteTooltip(vote)}
                   />
                 )
               ))}
+            </div>
+            <div className="mt-4 max-h-48 overflow-y-auto">
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr className="text-[#a0a0a0] border-b border-[#2a2a2a]">
+                    <th className="py-2 pr-3">Poll</th>
+                    <th className="py-2 pr-3">Status</th>
+                    <th className="py-2">Vote tx</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {evmVotes[selectedChain]?.pollIds
+                    .filter(v => v.result !== 'unknown')
+                    .slice(0, 50)
+                    .map((vote, index) => (
+                      <tr key={`detail-${vote.pollId}-${index}`} className="border-b border-[#2a2a2a]/50">
+                        <td className="py-1.5 pr-3 text-white">{vote.pollId}</td>
+                        <td className="py-1.5 pr-3 text-[#a0a0a0]">{getStatusTooltip(vote.result.toString())}</td>
+                        <td className="py-1.5">
+                          {vote.txHash ? (
+                            <a
+                              href={`${getAxelarscanUrl()}/tx/${vote.txHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#fbb800] hover:underline font-mono"
+                            >
+                              {vote.txHash.substring(0, 16)}...
+                            </a>
+                          ) : (
+                            <span className="text-[#a0a0a0]">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </div>
             <div className="mt-4 pt-4 border-t border-[#2a2a2a]">
               <div className="flex flex-wrap gap-4">
