@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { PollStatus } from '../hooks/useMetrics';
+import { EvmPollStatus } from '../hooks/useMetrics';
 
 interface ChainData {
   [chain: string]: {
-    pollIds: PollStatus[];
+    pollIds: EvmPollStatus[];
   }
 }
 
@@ -130,6 +130,23 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
     }
   };
 
+  const getVoteLink = (vote: EvmPollStatus): string => {
+    const baseUrl = getAxelarscanUrl();
+    if (vote.txHash) {
+      return `${baseUrl}/tx/${vote.txHash}`;
+    }
+    return `${baseUrl}/evm-poll/${vote.pollId}`;
+  };
+
+  const getVoteTooltip = (vote: EvmPollStatus): string => {
+    const status = getStatusTooltip(vote.result.toString());
+    const lines = [`Poll ID: ${vote.pollId}`, `Status: ${status}`];
+    if (vote.txHash) {
+      lines.push(`Vote tx: ${vote.txHash.substring(0, 12)}...`);
+    }
+    return lines.join(' - ');
+  };
+
   return (
     <div className={`bg-[#1a1a1a] p-5 rounded-lg border border-[#2a2a2a] flex flex-col h-full ${className}`}>
       <div className="mb-4">
@@ -163,16 +180,16 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
                         <div
                           key={`${vote.pollId}-${index}`}
                           className={`w-4 h-4 ${getStatusColor(vote.result.toString())} rounded-sm block`}
-                          title={`Poll ID: ${vote.pollId} - ${getStatusTooltip(vote.result.toString())}`}
+                          title={getVoteTooltip(vote)}
                         />
                       ) : (
                         <a
-                          href={`${getAxelarscanUrl()}/evm-poll/${vote.pollId}`}
+                          href={getVoteLink(vote)}
                           target="_blank"
                           rel="noopener noreferrer"
                           key={`${vote.pollId}-${index}`}
                           className={`w-4 h-4 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block`}
-                          title={`Poll ID: ${vote.pollId} - ${getStatusTooltip(vote.result.toString())}`}
+                          title={getVoteTooltip(vote)}
                         />
                       )
                     ))
@@ -208,16 +225,16 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
                   <div
                     key={`${vote.pollId}-${index}`}
                     className={`w-6 h-6 ${getStatusColor(vote.result.toString())} rounded-sm block`}
-                    title={`Poll ID: ${vote.pollId} - ${getStatusTooltip(vote.result.toString())}`}
+                    title={getVoteTooltip(vote)}
                   />
                 ) : (
                   <a
-                    href={`${getAxelarscanUrl()}/evm-poll/${vote.pollId}`}
+                    href={getVoteLink(vote)}
                     target="_blank"
                     rel="noopener noreferrer"
                     key={`${vote.pollId}-${index}`}
                     className={`w-6 h-6 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block`}
-                    title={`Poll ID: ${vote.pollId} - ${getStatusTooltip(vote.result.toString())}`}
+                    title={getVoteTooltip(vote)}
                   />
                 )
               ))}

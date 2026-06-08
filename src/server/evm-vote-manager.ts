@@ -21,6 +21,7 @@ export interface PollStatus {
   pollId: string;
   result: VoteStatusType | string;
   timestamp?: string; // Date ISO string
+  txHash?: string; // Vote transaction hash (when submitted by our broadcaster)
 }
 
 // Interface for chain data
@@ -360,13 +361,13 @@ export class EvmVoteManager extends EventEmitter {
             const batchMessages = messages[0].messages;
             if (batchMessages && batchMessages.length > 0) {
               batchMessages.forEach((batchMsg: TxMessage) => {
-                this.processVoteMessage(batchMsg);
+                this.processVoteMessage(batchMsg, txHash);
               });
             } else {
               console.log("⚠️ No messages in BatchRequest");
             }
           } else {
-            this.processVoteMessage(messages[0]);
+            this.processVoteMessage(messages[0], txHash);
           }
         } catch (error) {
           console.error("❌ Error processing vote:", error);
@@ -418,7 +419,7 @@ export class EvmVoteManager extends EventEmitter {
   }
 
   // Function to process an individual vote message
-  private processVoteMessage(message: unknown) {
+  private processVoteMessage(message: unknown, txHash: string) {
     try {
       // Log the message type for debugging
       if (typeof message === 'object' && message !== null && '@type' in message) {
@@ -454,7 +455,7 @@ export class EvmVoteManager extends EventEmitter {
             const status = isValid ? VoteStatusType.Validated : VoteStatusType.Invalid;
             
             // Update poll status
-            this.updatePollStatus(pollId, status, voteChain);
+            this.updatePollStatus(pollId, status, voteChain, txHash);
           } else {
             const voteType = vote && typeof vote === 'object' && '@type' in vote ? vote['@type'] : 'unknown';
             console.log(`⚠️ Unsupported vote type: ${voteType}`);
@@ -479,7 +480,7 @@ export class EvmVoteManager extends EventEmitter {
   }
 
   // Function to update a poll_id status
-  private updatePollStatus(pollId: string, newStatus: VoteStatusType, chain?: string): boolean {
+  private updatePollStatus(pollId: string, newStatus: VoteStatusType, chain?: string, txHash?: string): boolean {
     if (!pollId) return false;
     
     let updated = false;
@@ -496,6 +497,9 @@ export class EvmVoteManager extends EventEmitter {
         // If found, update its status
         if (pollIndex >= 0) {
           this.chainData[normalizedChain].pollIds[pollIndex].result = newStatus;
+          if (txHash) {
+            this.chainData[normalizedChain].pollIds[pollIndex].txHash = txHash;
+          }
           updated = true;
           
           // Emit event to notify of update
@@ -524,6 +528,9 @@ export class EvmVoteManager extends EventEmitter {
         // If found, update its status
         if (pollIndex >= 0) {
           chain.pollIds[pollIndex].result = newStatus;
+          if (txHash) {
+            chain.pollIds[pollIndex].txHash = txHash;
+          }
           updated = true;
           
           // Emit event to notify of update

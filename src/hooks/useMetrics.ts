@@ -19,22 +19,37 @@ export enum VoteStatusType {
 }
 
 // Interface for an EVM poll
-export interface PollStatus {
+export interface EvmPollStatus {
   pollId: string;
-  contractAddress: string;
   result: string;
+  timestamp?: string;
   txHash?: string;
 }
 
-// Interface for AMPD data
+// Interface for AMPD data (matches server-side AmpdVoteData / AmpdSigningData)
 export interface AmpdData {
-  [chain: string]: PollStatus[];
+  [chain: string]: {
+    pollIds?: Array<{
+      pollId: string;
+      contractAddress: string;
+      result: string;
+      timestamp?: string;
+      txHash?: string;
+    }>;
+    signingIds?: Array<{
+      signingId: string;
+      contractAddress: string;
+      result: string;
+      timestamp?: string;
+      txHash?: string;
+    }>;
+  };
 }
 
 // Interface for votes data by chain
 export interface ChainData {
   [chain: string]: {
-    pollIds: PollStatus[];
+    pollIds: EvmPollStatus[];
   }
 }
 
