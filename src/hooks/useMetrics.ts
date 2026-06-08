@@ -23,6 +23,7 @@ export interface PollStatus {
   pollId: string;
   contractAddress: string;
   result: string;
+  txHash?: string;
 }
 
 // Interface for AMPD data

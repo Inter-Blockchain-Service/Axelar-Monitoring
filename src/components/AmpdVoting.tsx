@@ -113,6 +113,23 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
     return pollId.length > 20 ? `${pollId.substring(0, 8)}...${pollId.substring(pollId.length - 8)}` : pollId;
   };
 
+  const getVoteLink = (vote: PollStatus): string => {
+    const baseUrl = getAxelarscanUrl();
+    if (vote.txHash) {
+      return `${baseUrl}/tx/${vote.txHash}`;
+    }
+    return `${baseUrl}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`;
+  };
+
+  const getVoteTooltip = (vote: PollStatus): string => {
+    const status = getStatusTooltip(vote.result);
+    const lines = [`Poll ID: ${formatPollId(vote.pollId)}`, `Status: ${status}`];
+    if (vote.txHash) {
+      lines.push(`Vote tx: ${vote.txHash.substring(0, 12)}...`);
+    }
+    return lines.join(' - ');
+  };
+
   // If data is loading, show indicator
   if (isLoading) {
     return (
@@ -202,16 +219,16 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
                         <div
                           key={`${vote.pollId}-${index}`}
                           className={`w-4 h-4 ${getStatusColor(vote.result)} rounded-sm block`}
-                          title={`Poll ID: ${formatPollId(vote.pollId)} - ${getStatusTooltip(vote.result)}`}
+                          title={getVoteTooltip(vote)}
                         />
                       ) : (
                         <a
-                          href={`${getAxelarscanUrl()}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
+                          href={getVoteLink(vote)}
                           target="_blank"
                           rel="noopener noreferrer"
                           key={`${vote.pollId}-${index}`}
                           className={`w-4 h-4 ${getStatusColor(vote.result)} hover:opacity-80 transition-opacity rounded-sm block`}
-                          title={`Poll ID: ${formatPollId(vote.pollId)} - ${getStatusTooltip(vote.result)}`}
+                          title={getVoteTooltip(vote)}
                         />
                       )
                     ))
@@ -247,16 +264,16 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
                   <div
                     key={`${vote.pollId}-${index}`}
                     className={`w-6 h-6 ${getStatusColor(vote.result)} rounded-sm block`}
-                    title={`Poll ID: ${formatPollId(vote.pollId)} - ${getStatusTooltip(vote.result)}`}
+                    title={getVoteTooltip(vote)}
                   />
                 ) : (
                   <a
-                    href={`${getAxelarscanUrl()}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`}
+                    href={getVoteLink(vote)}
                     target="_blank"
                     rel="noopener noreferrer"
                     key={`${vote.pollId}-${index}`}
                     className={`w-6 h-6 ${getStatusColor(vote.result)} hover:opacity-80 transition-opacity rounded-sm block`}
-                    title={`Poll ID: ${formatPollId(vote.pollId)} - ${getStatusTooltip(vote.result)}`}
+                    title={getVoteTooltip(vote)}
                   />
                 )
               ))}

@@ -12,6 +12,7 @@ export interface PollStatus {
     contractAddress: string;
     result: string;
     timestamp: string; // Date ISO string
+    txHash?: string; // Vote transaction hash (when submitted by our AMPD)
 }
 
 // Structure for a signing session
@@ -20,6 +21,7 @@ export interface SigningStatus {
     contractAddress: string;
     result: string;
     timestamp: string; // Date ISO string
+    txHash?: string; // Signature transaction hash (when submitted by our AMPD)
 }
 
 // Interfaces for data structures
@@ -96,13 +98,32 @@ export class AmpdManager extends EventEmitter {
     }
 
     /**
+     * Check if a transaction was submitted by our AMPD address
+     */
+    private isOurTx(events: Record<string, string[]>): boolean {
+        const feePayers = events['tx.fee_payer'] ?? [];
+        return feePayers.some(payer =>
+            payer === this.ampdAddress || payer.startsWith(`${this.ampdAddress}/`)
+        );
+    }
+
+    private normalizePollId(pollId: string | number | null | undefined): string {
+        if (pollId === null || pollId === undefined) return 'unknown';
+        return String(pollId).replace(/"/g, '');
+    }
+
+    private normalizeSessionId(sessionId: string | number | null | undefined): string {
+        return this.normalizePollId(sessionId);
+    }
+
+    /**
      * Process a transaction to search for AMPD events
      */
     public handleTransaction(txResult: TxResult): void {
         if (!txResult || !txResult.events) return;
 
-        // Process poll_started events
-        if (txResult.events['wasm-messages_poll_started.messages']) {
+        // Process poll_started events (poll_id is the reliable index key)
+        if (txResult.events['wasm-messages_poll_started.poll_id']) {
             this.processPollStarted(txResult);
         }
         
@@ -114,8 +135,7 @@ export class AmpdManager extends EventEmitter {
         // Process votes and signature submissions
         if (txResult.events &&
             (txResult.events['wasm-voted.poll_id'] || txResult.events['wasm-signature_submitted.session_id']) &&
-            txResult.events['tx.fee_payer'] && 
-            txResult.events['tx.fee_payer'].includes(this.ampdAddress)) {
+            this.isOurTx(txResult.events)) {
             this.processVotesAndSignatures(txResult);
         }
     }
@@ -139,10 +159,11 @@ export class AmpdManager extends EventEmitter {
                 const isParticipant = participants.includes(this.ampdAddress);
                 
                 if (isParticipant) {
-                    this.updateChainDataWithPoll(sourceChain, pollId, contractAddress);
+                    const cleanPollId = this.normalizePollId(pollId);
+                    this.updateChainDataWithPoll(sourceChain, cleanPollId, contractAddress);
                     
                     // Emit update event
-                    this.emit('vote-update', { chain: sourceChain, pollId, status: 'unsubmit' });
+                    this.emit('vote-update', { chain: sourceChain, pollId: cleanPollId, status: 'unsubmit' });
                 }
             } catch (error) {
                 console.error("Error parsing participants:", error);
@@ -155,7 +176,7 @@ export class AmpdManager extends EventEmitter {
      */
     private processSigningSessions(txResult: TxResult): void {
         const sessionId = txResult.events['wasm-proof_under_construction.multisig_session_id'][0];
-        const cleanSessionId = sessionId ? sessionId.replace(/"/g, '') : null;
+        const cleanSessionId = this.normalizeSessionId(sessionId);
         
         const contractAddress = txResult.events['wasm-signing_started._contract_address'] ? 
             txResult.events['wasm-signing_started._contract_address'][0] : null;
@@ -169,7 +190,6 @@ export class AmpdManager extends EventEmitter {
             
             this.updateSigningSession(destinationChain, cleanSessionId, contractAddress);
             
-            // Emit update event
             this.emit('signing-update', { chain: destinationChain, signingId: cleanSessionId, status: 'unsubmit' });
         }
     }
@@ -189,16 +209,9 @@ export class AmpdManager extends EventEmitter {
         
         // Process signatures
         if (txResult.events['wasm-signature_submitted.session_id']) {
-            const sessionIds = txResult.events['wasm-signature_submitted.session_id'];
-            const contractAddresses = txResult.events['wasm-signature_submitted._contract_address'] || [];
-            
-            for (let i = 0; i < sessionIds.length; i++) {
-                const sessionId = sessionIds[i];
-                const contractAddress = i < contractAddresses.length ? contractAddresses[i] : null;
-                
-                if (sessionId && contractAddress) {
-                    this.updateSigningStatusInChainData(sessionId, contractAddress);
-                }
+            if (txResult.events['tx.hash'] && txResult.events['tx.hash'].length > 0) {
+                const txHash = txResult.events['tx.hash'][0];
+                this.fetchSignatureDetails(txHash);
             }
         }
     }
@@ -207,14 +220,21 @@ export class AmpdManager extends EventEmitter {
      * Update chain data with a new poll
      */
     private updateChainDataWithPoll(sourceChain: string | null, pollId: string | null, contractAddress: string | null): void {
-        const chainKey = sourceChain ? sourceChain.toLowerCase() : null;
+        const chainKey = sourceChain ? sourceChain.toLowerCase().replace(/"/g, '') : null;
         
         if (chainKey && this.voteData[chainKey]) {
-            const cleanPollId = pollId ? pollId.replace(/"/g, '') : 'unknown';
+            const cleanPollId = pollId ? this.normalizePollId(pollId) : 'unknown';
+            const cleanContract = contractAddress?.replace(/"/g, '') || 'unknown';
+
+            // Skip if poll already tracked
+            const exists = this.voteData[chainKey].pollIds.some(
+                p => p.pollId === cleanPollId && p.contractAddress === cleanContract && p.pollId !== 'unknown'
+            );
+            if (exists) return;
             
             this.voteData[chainKey].pollIds.unshift({
                 pollId: cleanPollId,
-                contractAddress: contractAddress || 'unknown',
+                contractAddress: cleanContract,
                 result: 'unsubmit',
                 timestamp: new Date().toISOString()
             });
@@ -234,20 +254,25 @@ export class AmpdManager extends EventEmitter {
     private updateSigningSession(destinationChain: string | null, sessionId: string | null, contractAddress: string | null): void {
         if (!destinationChain || !sessionId || !contractAddress) return;
         
-        const chain = destinationChain.toLowerCase();
+        const chain = destinationChain.toLowerCase().replace(/"/g, '');
         if (!this.supportedChains.includes(chain)) return;
+
+        const cleanSessionId = this.normalizeSessionId(sessionId);
+        const cleanContract = contractAddress.replace(/"/g, '');
+
+        const exists = this.signingData[chain].signingIds.some(
+            s => s.signingId === cleanSessionId && s.contractAddress === cleanContract && s.signingId !== 'unknown'
+        );
+        if (exists) return;
         
-        // Update the signing session in the chain's data
         const signingStatus: SigningStatus = {
-            signingId: sessionId,
-            contractAddress: contractAddress,
+            signingId: cleanSessionId,
+            contractAddress: cleanContract,
             result: 'unsubmit',
             timestamp: new Date().toISOString()
         };
         
-        // Add to the beginning of the array
         this.signingData[chain].signingIds.unshift(signingStatus);
-        // Keep only the last maxPollHistory items
         if (this.signingData[chain].signingIds.length > this.maxPollHistory) {
             this.signingData[chain].signingIds = this.signingData[chain].signingIds.slice(0, this.maxPollHistory);
         }
@@ -256,7 +281,19 @@ export class AmpdManager extends EventEmitter {
     /**
      * Update poll status in vote data
      */
-    private updatePollStatusInChainData(pollId: string, contractAddress: string, votes: string[]): void {
+    private updatePollStatusInChainData(
+        pollId: string | number,
+        contractAddress: string,
+        votes: string[],
+        txHash: string,
+        sender: string
+    ): void {
+        if (sender !== this.ampdAddress) {
+            return;
+        }
+
+        const cleanPollId = this.normalizePollId(pollId);
+        const cleanContract = contractAddress.replace(/"/g, '');
         let updated = false;
         
         Object.keys(this.voteData).forEach(chainKey => {
@@ -265,31 +302,38 @@ export class AmpdManager extends EventEmitter {
             for (let i = 0; i < pollIds.length; i++) {
                 const poll = pollIds[i];
                 
-                if (poll.pollId === pollId && poll.contractAddress === contractAddress) {
+                if (poll.pollId === cleanPollId && poll.contractAddress === cleanContract) {
                     if (poll.result === 'unsubmit') {
-                        if (votes && votes.length > 0) {
-                            poll.result = votes[0];
-                        } else {
-                            poll.result = 'unsubmit';
-                        }
+                        poll.result = votes && votes.length > 0 ? votes[0] : 'unsubmit';
+                        poll.txHash = txHash;
                         updated = true;
                         
-                        // Emit update event
-                        this.emit('vote-update', { chain: chainKey, pollId, status: poll.result });
+                        this.emit('vote-update', { chain: chainKey, pollId: cleanPollId, status: poll.result });
                     }
                 }
             }
         });
         
         if (!updated) {
-            console.error(`Error: Could not find poll ${pollId} for address ${contractAddress} to update status.`);
+            console.warn(`Could not find unsubmit poll ${cleanPollId} for contract ${cleanContract} to update status.`);
         }
     }
 
     /**
      * Update signing session status in signing data
      */
-    private updateSigningStatusInChainData(sessionId: string, contractAddress: string): void {
+    private updateSigningStatusInChainData(
+        sessionId: string | number,
+        contractAddress: string,
+        txHash: string,
+        sender: string
+    ): void {
+        if (sender !== this.ampdAddress) {
+            return;
+        }
+
+        const cleanSessionId = this.normalizeSessionId(sessionId);
+        const cleanContract = contractAddress.replace(/"/g, '');
         let updated = false;
         
         Object.keys(this.signingData).forEach(chainKey => {
@@ -298,20 +342,72 @@ export class AmpdManager extends EventEmitter {
             for (let i = 0; i < signingIds.length; i++) {
                 const signing = signingIds[i];
                 
-                if (signing.signingId === sessionId && signing.contractAddress === contractAddress) {
+                if (signing.signingId === cleanSessionId && signing.contractAddress === cleanContract) {
                     if (signing.result === 'unsubmit') {
                         signing.result = 'signed';
+                        signing.txHash = txHash;
                         updated = true;
                         
-                        // Emit update event
-                        this.emit('signing-update', { chain: chainKey, signingId: sessionId, status: 'signed' });
+                        this.emit('signing-update', { chain: chainKey, signingId: cleanSessionId, status: 'signed' });
                     }
                 }
             }
         });
 
         if (!updated) {
-            console.error(`Error: Could not find signing session ${sessionId} for address ${contractAddress}.`);
+            console.warn(`Could not find unsubmit signing session ${cleanSessionId} for contract ${cleanContract} to update status.`);
+        }
+    }
+
+    /**
+     * Fetch signature details from a transaction hash
+     */
+    private async fetchSignatureDetails(txHash: string, attempt: number = 1, maxAttempts: number = 3, delay: number = 2000): Promise<void> {
+        try {
+            const apiUrl = `${this.axelarApiEndpoint}/cosmos/tx/v1beta1/txs/${txHash}`;
+            const response = await fetch(apiUrl);
+
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const signatures: Array<{ sessionId: string | number; contract: string; sender: string }> = [];
+
+            if (data?.tx?.body?.messages?.length > 0) {
+                for (const message of data.tx.body.messages) {
+                    const messagesToScan = message['@type'] === '/axelar.auxiliary.v1beta1.BatchRequest' && message.messages
+                        ? message.messages
+                        : [message];
+
+                    for (const subMessage of messagesToScan) {
+                        if (subMessage['@type'] === '/cosmwasm.wasm.v1.MsgExecuteContract' && subMessage.msg?.submit_signature) {
+                            signatures.push({
+                                sessionId: subMessage.msg.submit_signature.session_id,
+                                contract: subMessage.contract,
+                                sender: subMessage.sender,
+                            });
+                        }
+                    }
+                }
+            }
+
+            if (signatures.length > 0) {
+                signatures.forEach(sig => {
+                    if (sig.sessionId !== undefined && sig.contract && sig.sender === this.ampdAddress) {
+                        this.updateSigningStatusInChainData(sig.sessionId, sig.contract, txHash, sig.sender);
+                    }
+                });
+            } else if (attempt < maxAttempts) {
+                setTimeout(() => this.fetchSignatureDetails(txHash, attempt + 1, maxAttempts, delay), delay);
+            } else {
+                console.warn(`Unable to retrieve signature details for tx ${txHash} after ${maxAttempts} attempts.`);
+            }
+        } catch (error) {
+            console.error(`Error fetching signature details (attempt ${attempt}):`, error);
+            if (attempt < maxAttempts) {
+                setTimeout(() => this.fetchSignatureDetails(txHash, attempt + 1, maxAttempts, delay), delay);
+            }
         }
     }
 
@@ -371,11 +467,13 @@ export class AmpdManager extends EventEmitter {
             
             if (votes.length > 0) {
                 votes.forEach(voteDetail => {
-                    if (voteDetail.pollId && voteDetail.contract && voteDetail.votes) {
+                    if (voteDetail.pollId && voteDetail.contract && voteDetail.votes && voteDetail.sender === this.ampdAddress) {
                         this.updatePollStatusInChainData(
                             voteDetail.pollId,
                             voteDetail.contract,
-                            voteDetail.votes
+                            voteDetail.votes,
+                            txHash,
+                            voteDetail.sender
                         );
                     }
                 });

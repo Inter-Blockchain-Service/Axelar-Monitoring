@@ -111,6 +111,23 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
     return signingId.length > 20 ? `${signingId.substring(0, 8)}...${signingId.substring(signingId.length - 8)}` : signingId;
   };
 
+  const getSigningLink = (signing: SigningStatus): string => {
+    const baseUrl = getAxelarscanUrl();
+    if (signing.txHash) {
+      return `${baseUrl}/tx/${signing.txHash}`;
+    }
+    return `${baseUrl}/amplifier-proof/${signing.contractAddress}_${signing.signingId}`;
+  };
+
+  const getSigningTooltip = (signing: SigningStatus): string => {
+    const status = getStatusTooltip(signing.result);
+    const lines = [`Session ID: ${formatSigningId(signing.signingId)}`, `Status: ${status}`];
+    if (signing.txHash) {
+      lines.push(`Sign tx: ${signing.txHash.substring(0, 12)}...`);
+    }
+    return lines.join(' - ');
+  };
+
   // If data is loading, show indicator
   if (isLoading) {
     return (
@@ -200,16 +217,16 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
                         <div
                           key={`${signing.signingId}-${index}`}
                           className={`w-4 h-4 ${getStatusColor(signing.result)} rounded-sm block`}
-                          title={`Session ID: ${formatSigningId(signing.signingId)} - ${getStatusTooltip(signing.result)}`}
+                          title={getSigningTooltip(signing)}
                         />
                       ) : (
                         <a
-                          href={`${getAxelarscanUrl()}/amplifier-proof/${signing.contractAddress}_${signing.signingId}`}
+                          href={getSigningLink(signing)}
                           target="_blank"
                           rel="noopener noreferrer"
                           key={`${signing.signingId}-${index}`}
                           className={`w-4 h-4 ${getStatusColor(signing.result)} hover:opacity-80 transition-opacity rounded-sm block`}
-                          title={`Session ID: ${formatSigningId(signing.signingId)} - ${getStatusTooltip(signing.result)}`}
+                          title={getSigningTooltip(signing)}
                         />
                       )
                     ))
@@ -245,16 +262,16 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
                   <div
                     key={`${signing.signingId}-${index}`}
                     className={`w-6 h-6 ${getStatusColor(signing.result)} rounded-sm block`}
-                    title={`Session ID: ${formatSigningId(signing.signingId)} - ${getStatusTooltip(signing.result)}`}
+                    title={getSigningTooltip(signing)}
                   />
                 ) : (
                   <a
-                    href={`${getAxelarscanUrl()}/amplifier-proof/${signing.contractAddress}_${signing.signingId}`}
+                    href={getSigningLink(signing)}
                     target="_blank"
                     rel="noopener noreferrer"
                     key={`${signing.signingId}-${index}`}
                     className={`w-6 h-6 ${getStatusColor(signing.result)} hover:opacity-80 transition-opacity rounded-sm block`}
-                    title={`Session ID: ${formatSigningId(signing.signingId)} - ${getStatusTooltip(signing.result)}`}
+                    title={getSigningTooltip(signing)}
                   />
                 )
               ))}
