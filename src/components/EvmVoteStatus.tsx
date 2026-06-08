@@ -155,7 +155,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
             EVM Votes
           </h3>
           <div className="text-xs text-[#a0a0a0]">
-            Last {displayLimit} votes (click chain for history and tx)
+            Last {displayLimit} votes (select a chain for history)
           </div>
         </div>
       </div>

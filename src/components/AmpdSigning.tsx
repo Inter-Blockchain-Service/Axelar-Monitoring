@@ -189,7 +189,7 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
             AMPD Signatures
           </h3>
           <div className="text-xs text-[#a0a0a0]">
-            Last {displayLimit} signings (click chain for history)
+            Last {displayLimit} signings (select a chain for history)
           </div>
         </div>
       </div>

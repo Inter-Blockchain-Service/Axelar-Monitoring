@@ -191,7 +191,7 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
             Amplifier Votes
           </h3>
           <div className="text-xs text-[#a0a0a0]">
-            Last {displayLimit} votes (click chain for history)
+            Last {displayLimit} votes (select a chain for history)
           </div>
         </div>
       </div>
