@@ -113,9 +113,13 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
     return pollId.length > 20 ? `${pollId.substring(0, 8)}...${pollId.substring(pollId.length - 8)}` : pollId;
   };
 
+  const hasVoteTx = (vote: PollStatus): boolean => {
+    return !!vote.txHash && vote.result !== 'unsubmit' && vote.result !== 'unknown';
+  };
+
   const getVoteLink = (vote: PollStatus): string => {
     const baseUrl = getAxelarscanUrl();
-    if (vote.txHash) {
+    if (hasVoteTx(vote)) {
       return `${baseUrl}/tx/${vote.txHash}`;
     }
     return `${baseUrl}/amplifier-poll/${vote.contractAddress}_${vote.pollId}`;
@@ -124,8 +128,8 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
   const getVoteTooltip = (vote: PollStatus): string => {
     const status = getStatusTooltip(vote.result);
     const lines = [`Poll ID: ${formatPollId(vote.pollId)}`, `Status: ${status}`];
-    if (vote.txHash) {
-      lines.push(`Vote tx: ${vote.txHash.substring(0, 12)}...`);
+    if (hasVoteTx(vote)) {
+      lines.push(`Vote tx: ${vote.txHash!.substring(0, 12)}...`);
     }
     return lines.join(' - ');
   };
@@ -277,6 +281,42 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
                   />
                 )
               ))}
+            </div>
+            <div className="mt-4 max-h-48 overflow-y-auto">
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr className="text-[#a0a0a0] border-b border-[#2a2a2a]">
+                    <th className="py-2 pr-3">Poll</th>
+                    <th className="py-2 pr-3">Status</th>
+                    <th className="py-2">Vote tx</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {voteData[selectedChain]
+                    ?.filter(v => v.result !== 'unknown')
+                    .slice(0, 50)
+                    .map((vote, index) => (
+                      <tr key={`detail-${vote.pollId}-${index}`} className="border-b border-[#2a2a2a]/50">
+                        <td className="py-1.5 pr-3 text-white">{formatPollId(vote.pollId)}</td>
+                        <td className="py-1.5 pr-3 text-[#a0a0a0]">{getStatusTooltip(vote.result)}</td>
+                        <td className="py-1.5">
+                          {hasVoteTx(vote) ? (
+                            <a
+                              href={`${getAxelarscanUrl()}/tx/${vote.txHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#fbb800] hover:underline font-mono"
+                            >
+                              {vote.txHash!.substring(0, 16)}...
+                            </a>
+                          ) : (
+                            <span className="text-[#a0a0a0]">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </div>
             <div className="mt-4 pt-4 border-t border-[#2a2a2a]">
               <div className="flex flex-wrap gap-4">

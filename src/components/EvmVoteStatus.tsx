@@ -132,17 +132,22 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
 
   const getVoteLink = (vote: EvmPollStatus): string => {
     const baseUrl = getAxelarscanUrl();
-    if (vote.txHash) {
+    if (hasVoteTx(vote)) {
       return `${baseUrl}/tx/${vote.txHash}`;
     }
     return `${baseUrl}/evm-poll/${vote.pollId}`;
   };
 
+  const hasVoteTx = (vote: EvmPollStatus): boolean => {
+    const status = vote.result.toString();
+    return !!vote.txHash && status !== 'unsubmitted' && status !== 'unknown';
+  };
+
   const getVoteTooltip = (vote: EvmPollStatus): string => {
     const status = getStatusTooltip(vote.result.toString());
     const lines = [`Poll ID: ${vote.pollId}`, `Status: ${status}`];
-    if (vote.txHash) {
-      lines.push(`Vote tx: ${vote.txHash.substring(0, 12)}...`);
+    if (hasVoteTx(vote)) {
+      lines.push(`Vote tx: ${vote.txHash!.substring(0, 12)}...`);
     }
     return lines.join(' - ');
   };
@@ -188,7 +193,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
                           target="_blank"
                           rel="noopener noreferrer"
                           key={`${vote.pollId}-${index}`}
-                          className={`w-4 h-4 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block${vote.txHash ? ' ring-1 ring-white/40' : ''}`}
+                          className={`w-4 h-4 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block`}
                           title={getVoteTooltip(vote)}
                         />
                       )
@@ -233,7 +238,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
                     target="_blank"
                     rel="noopener noreferrer"
                     key={`${vote.pollId}-${index}`}
-                    className={`w-6 h-6 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block${vote.txHash ? ' ring-1 ring-white/40' : ''}`}
+                    className={`w-6 h-6 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block`}
                     title={getVoteTooltip(vote)}
                   />
                 )
@@ -257,14 +262,14 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
                         <td className="py-1.5 pr-3 text-white">{vote.pollId}</td>
                         <td className="py-1.5 pr-3 text-[#a0a0a0]">{getStatusTooltip(vote.result.toString())}</td>
                         <td className="py-1.5">
-                          {vote.txHash ? (
+                          {hasVoteTx(vote) ? (
                             <a
                               href={`${getAxelarscanUrl()}/tx/${vote.txHash}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-[#fbb800] hover:underline font-mono"
                             >
-                              {vote.txHash.substring(0, 16)}...
+                              {vote.txHash!.substring(0, 16)}...
                             </a>
                           ) : (
                             <span className="text-[#a0a0a0]">—</span>

@@ -111,9 +111,13 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
     return signingId.length > 20 ? `${signingId.substring(0, 8)}...${signingId.substring(signingId.length - 8)}` : signingId;
   };
 
+  const hasSigningTx = (signing: SigningStatus): boolean => {
+    return !!signing.txHash && signing.result === 'signed';
+  };
+
   const getSigningLink = (signing: SigningStatus): string => {
     const baseUrl = getAxelarscanUrl();
-    if (signing.txHash) {
+    if (hasSigningTx(signing)) {
       return `${baseUrl}/tx/${signing.txHash}`;
     }
     return `${baseUrl}/amplifier-proof/${signing.contractAddress}_${signing.signingId}`;
@@ -122,8 +126,8 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
   const getSigningTooltip = (signing: SigningStatus): string => {
     const status = getStatusTooltip(signing.result);
     const lines = [`Session ID: ${formatSigningId(signing.signingId)}`, `Status: ${status}`];
-    if (signing.txHash) {
-      lines.push(`Sign tx: ${signing.txHash.substring(0, 12)}...`);
+    if (hasSigningTx(signing)) {
+      lines.push(`Sign tx: ${signing.txHash!.substring(0, 12)}...`);
     }
     return lines.join(' - ');
   };
@@ -275,6 +279,42 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
                   />
                 )
               ))}
+            </div>
+            <div className="mt-4 max-h-48 overflow-y-auto">
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr className="text-[#a0a0a0] border-b border-[#2a2a2a]">
+                    <th className="py-2 pr-3">Session</th>
+                    <th className="py-2 pr-3">Status</th>
+                    <th className="py-2">Sign tx</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {signingData[selectedChain]
+                    ?.filter(s => s.result !== 'unknown')
+                    .slice(0, 50)
+                    .map((signing, index) => (
+                      <tr key={`detail-${signing.signingId}-${index}`} className="border-b border-[#2a2a2a]/50">
+                        <td className="py-1.5 pr-3 text-white">{formatSigningId(signing.signingId)}</td>
+                        <td className="py-1.5 pr-3 text-[#a0a0a0]">{getStatusTooltip(signing.result)}</td>
+                        <td className="py-1.5">
+                          {hasSigningTx(signing) ? (
+                            <a
+                              href={`${getAxelarscanUrl()}/tx/${signing.txHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#fbb800] hover:underline font-mono"
+                            >
+                              {signing.txHash!.substring(0, 16)}...
+                            </a>
+                          ) : (
+                            <span className="text-[#a0a0a0]">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </div>
             <div className="mt-4 pt-4 border-t border-[#2a2a2a]">
               <div className="flex flex-wrap gap-4">

@@ -267,9 +267,17 @@ export class EvmVoteManager extends EventEmitter {
   }
 
   // Function to add a new poll_id to a chain
+  private normalizePollId(pollId: string | number | null | undefined): string {
+    if (pollId === null || pollId === undefined) return 'unknown';
+    return String(pollId).replace(/"/g, '');
+  }
+
   private addPollIdToChain(chain: string, pollId: string): boolean {
     if (!chain) return false;
     
+    const cleanPollId = this.normalizePollId(pollId);
+    if (cleanPollId === 'unknown') return false;
+
     // Normalize chain name
     const normalizedChain = chain.toLowerCase().replace(/[\"\\]/g, '');
     
@@ -277,7 +285,7 @@ export class EvmVoteManager extends EventEmitter {
     if (this.chainData[normalizedChain]) {
       // Check if this poll_id already exists in our history
       const existingIndex = this.chainData[normalizedChain].pollIds.findIndex(item => 
-        item.pollId === pollId && item.pollId !== "unknown"
+        item.pollId === cleanPollId && item.pollId !== "unknown"
       );
       
       // If poll_id already exists, don't add it again
@@ -286,7 +294,7 @@ export class EvmVoteManager extends EventEmitter {
       }
       
       // Convert poll_id to number for validation
-      const numericPollId = parseInt(pollId, 10);
+      const numericPollId = parseInt(cleanPollId, 10);
       
       // Update last known global poll_id
       if (!isNaN(numericPollId)) {
@@ -295,7 +303,7 @@ export class EvmVoteManager extends EventEmitter {
       
       // Add new poll_id to the beginning of the array and remove the oldest
       this.chainData[normalizedChain].pollIds.unshift({
-        pollId: pollId,
+        pollId: cleanPollId,
         result: VoteStatusType.Unsubmitted,
         timestamp: new Date().toISOString()
       });
@@ -434,7 +442,7 @@ export class EvmVoteManager extends EventEmitter {
         const innerMessage = message.inner_message as Record<string, unknown>;
         
         if ('poll_id' in innerMessage) {
-          const pollId = innerMessage.poll_id as string;
+          const pollId = this.normalizePollId(innerMessage.poll_id as string);
           const vote = 'vote' in innerMessage ? innerMessage.vote : null;
           
           if (vote && typeof vote === 'object' && vote !== null && '@type' in vote && 
@@ -481,33 +489,40 @@ export class EvmVoteManager extends EventEmitter {
 
   // Function to update a poll_id status
   private updatePollStatus(pollId: string, newStatus: VoteStatusType, chain?: string, txHash?: string): boolean {
-    if (!pollId) return false;
+    const cleanPollId = this.normalizePollId(pollId);
+    if (!cleanPollId || cleanPollId === 'unknown') return false;
     
     let updated = false;
+
+    const applyUpdate = (poll: PollStatus): boolean => {
+      if (poll.result !== VoteStatusType.Unsubmitted) {
+        return false;
+      }
+      poll.result = newStatus;
+      if (txHash) {
+        poll.txHash = txHash;
+      }
+      return true;
+    };
     
     // If a chain is specified, update only that chain
     if (chain) {
-      const normalizedChain = chain.toLowerCase();
+      const normalizedChain = chain.toLowerCase().replace(/[\"\\]/g, '');
       if (this.chainData[normalizedChain]) {
-        // Find poll index
         const pollIndex = this.chainData[normalizedChain].pollIds.findIndex(item => 
-          item.pollId === pollId && item.pollId !== "unknown"
+          item.pollId === cleanPollId && item.pollId !== "unknown"
         );
         
-        // If found, update its status
         if (pollIndex >= 0) {
-          this.chainData[normalizedChain].pollIds[pollIndex].result = newStatus;
-          if (txHash) {
-            this.chainData[normalizedChain].pollIds[pollIndex].txHash = txHash;
-          }
-          updated = true;
+          updated = applyUpdate(this.chainData[normalizedChain].pollIds[pollIndex]);
           
-          // Emit event to notify of update
-          this.emit('vote-update', {
-            chain: normalizedChain,
-            pollIds: this.chainData[normalizedChain].pollIds,
-            lastGlobalPollId: this.lastGlobalPollId
-          });
+          if (updated) {
+            this.emit('vote-update', {
+              chain: normalizedChain,
+              pollIds: this.chainData[normalizedChain].pollIds,
+              lastGlobalPollId: this.lastGlobalPollId
+            });
+          }
           
           return updated;
         }
@@ -517,28 +532,23 @@ export class EvmVoteManager extends EventEmitter {
     // If no update was made or no chain is specified, search in all chains
     for (const chainName of this.supportedChains) {
       const normalizedChain = chainName.toLowerCase();
-      const chain = this.chainData[normalizedChain];
+      const chainData = this.chainData[normalizedChain];
       
-      if (chain) {
-        // Find poll index
-        const pollIndex = chain.pollIds.findIndex(item => 
-          item.pollId === pollId && item.pollId !== "unknown"
+      if (chainData) {
+        const pollIndex = chainData.pollIds.findIndex(item => 
+          item.pollId === cleanPollId && item.pollId !== "unknown"
         );
         
-        // If found, update its status
         if (pollIndex >= 0) {
-          chain.pollIds[pollIndex].result = newStatus;
-          if (txHash) {
-            chain.pollIds[pollIndex].txHash = txHash;
-          }
-          updated = true;
+          updated = applyUpdate(chainData.pollIds[pollIndex]);
           
-          // Emit event to notify of update
-          this.emit('vote-update', {
-            chain: normalizedChain,
-            pollIds: this.chainData[normalizedChain].pollIds,
-            lastGlobalPollId: this.lastGlobalPollId
-          });
+          if (updated) {
+            this.emit('vote-update', {
+              chain: normalizedChain,
+              pollIds: this.chainData[normalizedChain].pollIds,
+              lastGlobalPollId: this.lastGlobalPollId
+            });
+          }
           
           break;
         }
