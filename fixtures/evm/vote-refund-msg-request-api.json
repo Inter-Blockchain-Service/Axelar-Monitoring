@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "description": "REST /cosmos/tx/v1beta1/txs/{hash} — RefundMsgRequest wrapping VoteEvents (modern EVM vote path)",
+    "target": "EvmVoteManager.processVoteMessage",
+    "expectedOutcome": "poll 1847291 on ethereum → validated (review validation rules in Phase 1)"
+  },
+  "tx": {
+    "body": {
+      "messages": [
+        {
+          "@type": "/axelar.reward.v1beta1.RefundMsgRequest",
+          "inner_message": {
+            "poll_id": "1847291",
+            "vote": {
+              "@type": "/axelar.evm.v1beta1.VoteEvents",
+              "chain": "ethereum",
+              "events": [
+                {
+                  "chain": "ethereum",
+                  "event_id": "0",
+                  "type": "contract_call"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

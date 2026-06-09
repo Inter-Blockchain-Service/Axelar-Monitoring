@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "description": "Tendermint WS Tx event — ConfirmGatewayTxsStarted with poll_mappings",
+    "target": "EvmVoteManager.extractPollIdFromEvents",
+    "expectedOutcome": "poll 1847291 added to chain ethereum as unsubmitted"
+  },
+  "events": {
+    "axelar.evm.v1beta1.ConfirmGatewayTxsStarted.chain": ["ethereum"],
+    "axelar.evm.v1beta1.ConfirmGatewayTxsStarted.poll_mappings": [
+      "[{\"poll_id\":\"1847291\",\"tx_id\":\"0xabc123\"}]"
+    ],
+    "tx.hash": ["PLACEHOLDER_TX_HASH_CONFIRM_GATEWAY"]
+  },
+  "data": {
+    "value": {
+      "TxResult": {
+        "height": "12345678",
+        "result": {
+          "log": ""
+        }
+      }
+    }
+  }
+}

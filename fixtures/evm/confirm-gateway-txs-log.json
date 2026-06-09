@@ -1,0 +1,18 @@
+{
+  "_meta": {
+    "description": "TxResult.result.log JSON path — poll_id in event attributes (fallback parser)",
+    "target": "EvmVoteManager.handleTransaction log branch",
+    "expectedOutcome": "poll 1847292 added to chain polygon"
+  },
+  "events": {},
+  "data": {
+    "value": {
+      "TxResult": {
+        "height": "12345680",
+        "result": {
+          "log": "[{\"events\":[{\"type\":\"axelar.evm.v1beta1.ConfirmDepositStarted\",\"attributes\":[{\"key\":\"chain\",\"value\":\"\\\"polygon\\\"\"},{\"key\":\"poll_mappings\",\"value\":\"[{\\\"poll_id\\\":\\\"1847292\\\"}]\"}]}]}]"
+        }
+      }
+    }
+  }
+}

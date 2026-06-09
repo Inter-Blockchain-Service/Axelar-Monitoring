@@ -1,0 +1,18 @@
+{
+  "_meta": {
+    "description": "AMPD signing session — proof_under_construction + signing_started",
+    "target": "AmpdManager.processSigningSessions + processVotesAndSignatures",
+    "expectedOutcome": "session tracked then marked signed after API fetch"
+  },
+  "events": {
+    "wasm-proof_under_construction.multisig_session_id": ["session-placeholder-001"],
+    "wasm-proof_under_construction.destination_chain": ["\"xrpl\""],
+    "wasm-signing_started._contract_address": ["axelar1contractplaceholder000000000000000"],
+    "wasm-signing_started.pub_keys": [
+      "[\"axelar1ampdplaceholder00000000000000000\",\"axelar1otherkey000000000000000000000\"]"
+    ],
+    "wasm-signature_submitted.session_id": ["session-placeholder-001"],
+    "tx.fee_payer": ["axelar1ampdplaceholder00000000000000000"],
+    "tx.hash": ["PLACEHOLDER_TX_HASH_AMPD_SIGNATURE"]
+  }
+}

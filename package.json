@@ -10,7 +10,8 @@
     "lint": "next lint",
     "server": "node dist/server/index.js",
     "server:dev": "tsx src/server/index.ts",
-    "clean": "rimraf dist && rimraf .next"
+    "clean": "rimraf dist && rimraf .next",
+    "fixtures:validate": "node fixtures/validate-fixtures.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

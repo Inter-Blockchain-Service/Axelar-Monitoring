@@ -1,0 +1,23 @@
+{
+  "_meta": {
+    "description": "REST tx — MsgExecuteContract submit_signature",
+    "target": "AmpdManager.fetchSignatureDetails",
+    "expectedOutcome": "signing session marked signed"
+  },
+  "tx": {
+    "body": {
+      "messages": [
+        {
+          "@type": "/cosmwasm.wasm.v1.MsgExecuteContract",
+          "sender": "axelar1ampdplaceholder00000000000000000",
+          "contract": "axelar1contractplaceholder000000000000000",
+          "msg": {
+            "submit_signature": {
+              "session_id": "session-placeholder-001"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

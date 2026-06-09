@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "NewBlock — validator absent from last_commit signatures",
+    "target": "ValidatorSignatureManager.handleNewBlock",
+    "expectedOutcome": "StatusType.Missed"
+  },
+  "block": {
+    "header": {
+      "height": "20000002",
+      "proposer_address": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+    },
+    "last_commit": {
+      "signatures": [
+        { "validator_address": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB" },
+        { "validator_address": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC" }
+      ]
+    }
+  }
+}

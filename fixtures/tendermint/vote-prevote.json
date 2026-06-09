@@ -1,0 +1,12 @@
+{
+  "_meta": {
+    "description": "Tendermint Vote event — prevote from our validator (type 1)",
+    "target": "ValidatorSignatureManager.handleVote",
+    "expectedOutcome": "StatusType.Prevote emitted (final: false — not used in events.ts today)"
+  },
+  "Vote": {
+    "height": "20000004",
+    "validator_address": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "type": 1
+  }
+}

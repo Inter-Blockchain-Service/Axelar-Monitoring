@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "description": "REST tx — MsgExecuteContract vote (succeeded_on_chain style vote value)",
+    "target": "AmpdManager.fetchVoteDetails",
+    "expectedOutcome": "Phase 1 should map vote result to succeeded_on_chain (currently stores raw votes[0])"
+  },
+  "tx": {
+    "body": {
+      "messages": [
+        {
+          "@type": "/cosmwasm.wasm.v1.MsgExecuteContract",
+          "sender": "axelar1ampdplaceholder00000000000000000",
+          "contract": "axelar1contractplaceholder000000000000000",
+          "msg": {
+            "vote": {
+              "poll_id": "poll-uuid-placeholder-001",
+              "votes": ["succeeded_on_chain"]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "NewBlock — validator signed (in last_commit signatures)",
+    "target": "ValidatorSignatureManager.handleNewBlock",
+    "expectedOutcome": "StatusType.Signed"
+  },
+  "block": {
+    "header": {
+      "height": "20000001",
+      "proposer_address": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+    },
+    "last_commit": {
+      "signatures": [
+        { "validator_address": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" },
+        { "validator_address": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB" }
+      ]
+    }
+  }
+}

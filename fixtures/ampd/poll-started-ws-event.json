@@ -1,0 +1,16 @@
+{
+  "_meta": {
+    "description": "AMPD wasm poll_started — validator is participant",
+    "target": "AmpdManager.processPollStarted",
+    "expectedOutcome": "poll tracked on chain sui as unsubmit"
+  },
+  "events": {
+    "wasm-messages_poll_started.poll_id": ["poll-uuid-placeholder-001"],
+    "wasm-messages_poll_started.source_chain": ["sui"],
+    "wasm-messages_poll_started._contract_address": ["axelar1contractplaceholder000000000000000"],
+    "wasm-messages_poll_started.participants": [
+      "[\"axelar1ampdplaceholder00000000000000000\",\"axelar1otherparticipant000000000000000\"]"
+    ],
+    "tx.hash": ["PLACEHOLDER_TX_HASH_POLL_STARTED"]
+  }
+}

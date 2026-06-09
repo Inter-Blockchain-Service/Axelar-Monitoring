@@ -1,0 +1,18 @@
+{
+  "_meta": {
+    "description": "NewBlock — validator is block proposer",
+    "target": "ValidatorSignatureManager.handleNewBlock",
+    "expectedOutcome": "StatusType.Proposed"
+  },
+  "block": {
+    "header": {
+      "height": "20000003",
+      "proposer_address": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    "last_commit": {
+      "signatures": [
+        { "validator_address": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" }
+      ]
+    }
+  }
+}

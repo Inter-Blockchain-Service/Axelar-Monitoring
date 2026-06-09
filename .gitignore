@@ -21,6 +21,11 @@
 /build
 /dist
 
+# local-only docs (not pushed to GitHub)
+IMPROVEMENT_PLAN.md
+CHECKLIST_BETA.md
+fixtures/TEST_ENV.md
+
 # misc
 .DS_Store
 *.pem

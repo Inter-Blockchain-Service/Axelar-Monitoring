@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "description": "Tendermint WS Tx event — legacy axelar.vote.v1beta1.Voted path",
+    "target": "EvmVoteManager.isOurVoteTransaction",
+    "expectedOutcome": "triggers fetchAndProcessVoteTx for broadcaster vote"
+  },
+  "events": {
+    "axelar.vote.v1beta1.Voted.voter": ["axelar1broadcasterplaceholder000000000000"],
+    "message.action": ["/axelar.reward.v1beta1.RefundMsgRequest"],
+    "message.sender": ["axelar1broadcasterplaceholder000000000000"],
+    "tx.fee_payer": ["axelar1broadcasterplaceholder000000000000"],
+    "tx.hash": ["PLACEHOLDER_TX_HASH_LEGACY_VOTE"]
+  },
+  "data": {
+    "value": {
+      "TxResult": {
+        "height": "12345679",
+        "result": {
+          "log": ""
+        }
+      }
+    }
+  }
+}

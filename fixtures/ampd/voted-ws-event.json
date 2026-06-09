@@ -1,0 +1,12 @@
+{
+  "_meta": {
+    "description": "AMPD wasm-voted event from our AMPD fee payer",
+    "target": "AmpdManager.processVotesAndSignatures → fetchVoteDetails",
+    "expectedOutcome": "poll status updated after API fetch"
+  },
+  "events": {
+    "wasm-voted.poll_id": ["poll-uuid-placeholder-001"],
+    "tx.fee_payer": ["axelar1ampdplaceholder00000000000000000"],
+    "tx.hash": ["PLACEHOLDER_TX_HASH_AMPD_VOTE"]
+  }
+}
