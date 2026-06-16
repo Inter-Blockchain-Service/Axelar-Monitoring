@@ -1,6 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { PollStatus } from '../server/ampd-manager';
 import { Socket } from 'socket.io-client';
+import {
+  AmpdVoteStatus,
+  isAmpdVoteFailure,
+  isAmpdVotePending,
+  isAmpdVoteSuccess,
+} from '../shared/status-types';
 
 interface AmpdVotingProps {
   socket: Socket | null;
@@ -36,7 +42,8 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
       // Listener for supported chains
       socket.on('ampd-chains', (data) => {
         console.log("AMPD Chains received:", data);
-        setSupportedChains(data.chains || []);
+        const chains = [...(data.chains || [])].sort((a, b) => a.localeCompare(b));
+        setSupportedChains(chains);
         setIsLoading(false);
       });
       
@@ -91,19 +98,18 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
 
   // Function to get status color
   const getStatusColor = (status: string) => {
-    if (status === 'succeeded_on_chain' || status.includes('succeeded')) return 'bg-[#10b981]'; // green - valid vote
-    if (status === 'not_found' || status.includes('failed')) return 'bg-[#ef4444]'; // red - invalid vote
-    if (status === 'unsubmit') return 'bg-[#f59e0b]'; // orange - unsubmitted
-    if (status === 'unknown') return 'bg-[#2a2a2a]'; // dark gray - no data
-    return 'bg-[#2a2a2a]'; // default dark gray
+    if (isAmpdVoteSuccess(status)) return 'bg-[#10b981]';
+    if (isAmpdVoteFailure(status)) return 'bg-[#ef4444]';
+    if (isAmpdVotePending(status)) return 'bg-[#f59e0b]';
+    if (status === AmpdVoteStatus.Unknown) return 'bg-[#2a2a2a]';
+    return 'bg-[#2a2a2a]';
   };
 
-  // Function to get tooltip text
   const getStatusTooltip = (status: string) => {
-    if (status === 'succeeded_on_chain' || status.includes('succeeded')) return 'Valid vote';
-    if (status === 'not_found' || status.includes('failed')) return 'Invalid vote';
-    if (status === 'unsubmit') return 'Unsubmitted';
-    if (status === 'unknown') return 'No data';
+    if (isAmpdVoteSuccess(status)) return 'Valid vote';
+    if (isAmpdVoteFailure(status)) return 'Invalid vote';
+    if (isAmpdVotePending(status)) return 'Unsubmitted';
+    if (status === AmpdVoteStatus.Unknown) return 'No data';
     return 'Unknown';
   };
 
@@ -114,7 +120,7 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
   };
 
   const hasVoteTx = (vote: PollStatus): boolean => {
-    return !!vote.txHash && vote.result !== 'unsubmit' && vote.result !== 'unknown';
+    return !!vote.txHash && !isAmpdVotePending(vote.result) && vote.result !== AmpdVoteStatus.Unknown;
   };
 
   const getVoteLink = (vote: PollStatus): string => {

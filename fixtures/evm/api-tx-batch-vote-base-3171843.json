@@ -1,0 +1,1655 @@
+{
+  "_meta": {
+    "description": "REST tx — BatchRequest with 4 base votes (polls 3171843–3171846)",
+    "txHash": "4D40A04C9BFE9916A6E05E867503D1D95DE3FF09DD9B2408904F78860620557F",
+    "target": "EvmVoteManager.fetchAndProcessVoteTx / processVoteMessage",
+    "expectedOutcome": "4 polls on base → validated"
+  },
+  "tx": {
+    "body": {
+      "messages": [
+        {
+          "@type": "/axelar.auxiliary.v1beta1.BatchRequest",
+          "sender_deprecated": "",
+          "messages": [
+            {
+              "@type": "/axelar.reward.v1beta1.RefundMsgRequest",
+              "sender_deprecated": "",
+              "inner_message": {
+                "@type": "/axelar.vote.v1beta1.VoteRequest",
+                "sender_deprecated": "",
+                "poll_key": null,
+                "vote_deprecated": null,
+                "poll_id": "3171843",
+                "vote": {
+                  "@type": "/axelar.evm.v1beta1.VoteEvents",
+                  "chain": "base",
+                  "events": [
+                    {
+                      "chain": "base",
+                      "tx_id": [
+                        142,
+                        247,
+                        99,
+                        139,
+                        107,
+                        8,
+                        16,
+                        193,
+                        78,
+                        176,
+                        4,
+                        230,
+                        59,
+                        101,
+                        147,
+                        12,
+                        79,
+                        196,
+                        155,
+                        30,
+                        144,
+                        238,
+                        184,
+                        251,
+                        192,
+                        53,
+                        180,
+                        126,
+                        127,
+                        198,
+                        130,
+                        133
+                      ],
+                      "index": "26",
+                      "status": "STATUS_UNSPECIFIED",
+                      "contract_call_with_token": {
+                        "sender": [
+                          206,
+                          22,
+                          246,
+                          147,
+                          117,
+                          82,
+                          10,
+                          176,
+                          19,
+                          119,
+                          206,
+                          123,
+                          136,
+                          245,
+                          186,
+                          140,
+                          72,
+                          248,
+                          214,
+                          102
+                        ],
+                        "destination_chain": "binance",
+                        "contract_address": "0xce16F69375520ab01377ce7B88f5BA8C48F8D666",
+                        "payload_hash": [
+                          35,
+                          66,
+                          68,
+                          210,
+                          209,
+                          79,
+                          244,
+                          32,
+                          254,
+                          243,
+                          160,
+                          248,
+                          222,
+                          251,
+                          251,
+                          148,
+                          15,
+                          111,
+                          152,
+                          132,
+                          164,
+                          148,
+                          13,
+                          20,
+                          78,
+                          42,
+                          239,
+                          224,
+                          111,
+                          250,
+                          129,
+                          203
+                        ],
+                        "symbol": "axlUSDC",
+                        "amount": "16877343"
+                      }
+                    }
+                  ]
+                },
+                "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+              },
+              "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+            },
+            {
+              "@type": "/axelar.reward.v1beta1.RefundMsgRequest",
+              "sender_deprecated": "",
+              "inner_message": {
+                "@type": "/axelar.vote.v1beta1.VoteRequest",
+                "sender_deprecated": "",
+                "poll_key": null,
+                "vote_deprecated": null,
+                "poll_id": "3171844",
+                "vote": {
+                  "@type": "/axelar.evm.v1beta1.VoteEvents",
+                  "chain": "base",
+                  "events": [
+                    {
+                      "chain": "base",
+                      "tx_id": [
+                        6,
+                        212,
+                        43,
+                        42,
+                        165,
+                        232,
+                        82,
+                        5,
+                        45,
+                        66,
+                        111,
+                        173,
+                        105,
+                        36,
+                        217,
+                        111,
+                        79,
+                        41,
+                        81,
+                        125,
+                        139,
+                        51,
+                        207,
+                        193,
+                        61,
+                        68,
+                        46,
+                        66,
+                        218,
+                        222,
+                        61,
+                        216
+                      ],
+                      "index": "30",
+                      "status": "STATUS_UNSPECIFIED",
+                      "contract_call_with_token": {
+                        "sender": [
+                          206,
+                          22,
+                          246,
+                          147,
+                          117,
+                          82,
+                          10,
+                          176,
+                          19,
+                          119,
+                          206,
+                          123,
+                          136,
+                          245,
+                          186,
+                          140,
+                          72,
+                          248,
+                          214,
+                          102
+                        ],
+                        "destination_chain": "binance",
+                        "contract_address": "0xce16F69375520ab01377ce7B88f5BA8C48F8D666",
+                        "payload_hash": [
+                          157,
+                          24,
+                          15,
+                          234,
+                          228,
+                          207,
+                          227,
+                          68,
+                          41,
+                          40,
+                          45,
+                          101,
+                          134,
+                          184,
+                          139,
+                          193,
+                          222,
+                          26,
+                          246,
+                          183,
+                          135,
+                          68,
+                          171,
+                          253,
+                          58,
+                          25,
+                          9,
+                          114,
+                          83,
+                          74,
+                          36,
+                          123
+                        ],
+                        "symbol": "axlUSDC",
+                        "amount": "162765938"
+                      }
+                    }
+                  ]
+                },
+                "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+              },
+              "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+            },
+            {
+              "@type": "/axelar.reward.v1beta1.RefundMsgRequest",
+              "sender_deprecated": "",
+              "inner_message": {
+                "@type": "/axelar.vote.v1beta1.VoteRequest",
+                "sender_deprecated": "",
+                "poll_key": null,
+                "vote_deprecated": null,
+                "poll_id": "3171845",
+                "vote": {
+                  "@type": "/axelar.evm.v1beta1.VoteEvents",
+                  "chain": "base",
+                  "events": [
+                    {
+                      "chain": "base",
+                      "tx_id": [
+                        81,
+                        64,
+                        78,
+                        140,
+                        47,
+                        155,
+                        55,
+                        218,
+                        179,
+                        242,
+                        35,
+                        118,
+                        253,
+                        250,
+                        110,
+                        24,
+                        231,
+                        167,
+                        93,
+                        40,
+                        52,
+                        141,
+                        131,
+                        218,
+                        42,
+                        102,
+                        72,
+                        31,
+                        225,
+                        19,
+                        238,
+                        234
+                      ],
+                      "index": "26",
+                      "status": "STATUS_UNSPECIFIED",
+                      "contract_call_with_token": {
+                        "sender": [
+                          206,
+                          22,
+                          246,
+                          147,
+                          117,
+                          82,
+                          10,
+                          176,
+                          19,
+                          119,
+                          206,
+                          123,
+                          136,
+                          245,
+                          186,
+                          140,
+                          72,
+                          248,
+                          214,
+                          102
+                        ],
+                        "destination_chain": "binance",
+                        "contract_address": "0xce16F69375520ab01377ce7B88f5BA8C48F8D666",
+                        "payload_hash": [
+                          29,
+                          130,
+                          71,
+                          126,
+                          221,
+                          49,
+                          131,
+                          216,
+                          111,
+                          148,
+                          29,
+                          162,
+                          86,
+                          190,
+                          234,
+                          167,
+                          63,
+                          139,
+                          120,
+                          103,
+                          177,
+                          83,
+                          199,
+                          46,
+                          223,
+                          204,
+                          216,
+                          54,
+                          193,
+                          99,
+                          54,
+                          55
+                        ],
+                        "symbol": "axlUSDC",
+                        "amount": "34333754"
+                      }
+                    }
+                  ]
+                },
+                "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+              },
+              "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+            },
+            {
+              "@type": "/axelar.reward.v1beta1.RefundMsgRequest",
+              "sender_deprecated": "",
+              "inner_message": {
+                "@type": "/axelar.vote.v1beta1.VoteRequest",
+                "sender_deprecated": "",
+                "poll_key": null,
+                "vote_deprecated": null,
+                "poll_id": "3171846",
+                "vote": {
+                  "@type": "/axelar.evm.v1beta1.VoteEvents",
+                  "chain": "base",
+                  "events": [
+                    {
+                      "chain": "base",
+                      "tx_id": [
+                        176,
+                        74,
+                        188,
+                        207,
+                        34,
+                        182,
+                        24,
+                        31,
+                        98,
+                        12,
+                        199,
+                        80,
+                        102,
+                        27,
+                        249,
+                        155,
+                        139,
+                        190,
+                        28,
+                        167,
+                        219,
+                        83,
+                        95,
+                        210,
+                        60,
+                        116,
+                        236,
+                        255,
+                        52,
+                        91,
+                        39,
+                        165
+                      ],
+                      "index": "26",
+                      "status": "STATUS_UNSPECIFIED",
+                      "contract_call_with_token": {
+                        "sender": [
+                          206,
+                          22,
+                          246,
+                          147,
+                          117,
+                          82,
+                          10,
+                          176,
+                          19,
+                          119,
+                          206,
+                          123,
+                          136,
+                          245,
+                          186,
+                          140,
+                          72,
+                          248,
+                          214,
+                          102
+                        ],
+                        "destination_chain": "binance",
+                        "contract_address": "0xce16F69375520ab01377ce7B88f5BA8C48F8D666",
+                        "payload_hash": [
+                          155,
+                          84,
+                          86,
+                          202,
+                          163,
+                          105,
+                          202,
+                          147,
+                          226,
+                          212,
+                          110,
+                          124,
+                          179,
+                          7,
+                          154,
+                          135,
+                          44,
+                          191,
+                          172,
+                          5,
+                          95,
+                          6,
+                          50,
+                          34,
+                          53,
+                          71,
+                          209,
+                          199,
+                          200,
+                          223,
+                          163,
+                          149
+                        ],
+                        "symbol": "axlUSDC",
+                        "amount": "19529649"
+                      }
+                    }
+                  ]
+                },
+                "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+              },
+              "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+            }
+          ],
+          "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+        }
+      ],
+      "memo": "",
+      "timeout_height": "0",
+      "extension_options": [],
+      "non_critical_extension_options": []
+    },
+    "auth_info": {
+      "signer_infos": [
+        {
+          "public_key": {
+            "@type": "/cosmos.crypto.secp256k1.PubKey",
+            "key": "AsZ9maUWQjGM7dFYthJLo0QmnCT76cphKg6xkVjnzZHI"
+          },
+          "mode_info": {
+            "single": {
+              "mode": "SIGN_MODE_DIRECT"
+            }
+          },
+          "sequence": "5202766"
+        }
+      ],
+      "fee": {
+        "amount": [
+          {
+            "denom": "uaxl",
+            "amount": "7488"
+          }
+        ],
+        "gas_limit": "1069656",
+        "payer": "",
+        "granter": ""
+      },
+      "tip": null
+    },
+    "signatures": [
+      "BOBFB+Uug8GK3Sy+qAlNZSrl+OyJ6hiclu0vT7dlHupM8mBT+/jd58fN+U4Nf/6gGSqH6GcdF8zwJCPXxkJ7hw=="
+    ]
+  },
+  "tx_response": {
+    "height": "29770488",
+    "txhash": "4D40A04C9BFE9916A6E05E867503D1D95DE3FF09DD9B2408904F78860620557F",
+    "codespace": "",
+    "code": 0,
+    "data": "1294170A272F6178656C61722E617578696C696172792E763162657461312E4261746368526573706F6E736512E8160AD7050AD4050A300A2E0A2C6E6F7420656E6F75676820766F74657320746F20636F6E6669726D20706F6C6C2033313731383433207965741A5A0A0A636F696E5F7370656E7412380A077370656E646572122D6178656C6172313778706676616B6D32616D67393632796C73366638347A336B656C6C3863356C35683467717512120A06616D6F756E741208313837327561786C1A5E0A0D636F696E5F726563656976656412390A087265636569766572122D6178656C61723173727A747671327730673065616D6877727A3735367A6678373279343074743464353778683012120A06616D6F756E741208313837327561786C1A93010A087472616E73666572123A0A09726563697069656E74122D6178656C61723173727A747671327730673065616D6877727A3735367A6678373279343074743464353778683012370A0673656E646572122D6178656C6172313778706676616B6D32616D67393632796C73366638347A336B656C6C3863356C35683467717512120A06616D6F756E741208313837327561786C1A420A076D65737361676512370A0673656E646572122D6178656C6172313778706676616B6D32616D67393632796C73366638347A336B656C6C3863356C3568346771751AAB010A196178656C61722E766F74652E763162657461312E566F74656412100A06616374696F6E120622766F74652212100A066D6F64756C65120622766F74652212110A04706F6C6C1209223331373138343322121D0A057374617465121422504F4C4C5F53544154455F50454E44494E472212380A05766F746572122F226178656C61723173727A747671327730673065616D6877727A3735367A6678373279343074743464353778683022225C0A282F6178656C61722E7265776172642E763162657461312E526566756E644D7367526573706F6E736512300A2E0A2C6E6F7420656E6F75676820766F74657320746F20636F6E6669726D20706F6C6C2033313731383433207965740AD7050AD4050A300A2E0A2C6E6F7420656E6F75676820766F74657320746F20636F6E6669726D20706F6C6C2033313731383434207965741A5A0A0A636F696E5F7370656E7412380A077370656E646572122D6178656C6172313778706676616B6D32616D67393632796C73366638347A336B656C6C3863356C35683467717512120A06616D6F756E741208313837327561786C1A5E0A0D636F696E5F726563656976656412390A087265636569766572122D6178656C61723173727A747671327730673065616D6877727A3735367A6678373279343074743464353778683012120A06616D6F756E741208313837327561786C1A93010A087472616E73666572123A0A09726563697069656E74122D6178656C61723173727A747671327730673065616D6877727A3735367A6678373279343074743464353778683012370A0673656E646572122D6178656C6172313778706676616B6D32616D67393632796C73366638347A336B656C6C3863356C35683467717512120A06616D6F756E741208313837327561786C1A420A076D65737361676512370A0673656E646572122D6178656C6172313778706676616B6D32616D67393632796C73366638347A336B656C6C3863356C3568346771751AAB010A196178656C61722E766F74652E763162657461312E566F74656412100A06616374696F6E120622766F74652212100A066D6F64756C65120622766F74652212110A04706F6C6C1209223331373138343422121D0A057374617465121422504F4C4C5F53544154455F50454E44494E472212380A05766F746572122F226178656C61723173727A747671327730673065616D6877727A3735367A6678373279343074743464353778683022225C0A282F6178656C61722E7265776172642E763162657461312E526566756E644D7367526573706F6E736512300A2E0A2C6E6F7420656E6F75676820766F74657320746F20636F6E6669726D20706F6C6C2033313731383434207965740AD7050AD4050A300A2E0A2C6E6F7420656E6F75676820766F74657320746F20636F6E6669726D20706F6C6C2033313731383435207965741A5A0A0A636F696E5F7370656E7412380A077370656E646572122D6178656C6172313778706676616B6D32616D67393632796C73366638347A336B656C6C3863356C35683467717512120A06616D6F756E741208313837327561786C1A5E0A0D636F696E5F726563656976656412390A087265636569766572122D6178656C61723173727A747671327730673065616D6877727A3735367A6678373279343074743464353778683012120A06616D6F756E741208313837327561786C1A93010A087472616E73666572123A0A09726563697069656E74122D6178656C61723173727A747671327730673065616D6877727A3735367A6678373279343074743464353778683012370A0673656E646572122D6178656C6172313778706676616B6D32616D67393632796C73366638347A336B656C6C3863356C35683467717512120A06616D6F756E741208313837327561786C1A420A076D65737361676512370A0673656E646572122D6178656C6172313778706676616B6D32616D67393632796C73366638347A336B656C6C3863356C3568346771751AAB010A196178656C61722E766F74652E763162657461312E566F74656412100A06616374696F6E120622766F74652212100A066D6F64756C65120622766F74652212110A04706F6C6C1209223331373138343522121D0A057374617465121422504F4C4C5F53544154455F50454E44494E472212380A05766F746572122F226178656C61723173727A747671327730673065616D6877727A3735367A6678373279343074743464353778683022225C0A282F6178656C61722E7265776172642E763162657461312E526566756E644D7367526573706F6E736512300A2E0A2C6E6F7420656E6F75676820766F74657320746F20636F6E6669726D20706F6C6C2033313731383435207965740AD7050AD4050A300A2E0A2C6E6F7420656E6F75676820766F74657320746F20636F6E6669726D20706F6C6C2033313731383436207965741A5A0A0A636F696E5F7370656E7412380A077370656E646572122D6178656C6172313778706676616B6D32616D67393632796C73366638347A336B656C6C3863356C35683467717512120A06616D6F756E741208313837327561786C1A5E0A0D636F696E5F726563656976656412390A087265636569766572122D6178656C61723173727A747671327730673065616D6877727A3735367A6678373279343074743464353778683012120A06616D6F756E741208313837327561786C1A93010A087472616E73666572123A0A09726563697069656E74122D6178656C61723173727A747671327730673065616D6877727A3735367A6678373279343074743464353778683012370A0673656E646572122D6178656C6172313778706676616B6D32616D67393632796C73366638347A336B656C6C3863356C35683467717512120A06616D6F756E741208313837327561786C1A420A076D65737361676512370A0673656E646572122D6178656C6172313778706676616B6D32616D67393632796C73366638347A336B656C6C3863356C3568346771751AAB010A196178656C61722E766F74652E763162657461312E566F74656412100A06616374696F6E120622766F74652212100A066D6F64756C65120622766F74652212110A04706F6C6C1209223331373138343622121D0A057374617465121422504F4C4C5F53544154455F50454E44494E472212380A05766F746572122F226178656C61723173727A747671327730673065616D6877727A3735367A6678373279343074743464353778683022225C0A282F6178656C61722E7265776172642E763162657461312E526566756E644D7367526573706F6E736512300A2E0A2C6E6F7420656E6F75676820766F74657320746F20636F6E6669726D20706F6C6C203331373138343620796574",
+    "raw_log": "",
+    "logs": [],
+    "info": "",
+    "gas_wanted": "1069656",
+    "gas_used": "439249",
+    "tx": {
+      "@type": "/cosmos.tx.v1beta1.Tx",
+      "body": {
+        "messages": [
+          {
+            "@type": "/axelar.auxiliary.v1beta1.BatchRequest",
+            "sender_deprecated": "",
+            "messages": [
+              {
+                "@type": "/axelar.reward.v1beta1.RefundMsgRequest",
+                "sender_deprecated": "",
+                "inner_message": {
+                  "@type": "/axelar.vote.v1beta1.VoteRequest",
+                  "sender_deprecated": "",
+                  "poll_key": null,
+                  "vote_deprecated": null,
+                  "poll_id": "3171843",
+                  "vote": {
+                    "@type": "/axelar.evm.v1beta1.VoteEvents",
+                    "chain": "base",
+                    "events": [
+                      {
+                        "chain": "base",
+                        "tx_id": [
+                          142,
+                          247,
+                          99,
+                          139,
+                          107,
+                          8,
+                          16,
+                          193,
+                          78,
+                          176,
+                          4,
+                          230,
+                          59,
+                          101,
+                          147,
+                          12,
+                          79,
+                          196,
+                          155,
+                          30,
+                          144,
+                          238,
+                          184,
+                          251,
+                          192,
+                          53,
+                          180,
+                          126,
+                          127,
+                          198,
+                          130,
+                          133
+                        ],
+                        "index": "26",
+                        "status": "STATUS_UNSPECIFIED",
+                        "contract_call_with_token": {
+                          "sender": [
+                            206,
+                            22,
+                            246,
+                            147,
+                            117,
+                            82,
+                            10,
+                            176,
+                            19,
+                            119,
+                            206,
+                            123,
+                            136,
+                            245,
+                            186,
+                            140,
+                            72,
+                            248,
+                            214,
+                            102
+                          ],
+                          "destination_chain": "binance",
+                          "contract_address": "0xce16F69375520ab01377ce7B88f5BA8C48F8D666",
+                          "payload_hash": [
+                            35,
+                            66,
+                            68,
+                            210,
+                            209,
+                            79,
+                            244,
+                            32,
+                            254,
+                            243,
+                            160,
+                            248,
+                            222,
+                            251,
+                            251,
+                            148,
+                            15,
+                            111,
+                            152,
+                            132,
+                            164,
+                            148,
+                            13,
+                            20,
+                            78,
+                            42,
+                            239,
+                            224,
+                            111,
+                            250,
+                            129,
+                            203
+                          ],
+                          "symbol": "axlUSDC",
+                          "amount": "16877343"
+                        }
+                      }
+                    ]
+                  },
+                  "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+                },
+                "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+              },
+              {
+                "@type": "/axelar.reward.v1beta1.RefundMsgRequest",
+                "sender_deprecated": "",
+                "inner_message": {
+                  "@type": "/axelar.vote.v1beta1.VoteRequest",
+                  "sender_deprecated": "",
+                  "poll_key": null,
+                  "vote_deprecated": null,
+                  "poll_id": "3171844",
+                  "vote": {
+                    "@type": "/axelar.evm.v1beta1.VoteEvents",
+                    "chain": "base",
+                    "events": [
+                      {
+                        "chain": "base",
+                        "tx_id": [
+                          6,
+                          212,
+                          43,
+                          42,
+                          165,
+                          232,
+                          82,
+                          5,
+                          45,
+                          66,
+                          111,
+                          173,
+                          105,
+                          36,
+                          217,
+                          111,
+                          79,
+                          41,
+                          81,
+                          125,
+                          139,
+                          51,
+                          207,
+                          193,
+                          61,
+                          68,
+                          46,
+                          66,
+                          218,
+                          222,
+                          61,
+                          216
+                        ],
+                        "index": "30",
+                        "status": "STATUS_UNSPECIFIED",
+                        "contract_call_with_token": {
+                          "sender": [
+                            206,
+                            22,
+                            246,
+                            147,
+                            117,
+                            82,
+                            10,
+                            176,
+                            19,
+                            119,
+                            206,
+                            123,
+                            136,
+                            245,
+                            186,
+                            140,
+                            72,
+                            248,
+                            214,
+                            102
+                          ],
+                          "destination_chain": "binance",
+                          "contract_address": "0xce16F69375520ab01377ce7B88f5BA8C48F8D666",
+                          "payload_hash": [
+                            157,
+                            24,
+                            15,
+                            234,
+                            228,
+                            207,
+                            227,
+                            68,
+                            41,
+                            40,
+                            45,
+                            101,
+                            134,
+                            184,
+                            139,
+                            193,
+                            222,
+                            26,
+                            246,
+                            183,
+                            135,
+                            68,
+                            171,
+                            253,
+                            58,
+                            25,
+                            9,
+                            114,
+                            83,
+                            74,
+                            36,
+                            123
+                          ],
+                          "symbol": "axlUSDC",
+                          "amount": "162765938"
+                        }
+                      }
+                    ]
+                  },
+                  "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+                },
+                "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+              },
+              {
+                "@type": "/axelar.reward.v1beta1.RefundMsgRequest",
+                "sender_deprecated": "",
+                "inner_message": {
+                  "@type": "/axelar.vote.v1beta1.VoteRequest",
+                  "sender_deprecated": "",
+                  "poll_key": null,
+                  "vote_deprecated": null,
+                  "poll_id": "3171845",
+                  "vote": {
+                    "@type": "/axelar.evm.v1beta1.VoteEvents",
+                    "chain": "base",
+                    "events": [
+                      {
+                        "chain": "base",
+                        "tx_id": [
+                          81,
+                          64,
+                          78,
+                          140,
+                          47,
+                          155,
+                          55,
+                          218,
+                          179,
+                          242,
+                          35,
+                          118,
+                          253,
+                          250,
+                          110,
+                          24,
+                          231,
+                          167,
+                          93,
+                          40,
+                          52,
+                          141,
+                          131,
+                          218,
+                          42,
+                          102,
+                          72,
+                          31,
+                          225,
+                          19,
+                          238,
+                          234
+                        ],
+                        "index": "26",
+                        "status": "STATUS_UNSPECIFIED",
+                        "contract_call_with_token": {
+                          "sender": [
+                            206,
+                            22,
+                            246,
+                            147,
+                            117,
+                            82,
+                            10,
+                            176,
+                            19,
+                            119,
+                            206,
+                            123,
+                            136,
+                            245,
+                            186,
+                            140,
+                            72,
+                            248,
+                            214,
+                            102
+                          ],
+                          "destination_chain": "binance",
+                          "contract_address": "0xce16F69375520ab01377ce7B88f5BA8C48F8D666",
+                          "payload_hash": [
+                            29,
+                            130,
+                            71,
+                            126,
+                            221,
+                            49,
+                            131,
+                            216,
+                            111,
+                            148,
+                            29,
+                            162,
+                            86,
+                            190,
+                            234,
+                            167,
+                            63,
+                            139,
+                            120,
+                            103,
+                            177,
+                            83,
+                            199,
+                            46,
+                            223,
+                            204,
+                            216,
+                            54,
+                            193,
+                            99,
+                            54,
+                            55
+                          ],
+                          "symbol": "axlUSDC",
+                          "amount": "34333754"
+                        }
+                      }
+                    ]
+                  },
+                  "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+                },
+                "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+              },
+              {
+                "@type": "/axelar.reward.v1beta1.RefundMsgRequest",
+                "sender_deprecated": "",
+                "inner_message": {
+                  "@type": "/axelar.vote.v1beta1.VoteRequest",
+                  "sender_deprecated": "",
+                  "poll_key": null,
+                  "vote_deprecated": null,
+                  "poll_id": "3171846",
+                  "vote": {
+                    "@type": "/axelar.evm.v1beta1.VoteEvents",
+                    "chain": "base",
+                    "events": [
+                      {
+                        "chain": "base",
+                        "tx_id": [
+                          176,
+                          74,
+                          188,
+                          207,
+                          34,
+                          182,
+                          24,
+                          31,
+                          98,
+                          12,
+                          199,
+                          80,
+                          102,
+                          27,
+                          249,
+                          155,
+                          139,
+                          190,
+                          28,
+                          167,
+                          219,
+                          83,
+                          95,
+                          210,
+                          60,
+                          116,
+                          236,
+                          255,
+                          52,
+                          91,
+                          39,
+                          165
+                        ],
+                        "index": "26",
+                        "status": "STATUS_UNSPECIFIED",
+                        "contract_call_with_token": {
+                          "sender": [
+                            206,
+                            22,
+                            246,
+                            147,
+                            117,
+                            82,
+                            10,
+                            176,
+                            19,
+                            119,
+                            206,
+                            123,
+                            136,
+                            245,
+                            186,
+                            140,
+                            72,
+                            248,
+                            214,
+                            102
+                          ],
+                          "destination_chain": "binance",
+                          "contract_address": "0xce16F69375520ab01377ce7B88f5BA8C48F8D666",
+                          "payload_hash": [
+                            155,
+                            84,
+                            86,
+                            202,
+                            163,
+                            105,
+                            202,
+                            147,
+                            226,
+                            212,
+                            110,
+                            124,
+                            179,
+                            7,
+                            154,
+                            135,
+                            44,
+                            191,
+                            172,
+                            5,
+                            95,
+                            6,
+                            50,
+                            34,
+                            53,
+                            71,
+                            209,
+                            199,
+                            200,
+                            223,
+                            163,
+                            149
+                          ],
+                          "symbol": "axlUSDC",
+                          "amount": "19529649"
+                        }
+                      }
+                    ]
+                  },
+                  "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+                },
+                "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+              }
+            ],
+            "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+          }
+        ],
+        "memo": "",
+        "timeout_height": "0",
+        "extension_options": [],
+        "non_critical_extension_options": []
+      },
+      "auth_info": {
+        "signer_infos": [
+          {
+            "public_key": {
+              "@type": "/cosmos.crypto.secp256k1.PubKey",
+              "key": "AsZ9maUWQjGM7dFYthJLo0QmnCT76cphKg6xkVjnzZHI"
+            },
+            "mode_info": {
+              "single": {
+                "mode": "SIGN_MODE_DIRECT"
+              }
+            },
+            "sequence": "5202766"
+          }
+        ],
+        "fee": {
+          "amount": [
+            {
+              "denom": "uaxl",
+              "amount": "7488"
+            }
+          ],
+          "gas_limit": "1069656",
+          "payer": "",
+          "granter": ""
+        },
+        "tip": null
+      },
+      "signatures": [
+        "BOBFB+Uug8GK3Sy+qAlNZSrl+OyJ6hiclu0vT7dlHupM8mBT+/jd58fN+U4Nf/6gGSqH6GcdF8zwJCPXxkJ7hw=="
+      ]
+    },
+    "timestamp": "2026-06-09T09:28:02Z",
+    "events": [
+      {
+        "type": "coin_spent",
+        "attributes": [
+          {
+            "key": "spender",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "7488uaxl",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "coin_received",
+        "attributes": [
+          {
+            "key": "receiver",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "7488uaxl",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "transfer",
+        "attributes": [
+          {
+            "key": "recipient",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "sender",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "7488uaxl",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "attributes": [
+          {
+            "key": "sender",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "tx",
+        "attributes": [
+          {
+            "key": "fee",
+            "value": "7488uaxl",
+            "index": true
+          },
+          {
+            "key": "fee_payer",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "tx",
+        "attributes": [
+          {
+            "key": "acc_seq",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0/5202766",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "tx",
+        "attributes": [
+          {
+            "key": "signature",
+            "value": "BOBFB+Uug8GK3Sy+qAlNZSrl+OyJ6hiclu0vT7dlHupM8mBT+/jd58fN+U4Nf/6gGSqH6GcdF8zwJCPXxkJ7hw==",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "attributes": [
+          {
+            "key": "action",
+            "value": "/axelar.auxiliary.v1beta1.BatchRequest",
+            "index": true
+          },
+          {
+            "key": "sender",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "coin_spent",
+        "attributes": [
+          {
+            "key": "spender",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "1872uaxl",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "coin_received",
+        "attributes": [
+          {
+            "key": "receiver",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "1872uaxl",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "transfer",
+        "attributes": [
+          {
+            "key": "recipient",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "sender",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "1872uaxl",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "attributes": [
+          {
+            "key": "sender",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "axelar.vote.v1beta1.Voted",
+        "attributes": [
+          {
+            "key": "action",
+            "value": "\"vote\"",
+            "index": true
+          },
+          {
+            "key": "module",
+            "value": "\"vote\"",
+            "index": true
+          },
+          {
+            "key": "poll",
+            "value": "\"3171843\"",
+            "index": true
+          },
+          {
+            "key": "state",
+            "value": "\"POLL_STATE_PENDING\"",
+            "index": true
+          },
+          {
+            "key": "voter",
+            "value": "\"axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0\"",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "coin_spent",
+        "attributes": [
+          {
+            "key": "spender",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "1872uaxl",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "coin_received",
+        "attributes": [
+          {
+            "key": "receiver",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "1872uaxl",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "transfer",
+        "attributes": [
+          {
+            "key": "recipient",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "sender",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "1872uaxl",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "attributes": [
+          {
+            "key": "sender",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "axelar.vote.v1beta1.Voted",
+        "attributes": [
+          {
+            "key": "action",
+            "value": "\"vote\"",
+            "index": true
+          },
+          {
+            "key": "module",
+            "value": "\"vote\"",
+            "index": true
+          },
+          {
+            "key": "poll",
+            "value": "\"3171844\"",
+            "index": true
+          },
+          {
+            "key": "state",
+            "value": "\"POLL_STATE_PENDING\"",
+            "index": true
+          },
+          {
+            "key": "voter",
+            "value": "\"axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0\"",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "coin_spent",
+        "attributes": [
+          {
+            "key": "spender",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "1872uaxl",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "coin_received",
+        "attributes": [
+          {
+            "key": "receiver",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "1872uaxl",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "transfer",
+        "attributes": [
+          {
+            "key": "recipient",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "sender",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "1872uaxl",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "attributes": [
+          {
+            "key": "sender",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "axelar.vote.v1beta1.Voted",
+        "attributes": [
+          {
+            "key": "action",
+            "value": "\"vote\"",
+            "index": true
+          },
+          {
+            "key": "module",
+            "value": "\"vote\"",
+            "index": true
+          },
+          {
+            "key": "poll",
+            "value": "\"3171845\"",
+            "index": true
+          },
+          {
+            "key": "state",
+            "value": "\"POLL_STATE_PENDING\"",
+            "index": true
+          },
+          {
+            "key": "voter",
+            "value": "\"axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0\"",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "coin_spent",
+        "attributes": [
+          {
+            "key": "spender",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "1872uaxl",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "coin_received",
+        "attributes": [
+          {
+            "key": "receiver",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "1872uaxl",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "transfer",
+        "attributes": [
+          {
+            "key": "recipient",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "sender",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "1872uaxl",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "attributes": [
+          {
+            "key": "sender",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "axelar.vote.v1beta1.Voted",
+        "attributes": [
+          {
+            "key": "action",
+            "value": "\"vote\"",
+            "index": true
+          },
+          {
+            "key": "module",
+            "value": "\"vote\"",
+            "index": true
+          },
+          {
+            "key": "poll",
+            "value": "\"3171846\"",
+            "index": true
+          },
+          {
+            "key": "state",
+            "value": "\"POLL_STATE_PENDING\"",
+            "index": true
+          },
+          {
+            "key": "voter",
+            "value": "\"axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0\"",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import axios from 'axios';
 import dotenv from 'dotenv';
+import { bech32AddressMatches } from './utils';
 
 // Load environment variables
 dotenv.config();
@@ -64,6 +65,62 @@ interface LogEvent {
 
 interface LogItem {
   events?: LogEvent[];
+}
+
+const VOTE_EVENTS_TYPE = '/axelar.evm.v1beta1.VoteEvents';
+const VOTE_NO_EVENTS_TYPE = '/axelar.evm.v1beta1.VoteNoEvents';
+
+/**
+ * Classify an EVM vote payload using Axelar protocol semantics:
+ * - VoteEvents with events[] non-empty = validator confirms proposed events (yes)
+ * - VoteEvents with events[] empty = vote "no" (Axelarscan shows as No)
+ * - VoteNoEvents = explicit reject / no matching events
+ */
+function classifyEvmVote(
+  vote: unknown
+): { status: VoteStatusType; chain?: string } | null {
+  if (!vote || typeof vote !== 'object' || vote === null || !('@type' in vote)) {
+    return null;
+  }
+
+  const voteType = vote['@type'] as string;
+  const chain = 'chain' in vote && vote.chain !== undefined ? String(vote.chain) : undefined;
+
+  if (voteType === VOTE_NO_EVENTS_TYPE) {
+    return { status: VoteStatusType.Invalid, chain };
+  }
+  if (voteType === VOTE_EVENTS_TYPE) {
+    if ('events' in vote && Array.isArray(vote.events)) {
+      return {
+        status: vote.events.length > 0 ? VoteStatusType.Validated : VoteStatusType.Invalid,
+        chain,
+      };
+    }
+    return { status: VoteStatusType.Validated, chain };
+  }
+
+  return null;
+}
+
+/** Extract poll_id and vote from RefundMsgRequest or VoteRequest shapes. */
+function extractVotePayload(
+  message: Record<string, unknown>
+): { pollId: string | number; vote: unknown } | null {
+  const msgType = message['@type'] as string | undefined;
+
+  if (msgType === '/axelar.reward.v1beta1.RefundMsgRequest' && message.inner_message) {
+    const inner = message.inner_message as Record<string, unknown>;
+    if ('poll_id' in inner) {
+      return { pollId: inner.poll_id as string | number, vote: inner.vote ?? null };
+    }
+    return null;
+  }
+
+  if (msgType === '/axelar.vote.v1beta1.VoteRequest' && 'poll_id' in message) {
+    return { pollId: message.poll_id as string | number, vote: message.vote ?? null };
+  }
+
+  return null;
 }
 
 export class EvmVoteManager extends EventEmitter {
@@ -288,7 +345,6 @@ export class EvmVoteManager extends EventEmitter {
         item.pollId === cleanPollId && item.pollId !== "unknown"
       );
       
-      // If poll_id already exists, don't add it again
       if (existingIndex >= 0) {
         return false;
       }
@@ -326,26 +382,64 @@ export class EvmVoteManager extends EventEmitter {
     return false;
   }
 
-  // Check if a transaction event belongs to our broadcaster's vote
+  /**
+   * WS detection: is this tx one of our broadcaster's EVM votes?
+   *
+   * Canonical signal: axelar.vote.v1beta1.Voted (poll + voter on-chain).
+   * RefundMsgRequest is only the gas-refund envelope in the tx body — also used by
+   * multisig signatures; do not use it as the primary discriminator.
+   *
+   * TODO(explore): once Voted.voter is stable in prod WS events, drop the RefundMsgRequest /
+   * BatchRequest fallbacks below and rely solely on Voted.voter (+ bech32 normalization).
+   */
   private isOurVoteTransaction(events: Record<string, string[]>): boolean {
     const address = this.validatorAddress;
 
-    // Legacy path: axelar.vote.v1beta1.Voted event
-    if (events['axelar.vote.v1beta1.Voted.voter']?.some(voter => voter.includes(address))) {
+    if (events['axelar.vote.v1beta1.Voted.voter']?.some(voter => bech32AddressMatches(voter, address))) {
       return true;
     }
 
-    // Modern path: votes wrapped in RefundMsgRequest (no Voted event emitted)
-    const isRefundVote = events['message.action']?.some(
-      action => action.includes('/axelar.reward.v1beta1.RefundMsgRequest')
+    // --- Fallback safety net (see TODO above) ---
+    const senderKeys = ['message.sender', 'tx.fee_payer'];
+    const isOurSender = senderKeys.some(key =>
+      events[key]?.some(value => bech32AddressMatches(value, address))
     );
-    if (!isRefundVote) {
+    if (!isOurSender) {
       return false;
     }
 
-    const senderKeys = ['message.sender', 'tx.fee_payer'];
-    return senderKeys.some(key =>
-      events[key]?.some(value => value.includes(address))
+    const hasVoteEvent = Boolean(events['axelar.vote.v1beta1.Voted.voter']?.length);
+    const hasSignatureSubmitted = Boolean(
+      events['axelar.multisig.v1beta1.SignatureSubmitted.sig_id']?.length
+    );
+    if (hasSignatureSubmitted && !hasVoteEvent) {
+      return false;
+    }
+
+    const isRefundVote = events['message.action']?.some(
+      action => action.includes('/axelar.reward.v1beta1.RefundMsgRequest')
+    );
+    if (isRefundVote) {
+      return true;
+    }
+
+    const isBatchVote = events['message.action']?.some(
+      action => action.includes('/axelar.auxiliary.v1beta1.BatchRequest')
+    );
+    return Boolean(isBatchVote);
+  }
+
+  private logUnknownPollVote(
+    pollId: string,
+    chain: string | undefined,
+    newStatus: VoteStatusType,
+    txHash?: string
+  ): void {
+    const chainLabel = chain ?? 'unknown chain';
+    const txLabel = txHash ? ` (tx: ${txHash})` : '';
+    console.warn(
+      `Vote for unknown poll ${pollId} on ${chainLabel} → status ${newStatus}${txLabel}. ` +
+      `Poll creation event may have been missed or chain is not monitored.`
     );
   }
 
@@ -429,75 +523,59 @@ export class EvmVoteManager extends EventEmitter {
   // Function to process an individual vote message
   private processVoteMessage(message: unknown, txHash: string) {
     try {
-      // Log the message type for debugging
-      if (typeof message === 'object' && message !== null && '@type' in message) {
-        console.log(`📋 Processing message type: ${message['@type']}`);
+      if (typeof message !== 'object' || message === null || !('@type' in message)) {
+        return;
       }
-      
-      // Check if it's a RefundMsgRequest containing a VoteRequest
-      if (typeof message === 'object' && message !== null && '@type' in message && 
-          message['@type'] === "/axelar.reward.v1beta1.RefundMsgRequest" && 
-          'inner_message' in message && message.inner_message) {
-        
-        const innerMessage = message.inner_message as Record<string, unknown>;
-        
-        if ('poll_id' in innerMessage) {
-          const pollId = this.normalizePollId(innerMessage.poll_id as string);
-          const vote = 'vote' in innerMessage ? innerMessage.vote : null;
-          
-          if (vote && typeof vote === 'object' && vote !== null && '@type' in vote && 
-              vote['@type'] === "/axelar.evm.v1beta1.VoteEvents" && 
-              'chain' in vote && 'events' in vote) {
-            
-            const voteChain = vote.chain as string;
-            const events = vote.events as Array<Record<string, unknown>>;
-            
-            // Check if vote is valid
-            let isValid = false;
-            if (Array.isArray(events) && events.length > 0) {
-              // Check that chain in events matches the one in vote
-              isValid = events.some((event) => 'chain' in event && event.chain === voteChain);
-            }
-            
-            // Determine status based on validity
-            const status = isValid ? VoteStatusType.Validated : VoteStatusType.Invalid;
-            
-            // Update poll status
-            this.updatePollStatus(pollId, status, voteChain, txHash);
-          } else {
-            const voteType = vote && typeof vote === 'object' && '@type' in vote ? vote['@type'] : 'unknown';
-            console.log(`⚠️ Unsupported vote type: ${voteType}`);
-            console.log(`📦 Vote object:`, JSON.stringify(vote, null, 2));
-          }
-        } else {
-          console.log("⚠️ No poll_id found in inner_message");
-          if (typeof message === 'object' && message !== null && 'inner_message' in message) {
-            console.log(`📦 Inner message:`, JSON.stringify(message.inner_message, null, 2));
-          }
-        }
-      } else {
-        const msgType = typeof message === 'object' && message !== null && '@type' in message ? message['@type'] : 'unknown';
-        console.log(`⚠️ Unsupported message type: ${msgType}`);
-        if (typeof message === 'object' && message !== null) {
-          console.log(`📦 Full message structure:`, JSON.stringify(message, null, 2));
-        }
+
+      console.log(`📋 Processing message type: ${message['@type']}`);
+
+      const payload = extractVotePayload(message as Record<string, unknown>);
+      if (!payload) {
+        console.log(`⚠️ Unsupported message type: ${message['@type']}`);
+        return;
       }
+
+      const pollId = this.normalizePollId(payload.pollId);
+      const classification = classifyEvmVote(payload.vote);
+
+      if (!classification) {
+        const voteType =
+          payload.vote && typeof payload.vote === 'object' && payload.vote !== null && '@type' in payload.vote
+            ? payload.vote['@type']
+            : 'unknown';
+        console.log(`⚠️ Unsupported vote type: ${voteType}`);
+        console.log(`📦 Vote object:`, JSON.stringify(payload.vote, null, 2));
+        return;
+      }
+
+      this.updatePollStatus(pollId, classification.status, classification.chain, txHash);
     } catch (error) {
       console.error("Error processing individual message:", error);
     }
   }
 
   // Function to update a poll_id status
-  private updatePollStatus(pollId: string, newStatus: VoteStatusType, chain?: string, txHash?: string): boolean {
+  private updatePollStatus(
+    pollId: string,
+    newStatus: VoteStatusType,
+    chain?: string,
+    txHash?: string
+  ): boolean {
     const cleanPollId = this.normalizePollId(pollId);
     if (!cleanPollId || cleanPollId === 'unknown') return false;
     
     let updated = false;
 
     const applyUpdate = (poll: PollStatus): boolean => {
-      if (poll.result !== VoteStatusType.Unsubmitted) {
+      const canUpdate =
+        poll.result === VoteStatusType.Unsubmitted ||
+        (poll.result === VoteStatusType.Invalid && newStatus === VoteStatusType.Validated) ||
+        (poll.result === VoteStatusType.Validated && newStatus === VoteStatusType.Invalid);
+
+      if (!canUpdate) {
         return false;
       }
+
       poll.result = newStatus;
       if (txHash) {
         poll.txHash = txHash;
@@ -522,9 +600,8 @@ export class EvmVoteManager extends EventEmitter {
               pollIds: this.chainData[normalizedChain].pollIds,
               lastGlobalPollId: this.lastGlobalPollId
             });
+            return true;
           }
-          
-          return updated;
         }
       }
     }
@@ -554,7 +631,11 @@ export class EvmVoteManager extends EventEmitter {
         }
       }
     }
-    
+
+    if (!updated) {
+      this.logUnknownPollVote(cleanPollId, chain, newStatus, txHash);
+    }
+
     return updated;
   }
 

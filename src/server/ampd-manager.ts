@@ -1,6 +1,8 @@
 import { EventEmitter } from 'events';
+import { AmpdSigningStatus, AmpdVoteStatus, mapAmpdVoteResult } from '../shared/status-types';
+import { bech32AddressMatches } from './utils';
 
-// Vote status types
+// Vote status types (kept for backward compatibility)
 export enum VoteStatusType {
     Unsubmit = 'unsubmit',
     Signed = 'signed'
@@ -102,9 +104,7 @@ export class AmpdManager extends EventEmitter {
      */
     private isOurTx(events: Record<string, string[]>): boolean {
         const feePayers = events['tx.fee_payer'] ?? [];
-        return feePayers.some(payer =>
-            payer === this.ampdAddress || payer.startsWith(`${this.ampdAddress}/`)
-        );
+        return feePayers.some(payer => bech32AddressMatches(payer, this.ampdAddress));
     }
 
     private normalizePollId(pollId: string | number | null | undefined): string {
@@ -156,7 +156,9 @@ export class AmpdManager extends EventEmitter {
             const participantsStr = txResult.events['wasm-messages_poll_started.participants'][0];
             try {
                 const participants = JSON.parse(participantsStr);
-                const isParticipant = participants.includes(this.ampdAddress);
+                const isParticipant = participants.some((p: string) =>
+                    bech32AddressMatches(p, this.ampdAddress)
+                );
                 
                 if (isParticipant) {
                     const cleanPollId = this.normalizePollId(pollId);
@@ -185,8 +187,18 @@ export class AmpdManager extends EventEmitter {
             txResult.events['wasm-proof_under_construction.destination_chain'][0].replace(/"/g, '') : null;
         
         // Check if our AMPD address is in the public keys
-        if (txResult.events['wasm-signing_started.pub_keys'] && 
-            txResult.events['wasm-signing_started.pub_keys'][0].includes(this.ampdAddress)) {
+        const pubKeysRaw = txResult.events['wasm-signing_started.pub_keys']?.[0] ?? '';
+        const hasOurKey = pubKeysRaw.includes(this.ampdAddress) ||
+            (() => {
+                try {
+                    const keys = JSON.parse(pubKeysRaw) as string[];
+                    return keys.some(k => bech32AddressMatches(k, this.ampdAddress));
+                } catch {
+                    return false;
+                }
+            })();
+
+        if (txResult.events['wasm-signing_started.pub_keys'] && hasOurKey) {
             
             this.updateSigningSession(destinationChain, cleanSessionId, contractAddress);
             
@@ -235,7 +247,7 @@ export class AmpdManager extends EventEmitter {
             this.voteData[chainKey].pollIds.unshift({
                 pollId: cleanPollId,
                 contractAddress: cleanContract,
-                result: 'unsubmit',
+                result: AmpdVoteStatus.Unsubmit,
                 timestamp: new Date().toISOString()
             });
             
@@ -268,7 +280,7 @@ export class AmpdManager extends EventEmitter {
         const signingStatus: SigningStatus = {
             signingId: cleanSessionId,
             contractAddress: cleanContract,
-            result: 'unsubmit',
+            result: AmpdSigningStatus.Unsubmit,
             timestamp: new Date().toISOString()
         };
         
@@ -288,12 +300,13 @@ export class AmpdManager extends EventEmitter {
         txHash: string,
         sender: string
     ): void {
-        if (sender !== this.ampdAddress) {
+        if (!bech32AddressMatches(sender, this.ampdAddress)) {
             return;
         }
 
         const cleanPollId = this.normalizePollId(pollId);
         const cleanContract = contractAddress.replace(/"/g, '');
+        const canonicalStatus = mapAmpdVoteResult(votes?.[0]);
         let updated = false;
         
         Object.keys(this.voteData).forEach(chainKey => {
@@ -303,8 +316,8 @@ export class AmpdManager extends EventEmitter {
                 const poll = pollIds[i];
                 
                 if (poll.pollId === cleanPollId && poll.contractAddress === cleanContract) {
-                    if (poll.result === 'unsubmit') {
-                        poll.result = votes && votes.length > 0 ? votes[0] : 'unsubmit';
+                    if (poll.result === AmpdVoteStatus.Unsubmit) {
+                        poll.result = canonicalStatus;
                         poll.txHash = txHash;
                         updated = true;
                         
@@ -328,7 +341,7 @@ export class AmpdManager extends EventEmitter {
         txHash: string,
         sender: string
     ): void {
-        if (sender !== this.ampdAddress) {
+        if (!bech32AddressMatches(sender, this.ampdAddress)) {
             return;
         }
 
@@ -343,12 +356,12 @@ export class AmpdManager extends EventEmitter {
                 const signing = signingIds[i];
                 
                 if (signing.signingId === cleanSessionId && signing.contractAddress === cleanContract) {
-                    if (signing.result === 'unsubmit') {
-                        signing.result = 'signed';
+                    if (signing.result === AmpdSigningStatus.Unsubmit) {
+                        signing.result = AmpdSigningStatus.Signed;
                         signing.txHash = txHash;
                         updated = true;
                         
-                        this.emit('signing-update', { chain: chainKey, signingId: cleanSessionId, status: 'signed' });
+                        this.emit('signing-update', { chain: chainKey, signingId: cleanSessionId, status: AmpdSigningStatus.Signed });
                     }
                 }
             }
@@ -394,7 +407,7 @@ export class AmpdManager extends EventEmitter {
 
             if (signatures.length > 0) {
                 signatures.forEach(sig => {
-                    if (sig.sessionId !== undefined && sig.contract && sig.sender === this.ampdAddress) {
+                    if (sig.sessionId !== undefined && sig.contract && bech32AddressMatches(sig.sender, this.ampdAddress)) {
                         this.updateSigningStatusInChainData(sig.sessionId, sig.contract, txHash, sig.sender);
                     }
                 });
@@ -467,7 +480,8 @@ export class AmpdManager extends EventEmitter {
             
             if (votes.length > 0) {
                 votes.forEach(voteDetail => {
-                    if (voteDetail.pollId && voteDetail.contract && voteDetail.votes && voteDetail.sender === this.ampdAddress) {
+                    if (voteDetail.pollId && voteDetail.contract && voteDetail.votes &&
+                        bech32AddressMatches(voteDetail.sender, this.ampdAddress)) {
                         this.updatePollStatusInChainData(
                             voteDetail.pollId,
                             voteDetail.contract,

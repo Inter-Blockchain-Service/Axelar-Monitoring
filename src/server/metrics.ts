@@ -14,6 +14,10 @@ export interface ValidatorMetrics {
   totalSigned: number;
   totalProposed: number;
   consecutiveMissed: number;
+  /** Current streak of missed blocks from the most recent block backward. */
+  currentConsecutiveMissed: number;
+  /** Maximum consecutive missed blocks in the signStatus window. */
+  maxConsecutiveMissed: number;
   prevoteMissed: number;
   precommitMissed: number;
   connected: boolean;
@@ -44,6 +48,8 @@ export const createInitialMetrics = (
     totalSigned: 0,
     totalProposed: 0,
     consecutiveMissed: 0,
+    currentConsecutiveMissed: 0,
+    maxConsecutiveMissed: 0,
     prevoteMissed: 0,
     precommitMissed: 0,
     connected: false,
@@ -71,46 +77,60 @@ export const recalculateStats = (metrics: ValidatorMetrics): ValidatorMetrics =>
   updatedMetrics.prevoteMissed = 0;
   updatedMetrics.precommitMissed = 0;
   
-  // Number of consecutive missed blocks
-  let consecutiveMissed = 0;
+  let runningStreak = 0;
   let maxConsecutiveMissed = 0;
-  
+  let currentConsecutiveMissed = 0;
+  let currentStreakComputed = false;
+
+  const isMissedStatus = (status: number): boolean =>
+    status === StatusType.Missed ||
+    status === StatusType.Precommit ||
+    status === StatusType.Prevote;
+
   // Go through all blocks in history, ignore -1 values (no data yet)
   updatedMetrics.signStatus.forEach((status) => {
-    if (status === -1) return; // Ignore blocks without data
+    if (status === -1) return;
+
+    if (!currentStreakComputed) {
+      if (isMissedStatus(status)) {
+        currentConsecutiveMissed += 1;
+      } else if (status === StatusType.Signed || status === StatusType.Proposed) {
+        currentStreakComputed = true;
+      }
+    }
     
     switch (status) {
       case StatusType.Missed:
         updatedMetrics.totalMissed += 1;
-        consecutiveMissed += 1;
+        runningStreak += 1;
         break;
       case StatusType.Precommit:
         updatedMetrics.precommitMissed += 1;
         updatedMetrics.totalMissed += 1;
-        consecutiveMissed += 1;
+        runningStreak += 1;
         break;
       case StatusType.Prevote:
         updatedMetrics.prevoteMissed += 1;
         updatedMetrics.totalMissed += 1;
-        consecutiveMissed += 1;
+        runningStreak += 1;
         break;
       case StatusType.Signed:
         updatedMetrics.totalSigned += 1;
-        consecutiveMissed = 0;
+        runningStreak = 0;
         break;
       case StatusType.Proposed:
         updatedMetrics.totalProposed += 1;
         updatedMetrics.totalSigned += 1;
-        consecutiveMissed = 0;
+        runningStreak = 0;
         break;
     }
     
-    // Update maximum consecutive missed blocks
-    maxConsecutiveMissed = Math.max(maxConsecutiveMissed, consecutiveMissed);
+    maxConsecutiveMissed = Math.max(maxConsecutiveMissed, runningStreak);
   });
   
-  // Update number of consecutive missed blocks
-  updatedMetrics.consecutiveMissed = maxConsecutiveMissed;
+  updatedMetrics.currentConsecutiveMissed = currentConsecutiveMissed;
+  updatedMetrics.maxConsecutiveMissed = maxConsecutiveMissed;
+  updatedMetrics.consecutiveMissed = currentConsecutiveMissed;
   
   return updatedMetrics;
 }; 

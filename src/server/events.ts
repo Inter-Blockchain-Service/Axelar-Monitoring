@@ -1,13 +1,13 @@
 import { TendermintClient, StatusUpdate, StatusType } from './tendermint';
 import { ValidatorMetrics, recalculateStats } from './metrics';
 import { Broadcasters } from './websockets-client';
-import { PollStatus } from './ampd-manager';
+import { PollStatus as EvmPollStatus } from './evm-vote-manager';
 import { updateConnectionStatus, updateAndBroadcastMetrics, updateStatusArray } from './utils';
 
 // Interface for EVM event updates
 interface EvmVoteUpdate {
   chain: string;
-  pollIds?: PollStatus[];
+  pollIds?: EvmPollStatus[];
   lastGlobalPollId?: number;
 }
 

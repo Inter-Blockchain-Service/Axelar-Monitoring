@@ -17,8 +17,15 @@
               "events": [
                 {
                   "chain": "ethereum",
-                  "event_id": "0",
-                  "type": "contract_call"
+                  "tx_id": "0xabc123def456",
+                  "index": 0,
+                  "status": "STATUS_CONFIRMED",
+                  "contract_call": {
+                    "sender": "0x0000000000000000000000000000000000000001",
+                    "destination_chain": "axelar",
+                    "contract_address": "0x0000000000000000000000000000000000000002",
+                    "payload_hash": "0x00"
+                  }
                 }
               ]
             }

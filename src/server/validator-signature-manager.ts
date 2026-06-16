@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { StatusType, StatusUpdate } from './tendermint';
+import { hexAddressMatches } from './utils';
 
 // Define interfaces for data structures
 interface BlockHeader {
@@ -57,11 +58,11 @@ export class ValidatorSignatureManager extends EventEmitter {
       let status = StatusType.Missed;
 
       // Check if this validator is the proposer
-      if (proposerAddress === this.validatorAddress) {
+      if (hexAddressMatches(proposerAddress, this.validatorAddress)) {
         status = StatusType.Proposed;
       }
       // Check if the validator signed this block
-      else if (this.currentBlockSignatures.includes(this.validatorAddress)) {
+      else if (this.currentBlockSignatures.some(sig => hexAddressMatches(sig, this.validatorAddress))) {
         status = StatusType.Signed;
       }
 
@@ -79,7 +80,7 @@ export class ValidatorSignatureManager extends EventEmitter {
 
   public handleVote(voteData: VoteData): void {
     try {
-      if (voteData.Vote.validator_address !== this.validatorAddress) {
+      if (!hexAddressMatches(voteData.Vote.validator_address, this.validatorAddress)) {
         return; // This is not a vote from our validator
       }
 

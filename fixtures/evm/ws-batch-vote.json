@@ -1,0 +1,14 @@
+{
+  "_meta": {
+    "description": "Tendermint WS Tx event — batch EVM vote (913C958… style)",
+    "target": "EvmVoteManager.isOurVoteTransaction",
+    "expectedOutcome": "triggers fetchAndProcessVoteTx despite BatchRequest outer action"
+  },
+  "events": {
+    "axelar.vote.v1beta1.Voted.voter": ["\"axelar1broadcasterplaceholder000000000000\""],
+    "message.action": ["/axelar.auxiliary.v1beta1.BatchRequest"],
+    "message.sender": ["axelar1broadcasterplaceholder000000000000"],
+    "tx.fee_payer": ["axelar1broadcasterplaceholder000000000000"],
+    "tx.hash": ["PLACEHOLDER_TX_HASH_BATCH_VOTE"]
+  }
+}

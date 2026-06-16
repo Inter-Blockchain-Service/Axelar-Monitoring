@@ -64,6 +64,8 @@ export interface ValidatorMetrics {
   totalSigned: number;
   totalProposed: number;
   consecutiveMissed: number;
+  currentConsecutiveMissed: number;
+  maxConsecutiveMissed: number;
   prevoteMissed: number;
   precommitMissed: number;
   connected: boolean;
@@ -103,6 +105,8 @@ export function useMetrics() {
     totalSigned: 0,
     totalProposed: 0,
     consecutiveMissed: 0,
+    currentConsecutiveMissed: 0,
+    maxConsecutiveMissed: 0,
     prevoteMissed: 0,
     precommitMissed: 0,
     connected: false,

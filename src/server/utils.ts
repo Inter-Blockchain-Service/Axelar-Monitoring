@@ -92,4 +92,27 @@ export const getErrorMessage = (
   defaultMessage: string = 'Unknown error'
 ): string => {
   return error instanceof Error ? error.message : defaultMessage;
-}; 
+};
+
+/** Normalize validator/broadcaster address for comparison (hex uppercase). */
+export function normalizeHexAddress(address: string): string {
+  return address.trim().toUpperCase();
+}
+
+/** Normalize bech32 account address (lowercase, strip optional account suffix). */
+export function normalizeBech32Address(address: string): string {
+  // Cosmos event attributes are often JSON-encoded strings (e.g. "\"axelar1...\"")
+  const trimmed = address.trim().toLowerCase().replace(/^"(.*)"$/, '$1').replace(/\\"/g, '');
+  const slash = trimmed.indexOf('/');
+  return slash >= 0 ? trimmed.slice(0, slash) : trimmed;
+}
+
+/** Exact match for hex consensus addresses (validator). */
+export function hexAddressMatches(value: string, expected: string): boolean {
+  return normalizeHexAddress(value) === normalizeHexAddress(expected);
+}
+
+/** Exact match for bech32 addresses; allows `address/...` fee-payer suffix. */
+export function bech32AddressMatches(value: string, expected: string): boolean {
+  return normalizeBech32Address(value) === normalizeBech32Address(expected);
+} 

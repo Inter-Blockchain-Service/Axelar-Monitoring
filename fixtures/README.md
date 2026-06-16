@@ -27,35 +27,36 @@ All fixtures use fake addresses. Replace with your real values only in **local**
 ## Replacing with production data
 
 1. Find a tx on [Axelarscan](https://axelarscan.io) (or testnet).
-2. Fetch REST payload:
+2. Fetch REST payload (example IBS endpoints):
    ```bash
-   curl "http://YOUR_NODE:1317/cosmos/tx/v1beta1/txs/TX_HASH"
+   curl "https://axelar.ibs.team/api/cosmos/tx/v1beta1/txs/TX_HASH" -o fixtures/evm/api-tx-....json
    ```
-3. For WebSocket events: capture from node logs or save a `tm.event='Tx'` message from your RPC subscription.
-4. Redact private endpoints and real addresses before committing updated fixtures.
-5. Keep file names and `_meta` block in sync.
+3. Add a `_meta` block (see existing files) and verify parsing:
+   ```bash
+   node fixtures/evm/verify-real-tx.mjs
+   ```
+4. For WebSocket events: capture from node logs or save a `tm.event='Tx'` message from your RPC subscription.
+5. Redact private endpoints and real addresses before committing updated fixtures.
 
-## Fixture index
+## EVM fixture index
 
 | File | Type | Used by |
 |------|------|---------|
-| `evm/confirm-gateway-txs-ws-event.json` | WS `Tx` events | `EvmVoteManager.extractPollIdFromEvents` |
-| `evm/vote-refund-msg-request-api.json` | REST tx body | `EvmVoteManager.processVoteMessage` |
-| `evm/vote-legacy-voted-ws-event.json` | WS legacy vote | `EvmVoteManager.isOurVoteTransaction` |
-| `ampd/poll-started-ws-event.json` | WS poll started | `AmpdManager.processPollStarted` |
-| `ampd/voted-ws-event.json` | WS voted | `AmpdManager.processVotesAndSignatures` |
-| `ampd/vote-tx-api-response.json` | REST vote tx | `AmpdManager.fetchVoteDetails` |
-| `ampd/signature-submitted-ws-event.json` | WS signature | `AmpdManager.processVotesAndSignatures` |
-| `ampd/signature-tx-api-response.json` | REST signature tx | `AmpdManager.fetchSignatureDetails` |
-| `tendermint/new-block-signed.json` | NewBlock | `ValidatorSignatureManager` |
-| `tendermint/new-block-missed.json` | NewBlock | `ValidatorSignatureManager` |
-| `tendermint/new-block-proposed.json` | NewBlock | `ValidatorSignatureManager` |
+| `evm/api-tx-single-vote-ethereum-3171848.json` | REST tx | Single vote regression |
+| `evm/api-tx-batch-vote-base-3171843.json` | REST tx | Batch vote (4 polls) |
+| `evm/api-tx-batch-vote-base-3171884.json` | REST tx | Batch vote (5 polls) |
+| `evm/api-tx-refund-signature-multisig.json` | REST tx | Multisig signature (not vote) |
+| `evm/api-tx-refund-vote-minimal.json` | REST tx | Minimal vote body sample |
+| `evm/ws-confirm-gateway-txs.json` | WS `Tx` events | `EvmVoteManager.extractPollIdFromEvents` |
+| `evm/ws-batch-vote.json` | WS `Tx` events | `EvmVoteManager.isOurVoteTransaction` |
+| `evm/ws-legacy-voted.json` | WS `Tx` events | `EvmVoteManager.isOurVoteTransaction` |
+| `evm/ws-confirm-gateway-txs-log.json` | Tx log JSON | Poll extraction fallback path |
 
 ## Next step (Phase 3)
 
 Wire these fixtures into Vitest with helpers:
 
 ```ts
-import confirmGateway from '../../fixtures/evm/confirm-gateway-txs-ws-event.json';
+import confirmGateway from '../../fixtures/evm/ws-confirm-gateway-txs.json';
 // evmVoteManager.handleTransaction(adaptWsTx(confirmGateway));
 ```

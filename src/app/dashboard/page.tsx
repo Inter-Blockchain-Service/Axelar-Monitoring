@@ -131,9 +131,14 @@ export default function Dashboard() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <MetricCard 
-              title="Consecutive Missed" 
-              value={isClient ? metrics.consecutiveMissed.toString() : '-'} 
+              title="Consecutive Missed (current)" 
+              value={isClient ? (metrics.currentConsecutiveMissed ?? metrics.consecutiveMissed).toString() : '-'} 
               className="border-l-4 border-[#ef4444]"
+            />
+            <MetricCard 
+              title="Max Consecutive Missed" 
+              value={isClient ? (metrics.maxConsecutiveMissed ?? 0).toString() : '-'} 
+              className="border-l-4 border-[#f59e0b]"
             />
             <MetricCard 
               title="Missed Prevotes" 

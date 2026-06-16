@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { AmpdSigningStatus } from '../shared/status-types';
 import { SigningStatus } from '../server/ampd-manager';
 import { Socket } from 'socket.io-client';
 
@@ -36,7 +37,8 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
       // Listener for supported chains
       socket.on('ampd-chains', (data) => {
         console.log("AMPD Chains received (signing):", data);
-        setSupportedChains(data.chains || []);
+        const chains = [...(data.chains || [])].sort((a, b) => a.localeCompare(b));
+        setSupportedChains(chains);
         setIsLoading(false);
       });
       
@@ -91,17 +93,16 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
 
   // Function to get status color
   const getStatusColor = (status: string) => {
-    if (status === 'signed') return 'bg-[#10b981]'; // green - valid signature
-    if (status === 'unsubmit') return 'bg-[#f59e0b]'; // orange - unsubmitted
-    if (status === 'unknown') return 'bg-[#2a2a2a]'; // dark gray - no data
-    return 'bg-[#2a2a2a]'; // default dark gray
+    if (status === AmpdSigningStatus.Signed) return 'bg-[#10b981]';
+    if (status === AmpdSigningStatus.Unsubmit) return 'bg-[#f59e0b]';
+    if (status === AmpdSigningStatus.Unknown) return 'bg-[#2a2a2a]';
+    return 'bg-[#2a2a2a]';
   };
 
-  // Function to get tooltip text
   const getStatusTooltip = (status: string) => {
-    if (status === 'signed') return 'Valid signature';
-    if (status === 'unsubmit') return 'Unsubmitted';
-    if (status === 'unknown') return 'No data';
+    if (status === AmpdSigningStatus.Signed) return 'Valid signature';
+    if (status === AmpdSigningStatus.Unsubmit) return 'Unsubmitted';
+    if (status === AmpdSigningStatus.Unknown) return 'No data';
     return 'Unknown';
   };
 
@@ -112,7 +113,7 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
   };
 
   const hasSigningTx = (signing: SigningStatus): boolean => {
-    return !!signing.txHash && signing.result === 'signed';
+    return !!signing.txHash && signing.result === AmpdSigningStatus.Signed;
   };
 
   const getSigningLink = (signing: SigningStatus): string => {

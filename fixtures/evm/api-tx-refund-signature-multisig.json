@@ -1,0 +1,354 @@
+{
+  "_meta": {
+    "description": "REST tx — RefundMsgRequest wrapping SubmitSignatureRequest (not an EVM vote)",
+    "target": "EvmVoteManager.isOurVoteTransaction",
+    "expectedOutcome": "ignored (multisig signature, not vote)"
+  },
+  "tx": {
+    "body": {
+      "messages": [
+        {
+          "@type": "/axelar.reward.v1beta1.RefundMsgRequest",
+          "sender_deprecated": "",
+          "inner_message": {
+            "@type": "/axelar.multisig.v1beta1.SubmitSignatureRequest",
+            "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "sig_id": "2403781",
+            "signature": "MEQCIG7WsvatGty0gGRtD8Pv+F/WlI87ePPTHmVAo9fpTAA3AiBZZZxoFS+07KW2Q548K/U1ecrZinNqyE/SfZ17eU9RuA==",
+            "sender_deprecated": ""
+          },
+          "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+        }
+      ],
+      "memo": "",
+      "timeout_height": "0",
+      "extension_options": [],
+      "non_critical_extension_options": []
+    },
+    "auth_info": {
+      "signer_infos": [
+        {
+          "public_key": {
+            "@type": "/cosmos.crypto.secp256k1.PubKey",
+            "key": "AsZ9maUWQjGM7dFYthJLo0QmnCT76cphKg6xkVjnzZHI"
+          },
+          "mode_info": {
+            "single": {
+              "mode": "SIGN_MODE_DIRECT"
+            }
+          },
+          "sequence": "5202817"
+        }
+      ],
+      "fee": {
+        "amount": [
+          {
+            "denom": "uaxl",
+            "amount": "9336"
+          }
+        ],
+        "gas_limit": "1333708",
+        "payer": "",
+        "granter": ""
+      },
+      "tip": null
+    },
+    "signatures": [
+      "iR/k5ERbeqek7GGxW6R9lP03L9/hRAQb2MwULyvBw4IfXMwXKcmGCJFHCIJxt89OzRcg0QKn3UOWMmbe/Zo1HA=="
+    ]
+  },
+  "tx_response": {
+    "height": "29771391",
+    "txhash": "079FB7D6AFC69062F5772B4A52E4BD00EE1358C7EC9B8397A6157BA2E7AF3B6A",
+    "codespace": "",
+    "code": 0,
+    "data": "122A0A282F6178656C61722E7265776172642E763162657461312E526566756E644D7367526573706F6E7365",
+    "raw_log": "",
+    "logs": [],
+    "info": "",
+    "gas_wanted": "1333708",
+    "gas_used": "439377",
+    "tx": {
+      "@type": "/cosmos.tx.v1beta1.Tx",
+      "body": {
+        "messages": [
+          {
+            "@type": "/axelar.reward.v1beta1.RefundMsgRequest",
+            "sender_deprecated": "",
+            "inner_message": {
+              "@type": "/axelar.multisig.v1beta1.SubmitSignatureRequest",
+              "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+              "sig_id": "2403781",
+              "signature": "MEQCIG7WsvatGty0gGRtD8Pv+F/WlI87ePPTHmVAo9fpTAA3AiBZZZxoFS+07KW2Q548K/U1ecrZinNqyE/SfZ17eU9RuA==",
+              "sender_deprecated": ""
+            },
+            "sender": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0"
+          }
+        ],
+        "memo": "",
+        "timeout_height": "0",
+        "extension_options": [],
+        "non_critical_extension_options": []
+      },
+      "auth_info": {
+        "signer_infos": [
+          {
+            "public_key": {
+              "@type": "/cosmos.crypto.secp256k1.PubKey",
+              "key": "AsZ9maUWQjGM7dFYthJLo0QmnCT76cphKg6xkVjnzZHI"
+            },
+            "mode_info": {
+              "single": {
+                "mode": "SIGN_MODE_DIRECT"
+              }
+            },
+            "sequence": "5202817"
+          }
+        ],
+        "fee": {
+          "amount": [
+            {
+              "denom": "uaxl",
+              "amount": "9336"
+            }
+          ],
+          "gas_limit": "1333708",
+          "payer": "",
+          "granter": ""
+        },
+        "tip": null
+      },
+      "signatures": [
+        "iR/k5ERbeqek7GGxW6R9lP03L9/hRAQb2MwULyvBw4IfXMwXKcmGCJFHCIJxt89OzRcg0QKn3UOWMmbe/Zo1HA=="
+      ]
+    },
+    "timestamp": "2026-06-09T09:54:05Z",
+    "events": [
+      {
+        "type": "coin_spent",
+        "attributes": [
+          {
+            "key": "spender",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "9336uaxl",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "coin_received",
+        "attributes": [
+          {
+            "key": "receiver",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "9336uaxl",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "transfer",
+        "attributes": [
+          {
+            "key": "recipient",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "sender",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "9336uaxl",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "attributes": [
+          {
+            "key": "sender",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "tx",
+        "attributes": [
+          {
+            "key": "fee",
+            "value": "9336uaxl",
+            "index": true
+          },
+          {
+            "key": "fee_payer",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "tx",
+        "attributes": [
+          {
+            "key": "acc_seq",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0/5202817",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "tx",
+        "attributes": [
+          {
+            "key": "signature",
+            "value": "iR/k5ERbeqek7GGxW6R9lP03L9/hRAQb2MwULyvBw4IfXMwXKcmGCJFHCIJxt89OzRcg0QKn3UOWMmbe/Zo1HA==",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "attributes": [
+          {
+            "key": "action",
+            "value": "/axelar.reward.v1beta1.RefundMsgRequest",
+            "index": true
+          },
+          {
+            "key": "sender",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "coin_spent",
+        "attributes": [
+          {
+            "key": "spender",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "9336uaxl",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "coin_received",
+        "attributes": [
+          {
+            "key": "receiver",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "9336uaxl",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "transfer",
+        "attributes": [
+          {
+            "key": "recipient",
+            "value": "axelar1srztvq2w0g0eamhwrz756zfx72y40tt4d57xh0",
+            "index": true
+          },
+          {
+            "key": "sender",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "amount",
+            "value": "9336uaxl",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "attributes": [
+          {
+            "key": "sender",
+            "value": "axelar17xpfvakm2amg962yls6f84z3kell8c5l5h4gqu",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      },
+      {
+        "type": "axelar.multisig.v1beta1.SignatureSubmitted",
+        "attributes": [
+          {
+            "key": "module",
+            "value": "\"multisig\"",
+            "index": true
+          },
+          {
+            "key": "participant",
+            "value": "\"axelarvaloper126yfkvn7lx280ccg2lnxty0n2ldzz6xnve3smx\"",
+            "index": true
+          },
+          {
+            "key": "sig_id",
+            "value": "\"2403781\"",
+            "index": true
+          },
+          {
+            "key": "signature",
+            "value": "\"MEQCIG7WsvatGty0gGRtD8Pv+F/WlI87ePPTHmVAo9fpTAA3AiBZZZxoFS+07KW2Q548K/U1ecrZinNqyE/SfZ17eU9RuA==\"",
+            "index": true
+          },
+          {
+            "key": "msg_index",
+            "value": "0",
+            "index": true
+          }
+        ]
+      }
+    ]
+  }
+}

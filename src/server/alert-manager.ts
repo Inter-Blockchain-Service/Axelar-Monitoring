@@ -1,8 +1,6 @@
 import axios from 'axios';
 import { ValidatorMetrics } from './metrics';
 import { EventEmitter } from 'events';
-import { StatusType } from '../hooks/useMetrics';
-
 // Alert types
 export enum AlertType {
   NODE_SYNC_ISSUE = 'node_sync_issue',
@@ -195,21 +193,9 @@ export class AlertManager extends EventEmitter {
       }
     }
     
-    // Check consecutive missed blocks using signStatus
+    // Check consecutive missed blocks (current streak from most recent block)
+    const consecutiveMissed = this.metrics.currentConsecutiveMissed ?? 0;
     if (this.metrics.signStatus && this.metrics.signStatus.length > 0) {
-      let consecutiveMissed = 0;
-      
-      // We only look at the first blocks until we find a signed block
-      for (const status of this.metrics.signStatus) {
-        if (status === StatusType.Missed) {
-          consecutiveMissed++;
-        } else {
-          // As soon as we find a signed block, we stop counting
-          break;
-        }
-      }
-      
-      // Check if we exceed the threshold
       if (consecutiveMissed >= this.thresholds.consecutiveBlocksMissed) {
         if (!this.isMissingBlocks) {
           // First threshold exceedance
@@ -534,28 +520,34 @@ export class AlertManager extends EventEmitter {
    */
   private calculateEvmVoteRate(chain: string): number {
     if (!this.metrics.evmVotes || !this.metrics.evmVotes[chain]) return 100;
-    
+
     const chainData = this.metrics.evmVotes[chain];
     const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
-    
+
     let validVotes = 0;
     let totalVotes = 0;
-    
+
     chainData.pollIds.forEach(vote => {
-      if (vote.timestamp && vote.result !== 'unknown') {
-        const voteTime = new Date(vote.timestamp).getTime();
-        // We only count mature votes (more than 5 minutes)
-        if (voteTime < fiveMinutesAgo) {
+      if (!vote.pollId || vote.pollId === 'unknown' || vote.result === 'unknown') return;
+
+      // Definitive outcomes count immediately (validated or vote-no)
+      if (vote.result === 'validated' || vote.result === 'invalid') {
+        totalVotes++;
+        if (vote.result === 'validated') validVotes++;
+        return;
+      }
+
+      // Unsubmitted: only count as missed after the 5-minute grace period
+      if (vote.result === 'unsubmitted' && vote.timestamp) {
+        const pollTime = new Date(vote.timestamp).getTime();
+        if (pollTime < fiveMinutesAgo) {
           totalVotes++;
-          if (vote.result === 'validated') {
-            validVotes++;
-          }
         }
       }
     });
-    
+
     if (totalVotes === 0) return 100;
-    return Math.round((validVotes / totalVotes) * 1000) / 10; // Round to 1 decimal
+    return Math.round((validVotes / totalVotes) * 1000) / 10;
   }
   
   /**
@@ -632,7 +624,6 @@ export class AlertManager extends EventEmitter {
         
         if (rate < this.thresholds.evmVoteRateThreshold) {
           if (!this.evmVoteRateByChain[chain].isLow) {
-            // First threshold exceedance
             this.evmVoteRateByChain[chain].isLow = true;
             this.evmVoteRateByChain[chain].lastRate = rate;
             this.createAlert(
@@ -642,7 +633,6 @@ export class AlertManager extends EventEmitter {
               chain
             );
           } else if (rate < this.evmVoteRateByChain[chain].lastRate - 0.5) {
-            // The rate has decreased by at least 0.5%
             this.evmVoteRateByChain[chain].lastRate = rate;
             this.createAlert(
               AlertType.EVM_VOTE_RATE_LOW,
@@ -652,7 +642,6 @@ export class AlertManager extends EventEmitter {
             );
           }
         } else if (this.evmVoteRateByChain[chain].isLow) {
-          // We are back above the threshold
           this.evmVoteRateByChain[chain].isLow = false;
           this.createAlert(
             AlertType.EVM_VOTE_RATE_LOW,
@@ -851,6 +840,66 @@ export class AlertManager extends EventEmitter {
     }
   }
   
+  /** Human-readable list of alarm conditions still open (in-memory state). */
+  private getActiveAlarmLabels(): string[] {
+    const active: string[] = [];
+
+    if (!this.metrics.connected) {
+      active.push('Node disconnected');
+    }
+    if (this.isNoNewBlockAlerted) {
+      active.push('No new block');
+    }
+    if (this.isMissingBlocks) {
+      active.push('Consecutive blocks missed');
+    }
+    if (this.isLowSignRate) {
+      active.push(`Low sign rate (${this.calculateSignRate().toFixed(1)}%)`);
+    }
+
+    for (const [chain, state] of Object.entries(this.evmVoteRateByChain)) {
+      if (state.isLow) {
+        active.push(`EVM vote rate low on ${chain} (${state.lastRate.toFixed(1)}%)`);
+      }
+    }
+    for (const [chain, state] of Object.entries(this.ampdVoteRateByChain)) {
+      if (state.isLow) {
+        active.push(`AMPD vote rate low on ${chain} (${state.lastRate.toFixed(1)}%)`);
+      }
+    }
+    for (const [chain, state] of Object.entries(this.ampdSigningRateByChain)) {
+      if (state.isLow) {
+        active.push(`AMPD signing rate low on ${chain} (${state.lastRate.toFixed(1)}%)`);
+      }
+    }
+
+    for (const [chain, count] of Object.entries(this.evmConsecutiveMissedByChain)) {
+      if (count > 0) {
+        active.push(`EVM consecutive missed votes on ${chain} (${count})`);
+      }
+    }
+    for (const [chain, count] of Object.entries(this.ampdVotesConsecutiveMissedByChain)) {
+      if (count > 0) {
+        active.push(`AMPD consecutive missed votes on ${chain} (${count})`);
+      }
+    }
+    for (const [chain, count] of Object.entries(this.ampdSigningsConsecutiveMissedByChain)) {
+      if (count > 0) {
+        active.push(`AMPD consecutive missed signings on ${chain} (${count})`);
+      }
+    }
+
+    return active;
+  }
+
+  private formatActiveAlarmsSection(): string {
+    const active = this.getActiveAlarmLabels();
+    if (active.length === 0) {
+      return '\n\nActive alarms: none — all clear';
+    }
+    return `\n\nStill active (${active.length}):\n${active.map(label => `- ${label}`).join('\n')}`;
+  }
+
   /**
    * Format alert message for notifications
    */
@@ -875,7 +924,8 @@ export class AlertManager extends EventEmitter {
         const totalSigned = metrics.totalSigned || 0;
         const totalMissed = metrics.totalMissed || 0;
         message += `- Signed: ${totalSigned}/${totalSigned + totalMissed} (${this.calculateSignRate().toFixed(2)}%)\n`;
-        message += `- Consecutive missed: ${metrics.consecutiveMissed || 0}\n`;
+        message += `- Consecutive missed (current): ${metrics.currentConsecutiveMissed ?? metrics.consecutiveMissed ?? 0}\n`;
+        message += `- Max consecutive missed (window): ${metrics.maxConsecutiveMissed ?? 0}\n`;
         break;
         
       case AlertType.NODE_DISCONNECTED:
@@ -1062,7 +1112,11 @@ export class AlertManager extends EventEmitter {
         }
         break;
     }
-    
+
+    if (alert.severity === 'info' && /recovery/i.test(alert.message)) {
+      message += this.formatActiveAlarmsSection();
+    }
+
     return message;
   }
   
