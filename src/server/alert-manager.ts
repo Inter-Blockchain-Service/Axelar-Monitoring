@@ -30,7 +30,7 @@ interface Alert {
 }
 
 // Interface for alert thresholds
-interface AlertThresholds {
+export interface AlertThresholds {
   consecutiveBlocksMissed: number;
   signRateThreshold: number;
   consecutiveEvmVotesMissed: number;
@@ -39,6 +39,36 @@ interface AlertThresholds {
   evmVoteRateThreshold: number;
   ampdVoteRateThreshold: number;
   ampdSigningRateThreshold: number;
+}
+
+export interface ChainAlertStatus {
+  rate: number;
+  threshold: number;
+  alarmActive: boolean;
+  belowThreshold: boolean;
+  consecutiveMissed: number;
+}
+
+export interface AlertStatus {
+  timestamp: string;
+  hasActiveAlarms: boolean;
+  activeLabels: string[];
+  node: {
+    connected: boolean;
+    noNewBlock: boolean;
+    consecutiveBlocksMissed: boolean;
+    currentConsecutiveMissed: number;
+  };
+  signRate: {
+    rate: number;
+    threshold: number;
+    alarmActive: boolean;
+    belowThreshold: boolean;
+  };
+  evmVotes: Record<string, ChainAlertStatus>;
+  ampdVotes: Record<string, ChainAlertStatus>;
+  ampdSignings: Record<string, ChainAlertStatus>;
+  thresholds: AlertThresholds;
 }
 
 // Interface for notification configuration
@@ -86,6 +116,7 @@ export class AlertManager extends EventEmitter {
   private isNoNewBlockAlerted: boolean = false;
   private lastBlockHeight: number = 0;
   private readonly ALERT_DELAY: number = 2 * 60 * 1000; // 2 minutes before alert
+  private lastStatusSnapshot: string = '';
   
   constructor(metrics: ValidatorMetrics, reconnectToNode?: () => Promise<void>) {
     super();
@@ -136,6 +167,10 @@ export class AlertManager extends EventEmitter {
     }
     
     console.log('Alert Manager initialized with thresholds:', this.thresholds);
+  }
+
+  public setReconnectHandler(handler: () => Promise<void>): void {
+    this.reconnectToNode = handler;
   }
   
   /**
@@ -272,6 +307,92 @@ export class AlertManager extends EventEmitter {
     
     // Check rate-based alerts
     this.checkRateAlerts();
+    this.emitStatusIfChanged();
+  }
+
+  /**
+   * Snapshot of all alarm state and current rates (REST API / Socket.io).
+   */
+  public getAlertStatus(): AlertStatus {
+    const signRate = this.calculateSignRate();
+    const signThreshold = this.thresholds.signRateThreshold;
+
+    const evmVotes: Record<string, ChainAlertStatus> = {};
+    if (this.metrics.evmVotesEnabled && this.metrics.evmVotes) {
+      for (const chain of Object.keys(this.metrics.evmVotes)) {
+        const rate = this.calculateEvmVoteRate(chain);
+        const threshold = this.thresholds.evmVoteRateThreshold;
+        const state = this.evmVoteRateByChain[chain];
+        evmVotes[chain] = {
+          rate,
+          threshold,
+          alarmActive: state?.isLow ?? false,
+          belowThreshold: rate < threshold,
+          consecutiveMissed: this.evmConsecutiveMissedByChain[chain] ?? 0,
+        };
+      }
+    }
+
+    const ampdVotes: Record<string, ChainAlertStatus> = {};
+    const ampdSignings: Record<string, ChainAlertStatus> = {};
+    if (this.metrics.ampdEnabled && this.metrics.ampdSupportedChains) {
+      for (const chain of this.metrics.ampdSupportedChains) {
+        const voteRate = this.calculateAmpdVoteRate(chain);
+        const voteThreshold = this.thresholds.ampdVoteRateThreshold;
+        const voteState = this.ampdVoteRateByChain[chain];
+        ampdVotes[chain] = {
+          rate: voteRate,
+          threshold: voteThreshold,
+          alarmActive: voteState?.isLow ?? false,
+          belowThreshold: voteRate < voteThreshold,
+          consecutiveMissed: this.ampdVotesConsecutiveMissedByChain[chain] ?? 0,
+        };
+
+        const signingRate = this.calculateAmpdSigningRate(chain);
+        const signingThreshold = this.thresholds.ampdSigningRateThreshold;
+        const signingState = this.ampdSigningRateByChain[chain];
+        ampdSignings[chain] = {
+          rate: signingRate,
+          threshold: signingThreshold,
+          alarmActive: signingState?.isLow ?? false,
+          belowThreshold: signingRate < signingThreshold,
+          consecutiveMissed: this.ampdSigningsConsecutiveMissedByChain[chain] ?? 0,
+        };
+      }
+    }
+
+    const activeLabels = this.getActiveAlarmLabels();
+
+    return {
+      timestamp: new Date().toISOString(),
+      hasActiveAlarms: activeLabels.length > 0,
+      activeLabels,
+      node: {
+        connected: this.metrics.connected ?? false,
+        noNewBlock: this.isNoNewBlockAlerted,
+        consecutiveBlocksMissed: this.isMissingBlocks,
+        currentConsecutiveMissed: this.metrics.currentConsecutiveMissed ?? 0,
+      },
+      signRate: {
+        rate: signRate,
+        threshold: signThreshold,
+        alarmActive: this.isLowSignRate,
+        belowThreshold: signRate < signThreshold,
+      },
+      evmVotes,
+      ampdVotes,
+      ampdSignings,
+      thresholds: { ...this.thresholds },
+    };
+  }
+
+  private emitStatusIfChanged(): void {
+    const status = this.getAlertStatus();
+    const snapshot = JSON.stringify(status);
+    if (snapshot !== this.lastStatusSnapshot) {
+      this.lastStatusSnapshot = snapshot;
+      this.emit('status-update', status);
+    }
   }
   
   /**

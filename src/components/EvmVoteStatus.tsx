@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { EvmPollStatus } from '../hooks/useMetrics';
+import ChainAlertDot from './ChainAlertDot';
+import ChainAlertDetails from './ChainAlertDetails';
+import { ChainAlertStatus } from '../shared/alert-types';
 
 interface ChainData {
   [chain: string]: {
@@ -12,9 +15,10 @@ interface EvmVoteStatusProps {
   enabled: boolean;
   className?: string;
   chainId: string;
+  chainAlerts?: Record<string, ChainAlertStatus>;
 }
 
-const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, className = '', chainId }) => {
+const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, className = '', chainId, chainAlerts = {} }) => {
   const [availableChains, setAvailableChains] = useState<string[]>([]);
   const [displayLimit, setDisplayLimit] = useState(35);
   const [selectedChain, setSelectedChain] = useState<string | null>(null);
@@ -54,7 +58,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
         // Each vote box is 16px wide + 4px gap = 20px
         const votesPerRow = Math.floor(availableWidth / 20);
         // Set a minimum of 20 and maximum of 100
-        const newLimit = Math.max(20, Math.min(votesPerRow, 100));
+        const newLimit = Math.max(20, Math.min(votesPerRow, 150));
         setDisplayLimit(newLimit);
       }
     };
@@ -204,6 +208,11 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
                     </p>
                   )}
                 </div>
+                <ChainAlertDot
+                  chain={chain}
+                  status={chainAlerts[chain]}
+                  onClick={() => handleChainClick(chain)}
+                />
               </div>
             </div>
           );
@@ -224,12 +233,16 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
                 ✕
               </button>
             </div>
-            <div className="grid grid-cols-20 gap-1">
+            <ChainAlertDetails
+              kind="evm-votes"
+              status={chainAlerts[selectedChain]}
+            />
+            <div className="grid grid-cols-25 gap-1">
               {evmVotes[selectedChain]?.pollIds.map((vote, index) => (
                 vote.result.toString() === 'unknown' ? (
                   <div
                     key={`${vote.pollId}-${index}`}
-                    className={`w-6 h-6 ${getStatusColor(vote.result.toString())} rounded-sm block`}
+                    className={`w-4.5 h-4.5 ${getStatusColor(vote.result.toString())} rounded-sm block`}
                     title={getVoteTooltip(vote)}
                   />
                 ) : (
@@ -238,7 +251,7 @@ const EvmVoteStatus: React.FC<EvmVoteStatusProps> = ({ evmVotes, enabled, classN
                     target="_blank"
                     rel="noopener noreferrer"
                     key={`${vote.pollId}-${index}`}
-                    className={`w-6 h-6 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block`}
+                    className={`w-4.5 h-4.5 ${getStatusColor(vote.result.toString())} hover:opacity-80 transition-opacity rounded-sm block`}
                     title={getVoteTooltip(vote)}
                   />
                 )

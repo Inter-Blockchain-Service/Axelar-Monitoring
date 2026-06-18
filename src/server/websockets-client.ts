@@ -4,6 +4,7 @@ import { ValidatorMetrics } from './metrics';
 import { TendermintClient } from './tendermint';
 import { EvmVoteData } from './evm-vote-manager';
 import { PollStatus as AmpdPollStatus, SigningStatus } from './ampd-manager';
+import { AlertStatus } from './alert-manager';
 
 /**
  * Configure the WebSocket server and connection handlers
@@ -14,7 +15,8 @@ export const setupWebSockets = (
   tendermintClient: TendermintClient,
   rpcEndpoint: string,
   validatorAddress: string,
-  broadcasterAddress: string
+  broadcasterAddress: string,
+  getAlertStatus?: () => AlertStatus
 ): Server => {
   // Configure Socket.io with CORS
   const io = new Server(server, {
@@ -54,6 +56,10 @@ export const setupWebSockets = (
       });
     }
     
+    if (getAlertStatus) {
+      socket.emit('alerts-status', getAlertStatus());
+    }
+
     // Send connection information
     socket.emit('connection-status', {
       connected: tendermintClient.isConnected(),
@@ -82,6 +88,7 @@ export interface Broadcasters {
   broadcastEvmVotesUpdate: (votes: EvmVoteData) => void;
   broadcastAmpdVotesUpdate: (chain: string, votes: AmpdPollStatus[] | null) => void;
   broadcastAmpdSigningsUpdate: (chain: string, signings: SigningStatus[] | null) => void;
+  broadcastAlertsStatus: (status: AlertStatus) => void;
 }
 
 /**
@@ -123,6 +130,12 @@ export const createBroadcasters = (io: Server): Broadcasters => {
       if (io) {
         io.emit('ampd-signings', { chain, signings });
       }
-    }
+    },
+
+    broadcastAlertsStatus: (status: AlertStatus): void => {
+      if (io) {
+        io.emit('alerts-status', status);
+      }
+    },
   };
 }; 

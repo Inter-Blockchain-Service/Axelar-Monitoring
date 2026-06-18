@@ -76,7 +76,7 @@ export default function BlockStatus({ statusList, className = '', lastBlockHeigh
         </div>
       </div>
       
-      <div className="grid grid-cols-35 gap-1 pb-1 overflow-y-auto max-h-[180px]">
+      <div className="grid grid-cols-40 gap-1 pb-1 overflow-y-auto max-h-[180px]">
         {visibleBlocks.map((item) => (
           <div 
             key={item.index} 

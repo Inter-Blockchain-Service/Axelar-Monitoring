@@ -2,15 +2,19 @@ import React, { useEffect, useState, useRef } from 'react';
 import { AmpdSigningStatus } from '../shared/status-types';
 import { SigningStatus } from '../server/ampd-manager';
 import { Socket } from 'socket.io-client';
+import ChainAlertDot from './ChainAlertDot';
+import ChainAlertDetails from './ChainAlertDetails';
+import { ChainAlertStatus } from '../shared/alert-types';
 
 interface AmpdSigningProps {
   socket: Socket | null;
   chain?: string;
   className?: string;
   chainId?: string;
+  chainAlerts?: Record<string, ChainAlertStatus>;
 }
 
-const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = '', chainId = '' }) => {
+const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = '', chainId = '', chainAlerts = {} }) => {
   const [signingData, setSigningData] = useState<Record<string, SigningStatus[]>>({});
   const [supportedChains, setSupportedChains] = useState<string[]>([]);
   const [displayLimit, setDisplayLimit] = useState(35);
@@ -72,7 +76,7 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
         // Each vote box is 16px wide + 4px gap = 20px
         const votesPerRow = Math.floor(availableWidth / 20);
         // Set a minimum of 20 and maximum of 100
-        const newLimit = Math.max(20, Math.min(votesPerRow, 100));
+        const newLimit = Math.max(20, Math.min(votesPerRow, 150));
         setDisplayLimit(newLimit);
       }
     };
@@ -241,6 +245,11 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
                     </p>
                   )}
                 </div>
+                <ChainAlertDot
+                  chain={chainName}
+                  status={chainAlerts[chainName]}
+                  onClick={() => handleChainClick(chainName)}
+                />
               </div>
             </div>
           );
@@ -261,12 +270,16 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
                 ✕
               </button>
             </div>
-            <div className="grid grid-cols-20 gap-1">
+            <ChainAlertDetails
+              kind="ampd-signings"
+              status={chainAlerts[selectedChain]}
+            />
+            <div className="grid grid-cols-25 gap-1">
               {signingData[selectedChain]?.map((signing, index) => (
                 signing.result === 'unknown' ? (
                   <div
                     key={`${signing.signingId}-${index}`}
-                    className={`w-6 h-6 ${getStatusColor(signing.result)} rounded-sm block`}
+                    className={`w-4.5 h-4.5 ${getStatusColor(signing.result)} rounded-sm block`}
                     title={getSigningTooltip(signing)}
                   />
                 ) : (
@@ -275,7 +288,7 @@ const AmpdSigning: React.FC<AmpdSigningProps> = ({ socket, chain, className = ''
                     target="_blank"
                     rel="noopener noreferrer"
                     key={`${signing.signingId}-${index}`}
-                    className={`w-6 h-6 ${getStatusColor(signing.result)} hover:opacity-80 transition-opacity rounded-sm block`}
+                    className={`w-4.5 h-4.5 ${getStatusColor(signing.result)} hover:opacity-80 transition-opacity rounded-sm block`}
                     title={getSigningTooltip(signing)}
                   />
                 )

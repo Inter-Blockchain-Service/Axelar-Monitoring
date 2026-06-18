@@ -7,15 +7,19 @@ import {
   isAmpdVotePending,
   isAmpdVoteSuccess,
 } from '../shared/status-types';
+import ChainAlertDot from './ChainAlertDot';
+import ChainAlertDetails from './ChainAlertDetails';
+import { ChainAlertStatus } from '../shared/alert-types';
 
 interface AmpdVotingProps {
   socket: Socket | null;
   chain?: string;
   className?: string;
   chainId?: string;
+  chainAlerts?: Record<string, ChainAlertStatus>;
 }
 
-const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', chainId = '' }) => {
+const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', chainId = '', chainAlerts = {} }) => {
   const [voteData, setVoteData] = useState<Record<string, PollStatus[]>>({});
   const [supportedChains, setSupportedChains] = useState<string[]>([]);
   const [displayLimit, setDisplayLimit] = useState(35);
@@ -77,7 +81,7 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
         // Each vote box is 16px wide + 4px gap = 20px
         const votesPerRow = Math.floor(availableWidth / 20);
         // Set a minimum of 20 and maximum of 100
-        const newLimit = Math.max(20, Math.min(votesPerRow, 100));
+        const newLimit = Math.max(20, Math.min(votesPerRow, 150));
         setDisplayLimit(newLimit);
       }
     };
@@ -248,6 +252,11 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
                     </p>
                   )}
                 </div>
+                <ChainAlertDot
+                  chain={chainName}
+                  status={chainAlerts[chainName]}
+                  onClick={() => handleChainClick(chainName)}
+                />
               </div>
             </div>
           );
@@ -268,12 +277,16 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
                 ✕
               </button>
             </div>
-            <div className="grid grid-cols-20 gap-1">
+            <ChainAlertDetails
+              kind="ampd-votes"
+              status={chainAlerts[selectedChain]}
+            />
+            <div className="grid grid-cols-25 gap-1">
               {voteData[selectedChain]?.map((vote, index) => (
                 vote.result === 'unknown' ? (
                   <div
                     key={`${vote.pollId}-${index}`}
-                    className={`w-6 h-6 ${getStatusColor(vote.result)} rounded-sm block`}
+                    className={`w-4.5 h-4.5 ${getStatusColor(vote.result)} rounded-sm block`}
                     title={getVoteTooltip(vote)}
                   />
                 ) : (
@@ -282,7 +295,7 @@ const AmpdVoting: React.FC<AmpdVotingProps> = ({ socket, chain, className = '', 
                     target="_blank"
                     rel="noopener noreferrer"
                     key={`${vote.pollId}-${index}`}
-                    className={`w-6 h-6 ${getStatusColor(vote.result)} hover:opacity-80 transition-opacity rounded-sm block`}
+                    className={`w-4.5 h-4.5 ${getStatusColor(vote.result)} hover:opacity-80 transition-opacity rounded-sm block`}
                     title={getVoteTooltip(vote)}
                   />
                 )

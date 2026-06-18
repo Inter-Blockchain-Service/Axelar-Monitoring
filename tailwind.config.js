@@ -14,10 +14,12 @@ module.exports = {
       gridTemplateColumns: {
         // Add a grid layout with 20 columns
         '20': 'repeat(20, minmax(0, 1fr))',
+        '25': 'repeat(25, minmax(0, 1fr))',
         // For the BlockStatus component
         '30': 'repeat(30, minmax(0, 1fr))',
         // For grid components (kept for future use)
         '35': 'repeat(35, minmax(0, 1fr))',
+        '40': 'repeat(40, minmax(0, 1fr))',
       },
       animation: {
         'pulse-once': 'pulse 1s ease-in-out',

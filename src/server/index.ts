@@ -6,6 +6,7 @@ import { setupWebSockets, createBroadcasters } from './websockets-client';
 import { setupEventHandlers } from './events';
 import { connectToNode, createReconnectionHandler } from './node-manager';
 import { AlertManager } from './alert-manager';
+import { setupHttpApi } from './http-api';
 import { BLOCKS_HISTORY_SIZE } from '../constants';
 
 // Load environment variables
@@ -87,17 +88,32 @@ if (metrics.ampdEnabled) {
   metrics.ampdSupportedChains = tendermintClient.getAmpdSupportedChains() || [];
 }
 
+// Initialize alert manager (before WebSockets so status is available on connect)
+const alertManager = new AlertManager(metrics);
+
 // Configure WebSockets
-const io = setupWebSockets(server, metrics, tendermintClient, rpcEndpoint, validatorAddress, broadcasterAddress);
+const io = setupWebSockets(
+  server,
+  metrics,
+  tendermintClient,
+  rpcEndpoint,
+  validatorAddress,
+  broadcasterAddress,
+  () => alertManager.getAlertStatus()
+);
 
 // Create broadcaster functions
 const broadcasters = createBroadcasters(io);
 
 // Create reconnection function with broadcasters
 const reconnectToNode = createReconnectionHandler(tendermintClient, metrics, rpcEndpoint, broadcasters);
+alertManager.setReconnectHandler(reconnectToNode);
 
-// Initialize alert manager
-const alertManager = new AlertManager(metrics, reconnectToNode);
+setupHttpApi(server, alertManager);
+
+alertManager.on('status-update', (status) => {
+  broadcasters.broadcastAlertsStatus(status);
+});
 
 // Configure event handlers with reconnection function and broadcasters
 setupEventHandlers(tendermintClient, metrics, reconnectToNode, broadcasters);

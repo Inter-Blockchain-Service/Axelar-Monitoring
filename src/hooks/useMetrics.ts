@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { AlertStatus } from '../shared/alert-types';
 
 // Block status
 export enum StatusType {
@@ -132,6 +133,7 @@ export function useMetrics() {
     ampdAddress: ''
   });
   const [isConnected, setIsConnected] = useState(false);
+  const [alertStatus, setAlertStatus] = useState<AlertStatus | null>(null);
 
   useEffect(() => {
     // Create socket connection
@@ -170,13 +172,18 @@ export function useMetrics() {
       setConnectionInfo(data);
     });
 
+    socketInstance.on('alerts-status', (data: AlertStatus) => {
+      setAlertStatus(data);
+    });
+
     setSocket(socketInstance);
 
     // Cleanup on disconnect
     return () => {
+      socketInstance.off('alerts-status');
       socketInstance.disconnect();
     };
   }, []);
 
-  return { metrics, connectionInfo, isConnected, socket };
+  return { metrics, connectionInfo, isConnected, socket, alertStatus };
 } 

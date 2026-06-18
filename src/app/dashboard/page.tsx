@@ -11,7 +11,7 @@ import AmpdSigning from '@/components/AmpdSigning';
 
 
 export default function Dashboard() {
-  const { metrics, isConnected, socket } = useMetrics();
+  const { metrics, isConnected, socket, alertStatus } = useMetrics();
   const [formattedDate, setFormattedDate] = useState<string>('');
   const [isClient, setIsClient] = useState(false);
   
@@ -129,7 +129,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-center mb-5">
             <h2 className="text-xl font-bold text-white">Missed Blocks Details</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
             <MetricCard 
               title="Consecutive Missed (current)" 
               value={isClient ? (metrics.currentConsecutiveMissed ?? metrics.consecutiveMissed).toString() : '-'} 
@@ -181,13 +181,24 @@ export default function Dashboard() {
                   enabled={metrics.evmVotesEnabled}
                   className="min-h-[400px]"
                   chainId={metrics.chainId}
+                  chainAlerts={alertStatus?.evmVotes}
                 />
                 
                 {/* AMPD Votes Section */}
-                <AmpdVoting socket={socket} className="min-h-[400px]" chainId={metrics.chainId} />
+                <AmpdVoting
+                  socket={socket}
+                  className="min-h-[400px]"
+                  chainId={metrics.chainId}
+                  chainAlerts={alertStatus?.ampdVotes}
+                />
                 
                 {/* AMPD Signatures Section */}
-                <AmpdSigning socket={socket} className="min-h-[400px]" chainId={metrics.chainId} />
+                <AmpdSigning
+                  socket={socket}
+                  className="min-h-[400px]"
+                  chainId={metrics.chainId}
+                  chainAlerts={alertStatus?.ampdSignings}
+                />
               </div>
             </section>
             
