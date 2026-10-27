@@ -117,6 +117,14 @@ export class AlertManager extends EventEmitter {
   private lastBlockHeight: number = 0;
   private readonly ALERT_DELAY: number = 2 * 60 * 1000; // 2 minutes before alert
   private lastStatusSnapshot: string = '';
+  /**
+   * Rolling window for EVM/AMPD rate alerts; missing slots count as success (padding).
+   * Overridable via ALERT_RATE_WINDOW (legacy: ALERT_EVM_VOTE_RATE_WINDOW).
+   */
+  private readonly rateWindow: number = parseInt(
+    process.env.ALERT_RATE_WINDOW || process.env.ALERT_EVM_VOTE_RATE_WINDOW || '50',
+    10
+  );
   
   constructor(metrics: ValidatorMetrics, reconnectToNode?: () => Promise<void>) {
     super();
@@ -167,6 +175,7 @@ export class AlertManager extends EventEmitter {
     }
     
     console.log('Alert Manager initialized with thresholds:', this.thresholds);
+    console.log(`Rate alert window: ${this.rateWindow} (EVM + AMPD votes/signings, padding enabled)`);
   }
 
   public setReconnectHandler(handler: () => Promise<void>): void {
@@ -405,29 +414,31 @@ export class AlertManager extends EventEmitter {
     Object.entries(this.metrics.evmVotes).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0) return;
       
-      // We only look at recent consecutive missed votes
       let consecutiveMissed = 0;
-      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000); // 5 minutes in milliseconds
+      let recoveredByValidVote = false;
+      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
       
-      // Go through votes from newest to oldest
+      // Newest → oldest. Immature unsubmitted are skipped (not a recovery).
       for (let i = 0; i < chainData.pollIds.length; i++) {
         const vote = chainData.pollIds[i];
         if (vote.result === 'invalid') {
           consecutiveMissed++;
-        } else if (vote.result === 'unsubmitted' && vote.timestamp) {
+          continue;
+        }
+        if (vote.result === 'unsubmitted' && vote.timestamp) {
           const voteTime = new Date(vote.timestamp).getTime();
           if (voteTime < fiveMinutesAgo) {
             consecutiveMissed++;
-          } else {
-            // Vote still pending (less than 5 minutes), stop counting
-            break;
           }
-        } else if (vote.result === 'validated') {
+          // Immature: ignore and keep scanning older settled votes
+          continue;
+        }
+        if (vote.result === 'validated') {
+          recoveredByValidVote = consecutiveMissed === 0;
           break;
         }
       }
       
-      // If the number of consecutive missed votes exceeds the warning threshold, send a warning alert
       if (consecutiveMissed >= this.thresholds.consecutiveEvmVotesMissed) {
         if (!this.evmConsecutiveMissedByChain[chain]) {
           this.evmConsecutiveMissedByChain[chain] = consecutiveMissed;
@@ -447,19 +458,11 @@ export class AlertManager extends EventEmitter {
             'critical',
             chain
           );
+        } else {
+          this.evmConsecutiveMissedByChain[chain] = consecutiveMissed;
         }
       } else if (this.evmConsecutiveMissedByChain[chain]) {
-        // Check for valid votes in the most recent polls
-        const hasNewValidVote = chainData.pollIds.some(vote => {
-          if (vote.result === 'unsubmitted' && vote.timestamp) {
-            const voteTime = new Date(vote.timestamp).getTime();
-            if (voteTime > fiveMinutesAgo) return false;
-          }
-          // We consider all votes with 'validated' status as valid
-          return vote.result === 'validated';
-        });
-
-        if (hasNewValidVote) {
+        if (recoveredByValidVote) {
           this.evmConsecutiveMissedByChain[chain] = 0;
           console.log(`Chain ${chain}: Recovered from missed votes after receiving a valid vote`);
           this.createAlert(
@@ -469,7 +472,7 @@ export class AlertManager extends EventEmitter {
             chain
           );
         } else {
-          console.log(`Chain ${chain}: Still in alert state, waiting for a valid vote`);
+          console.log(`Chain ${chain}: Still in alert state, waiting for a validated vote (unsubmitted does not recover)`);
         }
       }
     });
@@ -485,26 +488,30 @@ export class AlertManager extends EventEmitter {
     Object.entries(this.metrics.ampdVotes).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.pollIds || chainData.pollIds.length === 0) return;
       
-      // We only look at recent consecutive missed votes
       let consecutiveMissed = 0;
-      const twoMinutesAgo = Date.now() - (2 * 60 * 1000); // 1 minute in milliseconds
+      let recoveredByValidVote = false;
+      const twoMinutesAgo = Date.now() - (2 * 60 * 1000);
       
-      // Go through votes from newest to oldest
+      // Newest → oldest. Immature unsubmit are skipped (not a recovery).
       for (let i = 0; i < chainData.pollIds.length; i++) {
         const vote = chainData.pollIds[i];
         if (vote.result === 'not_found') {
           consecutiveMissed++;
-        } else if (vote.result === 'unsubmit' && vote.timestamp) {
+          continue;
+        }
+        if (vote.result === 'unsubmit' && vote.timestamp) {
           const voteTime = new Date(vote.timestamp).getTime();
           if (voteTime < twoMinutesAgo) {
             consecutiveMissed++;
           }
-        } else if (vote.result === 'succeeded_on_chain') {
+          continue;
+        }
+        if (vote.result === 'succeeded_on_chain') {
+          recoveredByValidVote = consecutiveMissed === 0;
           break;
         }
       }
       
-      // If the number of consecutive missed votes exceeds the warning threshold, send a warning alert
       if (consecutiveMissed >= this.thresholds.consecutiveAmpdVotesMissed) {
         if (!this.ampdVotesConsecutiveMissedByChain[chain]) {
           this.ampdVotesConsecutiveMissedByChain[chain] = consecutiveMissed;
@@ -524,18 +531,11 @@ export class AlertManager extends EventEmitter {
             'critical',
             chain
           );
+        } else {
+          this.ampdVotesConsecutiveMissedByChain[chain] = consecutiveMissed;
         }
       } else if (this.ampdVotesConsecutiveMissedByChain[chain]) {
-        const hasNewValidVote = chainData.pollIds.some(vote => {
-          if (vote.result === 'unsubmit' && vote.timestamp) {
-            const voteTime = new Date(vote.timestamp).getTime();
-            if (voteTime > twoMinutesAgo) return false;
-          }
-          // We consider all votes with 'succeeded_on_chain' status as valid
-          return vote.result === 'succeeded_on_chain';
-        });
-
-        if (hasNewValidVote) {
+        if (recoveredByValidVote) {
           this.ampdVotesConsecutiveMissedByChain[chain] = 0;
           console.log(`Chain ${chain}: Recovered from missed votes after receiving a valid vote`);
           this.createAlert(
@@ -545,7 +545,7 @@ export class AlertManager extends EventEmitter {
             chain
           );
         } else {
-          console.log(`Chain ${chain}: Still in alert state, waiting for a valid vote`);
+          console.log(`Chain ${chain}: Still in alert state, waiting for a succeeded_on_chain vote (unsubmit does not recover)`);
         }
       }
     });
@@ -561,11 +561,11 @@ export class AlertManager extends EventEmitter {
     Object.entries(this.metrics.ampdSignings).forEach(([chain, chainData]) => {
       if (!chainData || !chainData.signingIds || chainData.signingIds.length === 0) return;
       
-      // We only look at recent consecutive missed signings
       let consecutiveMissed = 0;
-      const twoMinutesAgo = Date.now() - (2 * 60 * 1000); // 1 minute in milliseconds
+      let recoveredByValidSigning = false;
+      const twoMinutesAgo = Date.now() - (2 * 60 * 1000);
       
-      // Go through signings from newest to oldest
+      // Newest → oldest. Immature unsubmit are skipped (not a recovery).
       for (let i = 0; i < chainData.signingIds.length; i++) {
         const signing = chainData.signingIds[i];
         if (signing.result === 'unsubmit' && signing.timestamp) {
@@ -573,12 +573,14 @@ export class AlertManager extends EventEmitter {
           if (signingTime < twoMinutesAgo) {
             consecutiveMissed++;
           }
-        } else if (signing.result === 'signed') {
+          continue;
+        }
+        if (signing.result === 'signed') {
+          recoveredByValidSigning = consecutiveMissed === 0;
           break;
         }
       }
       
-      // If the number of consecutive missed signings exceeds the warning threshold, send a warning alert
       if (consecutiveMissed >= this.thresholds.consecutiveAmpdSigningsMissed) {
         if (!this.ampdSigningsConsecutiveMissedByChain[chain]) {
           this.ampdSigningsConsecutiveMissedByChain[chain] = consecutiveMissed;
@@ -598,18 +600,11 @@ export class AlertManager extends EventEmitter {
             'critical',
             chain
           );
+        } else {
+          this.ampdSigningsConsecutiveMissedByChain[chain] = consecutiveMissed;
         }
       } else if (this.ampdSigningsConsecutiveMissedByChain[chain]) {
-        const hasNewValidSigning = chainData.signingIds.some(signing => {
-          if (signing.result === 'unsubmit' && signing.timestamp) {
-            const signingTime = new Date(signing.timestamp).getTime();
-            if (signingTime > twoMinutesAgo) return false;
-          }
-          // We consider all signatures with 'signed' status as valid
-          return signing.result === 'signed';
-        });
-
-        if (hasNewValidSigning) {
+        if (recoveredByValidSigning) {
           this.ampdSigningsConsecutiveMissedByChain[chain] = 0;
           console.log(`Chain ${chain}: Recovered from missed signings after receiving a valid signing`);
           this.createAlert(
@@ -619,7 +614,7 @@ export class AlertManager extends EventEmitter {
             chain
           );
         } else {
-          console.log(`Chain ${chain}: Still in alert state, waiting for a valid signing`);
+          console.log(`Chain ${chain}: Still in alert state, waiting for a signed result (unsubmit does not recover)`);
         }
       }
     });
@@ -637,96 +632,108 @@ export class AlertManager extends EventEmitter {
   }
   
   /**
-   * Calculate EVM vote rate for a specific chain (rounded to 1 decimal)
+   * Calculate EVM vote rate for a specific chain (rounded to 1 decimal).
+   * Uses the newest N countable votes (default 50). If fewer than N exist,
+   * missing slots are padded as successes so short histories don't false-alarm.
    */
   private calculateEvmVoteRate(chain: string): number {
     if (!this.metrics.evmVotes || !this.metrics.evmVotes[chain]) return 100;
 
+    const windowSize = Math.max(1, this.rateWindow);
     const chainData = this.metrics.evmVotes[chain];
     const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
 
     let validVotes = 0;
-    let totalVotes = 0;
+    let countedVotes = 0;
 
-    chainData.pollIds.forEach(vote => {
-      if (!vote.pollId || vote.pollId === 'unknown' || vote.result === 'unknown') return;
+    // pollIds are newest-first; stop once the window is full
+    for (const vote of chainData.pollIds) {
+      if (countedVotes >= windowSize) break;
+      if (!vote.pollId || vote.pollId === 'unknown' || vote.result === 'unknown') continue;
 
-      // Definitive outcomes count immediately (validated or vote-no)
       if (vote.result === 'validated' || vote.result === 'invalid') {
-        totalVotes++;
+        countedVotes++;
         if (vote.result === 'validated') validVotes++;
-        return;
+        continue;
       }
 
       // Unsubmitted: only count as missed after the 5-minute grace period
       if (vote.result === 'unsubmitted' && vote.timestamp) {
         const pollTime = new Date(vote.timestamp).getTime();
         if (pollTime < fiveMinutesAgo) {
-          totalVotes++;
+          countedVotes++;
+          // mature unsubmitted = miss (not added to validVotes)
         }
       }
-    });
+    }
 
-    if (totalVotes === 0) return 100;
-    return Math.round((validVotes / totalVotes) * 1000) / 10;
+    // Padding: empty slots in the window count as success
+    const paddedValid = validVotes + (windowSize - countedVotes);
+    return Math.round((paddedValid / windowSize) * 1000) / 10;
   }
   
   /**
-   * Calculate AMPD vote rate for a specific chain (rounded to 1 decimal)
+   * Calculate AMPD vote rate for a specific chain (rounded to 1 decimal).
+   * Same rolling window + padding as EVM (default 50).
    */
   private calculateAmpdVoteRate(chain: string): number {
     if (!this.metrics.ampdVotes || !this.metrics.ampdVotes[chain]) return 100;
-    
+
+    const windowSize = Math.max(1, this.rateWindow);
     const chainData = this.metrics.ampdVotes[chain];
     const twoMinutesAgo = Date.now() - (2 * 60 * 1000);
-    
+
     let validVotes = 0;
-    let totalVotes = 0;
-    
-    chainData.pollIds.forEach(vote => {
-      if (vote.timestamp && vote.result !== 'unknown') {
-        const voteTime = new Date(vote.timestamp).getTime();
-        // We only count mature votes (more than 2 minutes)
-        if (voteTime < twoMinutesAgo) {
-          totalVotes++;
-          if (vote.result === 'succeeded_on_chain') {
-            validVotes++;
-          }
-        }
+    let countedVotes = 0;
+
+    for (const vote of chainData.pollIds) {
+      if (countedVotes >= windowSize) break;
+      if (!vote.timestamp || vote.result === 'unknown') continue;
+
+      const voteTime = new Date(vote.timestamp).getTime();
+      // Only mature votes (more than 2 minutes)
+      if (voteTime >= twoMinutesAgo) continue;
+
+      countedVotes++;
+      if (vote.result === 'succeeded_on_chain') {
+        validVotes++;
       }
-    });
-    
-    if (totalVotes === 0) return 100;
-    return Math.round((validVotes / totalVotes) * 1000) / 10; // Round to 1 decimal
+    }
+
+    const paddedValid = validVotes + (windowSize - countedVotes);
+    return Math.round((paddedValid / windowSize) * 1000) / 10;
   }
   
   /**
-   * Calculate AMPD signing rate for a specific chain (rounded to 1 decimal)
+   * Calculate AMPD signing rate for a specific chain (rounded to 1 decimal).
+   * Same rolling window + padding as EVM (default 50).
    */
   private calculateAmpdSigningRate(chain: string): number {
     if (!this.metrics.ampdSignings || !this.metrics.ampdSignings[chain]) return 100;
-    
+
+    const windowSize = Math.max(1, this.rateWindow);
     const chainData = this.metrics.ampdSignings[chain];
     const twoMinutesAgo = Date.now() - (2 * 60 * 1000);
-    
+
     let validSignings = 0;
-    let totalSignings = 0;
-    
-    chainData.signingIds.forEach(signing => {
-      if (signing.timestamp && signing.result !== 'unknown') {
-        const signingTime = new Date(signing.timestamp).getTime();
-        // We only count mature signatures (more than 2 minutes)
-        if (signingTime < twoMinutesAgo) {
-          totalSignings++;
-          if (signing.result === 'signed') {
-            validSignings++;
-          }
-        }
+    let countedSignings = 0;
+
+    for (const signing of chainData.signingIds) {
+      if (countedSignings >= windowSize) break;
+      if (!signing.timestamp || signing.result === 'unknown') continue;
+
+      const signingTime = new Date(signing.timestamp).getTime();
+      // Only mature signatures (more than 2 minutes)
+      if (signingTime >= twoMinutesAgo) continue;
+
+      countedSignings++;
+      if (signing.result === 'signed') {
+        validSignings++;
       }
-    });
-    
-    if (totalSignings === 0) return 100;
-    return Math.round((validSignings / totalSignings) * 1000) / 10; // Round to 1 decimal
+    }
+
+    const paddedValid = validSignings + (windowSize - countedSignings);
+    return Math.round((paddedValid / windowSize) * 1000) / 10;
   }
   
   /**
