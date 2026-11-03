@@ -1,1 +1,1 @@
-export const BLOCKS_HISTORY_SIZE = 35000; // Axelar signature period (35,000 blocks) 
+export const BLOCKS_HISTORY_SIZE = 94426; // Axelar signature period (94,426 blocks) 
